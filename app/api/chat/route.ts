@@ -30,9 +30,13 @@ export const maxDuration = 300;
  * user-visible token, and the app strips reasoning. Without a watchdog a model
  * that never gets past its reasoning phase leaves the browser on a silent,
  * empty stream until the function is killed. Streaming modes abandon such a
- * model after this window and fail over to the next one.
+ * model after this window and fail over to the next one. The override lets
+ * tests exercise the failover without waiting 20 real seconds.
  */
-const FIRST_CONTENT_TIMEOUT_MS = 20_000;
+const FIRST_CONTENT_TIMEOUT_MS = (() => {
+  const override = Number(process.env.CHAT_FIRST_CONTENT_TIMEOUT_MS);
+  return Number.isFinite(override) && override > 0 ? override : 20_000;
+})();
 
 /**
  * SSE comment cadence. Reasoning phases produce no client-visible bytes, so an
@@ -2632,15 +2636,31 @@ Never transpose tables, never leave a table cell blank, never invent section num
           // to a first-visible-token deadline and fail over if it only reasons.
           const requireVisibleContent = !bufferOutput;
           const peekDeadline = Date.now() + FIRST_CONTENT_TIMEOUT_MS;
-          while (true) {
-            const satisfied = requireVisibleContent
-              ? hasVisibleContentDelta(head)
-              : hasCompleteDataLine(head);
-            if (satisfied) break;
-            const { done, value } = await reader.read();
-            if (done) break;
-            head += peekDecoder.decode(value, { stream: true });
-            if (requireVisibleContent && Date.now() > peekDeadline) break;
+          // A model that goes completely quiet sends no bytes at all, so the
+          // deadline has to race the read instead of being checked after it —
+          // otherwise failover stalls until the provider finally gives up.
+          let peekTimer: ReturnType<typeof setTimeout> | undefined;
+          const peekExpired = new Promise<null>((resolve) => {
+            peekTimer = setTimeout(
+              () => resolve(null),
+              FIRST_CONTENT_TIMEOUT_MS,
+            );
+          });
+          try {
+            while (true) {
+              const satisfied = requireVisibleContent
+                ? hasVisibleContentDelta(head)
+                : hasCompleteDataLine(head);
+              if (satisfied) break;
+              const read = await Promise.race([reader.read(), peekExpired]);
+              if (read === null) break;
+              const { done, value } = read;
+              if (done) break;
+              head += peekDecoder.decode(value, { stream: true });
+              if (requireVisibleContent && Date.now() > peekDeadline) break;
+            }
+          } finally {
+            clearTimeout(peekTimer);
           }
           const headError = extractSseError(head);
           const stalled =

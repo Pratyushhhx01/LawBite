@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { NextRequest } from "next/server";
 
+// The route reads this at module load, so it must be set before the import
+// below: it keeps the first-content watchdog tests from waiting 20 real seconds.
+vi.hoisted(() => {
+  process.env.CHAT_FIRST_CONTENT_TIMEOUT_MS = "200";
+});
+
 vi.mock("@/lib/auth", () => ({
   auth: {
     api: {
@@ -253,6 +259,40 @@ describe("chat first-content watchdog", () => {
     expect(requests[0].body.model).toBe("meta/muse-glimmer-30b");
     expect(requests[1].body.model).not.toBe("meta/muse-glimmer-30b");
     expect(content).toContain("unlawful assembly");
+  });
+
+  it("fails over when a model sends no bytes at all", async () => {
+    // A stream that never emits and never closes. The watchdog must go by the
+    // clock, not by arriving data, or failover waits for the provider to give
+    // up — observed as a 107s stall in production logs.
+    const silent = new Response(
+      new ReadableStream({
+        start() {
+          /* never enqueues, never closes */
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "text/event-stream" } },
+    );
+    const requests: RecordedRequest[] = [];
+    const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
+      requests.push({ url, body: bodyOf(init) });
+      return requests.length === 1
+        ? silent
+        : sseResponse(
+            framesToText([delta("Theft is defined in IPC Section 378."), finish]),
+          );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const started = Date.now();
+    const { content } = await readSse(
+      await POST(makeRequest("talk-to-ai", QUERY)),
+    );
+    const elapsed = Date.now() - started;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(elapsed).toBeLessThan(5_000);
+    expect(content).toContain("Section 378");
   });
 
   it("still recovers an analysis reply from a reasoning-only model", async () => {
