@@ -24,6 +24,13 @@ const FIRST_CONTENT_BUDGET_MS = 20_000;
 /** Hard ceiling for a single non-streaming request in the test. */
 const REQUEST_TIMEOUT_MS = 120_000;
 
+/** Vitest's global 30s budget is too tight for real model latency. */
+const TEST_TIMEOUT_MS = 120_000;
+
+/** `it` with a budget that accommodates live model inference. */
+const chatIt = (name: string, fn: () => Promise<void>): void =>
+  it(name, fn, TEST_TIMEOUT_MS);
+
 let cookie = "";
 
 type StreamRead = {
@@ -163,7 +170,7 @@ suite("deployed app — /api/chat", () => {
     cookie = await signUp();
   });
 
-  it("rejects unauthenticated chat requests", async () => {
+  chatIt("rejects unauthenticated chat requests", async () => {
     const res = await postChat(
       { conversationType: "talk-to-ai", messages: [{ role: "user", content: "hi" }] },
       false,
@@ -171,12 +178,12 @@ suite("deployed app — /api/chat", () => {
     expect(res.status).toBe(401);
   });
 
-  it("rejects an empty message list", async () => {
+  chatIt("rejects an empty message list", async () => {
     const res = await postChat({ conversationType: "talk-to-ai", messages: [] });
     expect(res.status).toBe(400);
   });
 
-  it("answers a plain greeting instantly from the fast path", async () => {
+  chatIt("answers a plain greeting instantly from the fast path", async () => {
     const started = Date.now();
     const reply = await ask("hi");
 
@@ -187,7 +194,7 @@ suite("deployed app — /api/chat", () => {
     expect(Date.now() - started).toBeLessThan(10_000);
   });
 
-  it("streams a real Indian-law answer without leaving the user waiting", async () => {
+  chatIt("streams a real Indian-law answer without leaving the user waiting", async () => {
     const reply = await ask("Tell me about IPC 143.");
 
     expect(reply.status).toBe(200);
@@ -208,7 +215,7 @@ suite("deployed app — /api/chat", () => {
     expect(reply.content).not.toContain("keepalive");
   });
 
-  it("keeps the SSE connection warm while the model thinks", async () => {
+  chatIt("keeps the SSE connection warm while the model thinks", async () => {
     const reply = await ask("Explain the punishment for theft under IPC 378.");
 
     expect(reply.status).toBe(200);
@@ -218,7 +225,22 @@ suite("deployed app — /api/chat", () => {
     expect(reply.content.trim().length).toBeGreaterThan(20);
   });
 
-  it("answers a follow-up question in the same session", async () => {
+  chatIt("delivers a full buffered deep-analysis reply", async () => {
+    const reply = await ask(
+      "Explain in detail the offence of cheating under IPC Section 420.",
+      "analysis",
+    );
+
+    expect(reply.status).toBe(200);
+    // Buffered modes assemble the whole reply before emitting anything, so the
+    // keepalive comments are what stop the connection being dropped meanwhile.
+    expect(reply.raw.startsWith(": keepalive")).toBe(true);
+    expect(reply.sawDone).toBe(true);
+    expect(reply.content.trim().length).toBeGreaterThan(200);
+    expect(reply.content).not.toContain("reasoning_content");
+  });
+
+  chatIt("answers a follow-up question in the same session", async () => {
     const reply = await ask("What is the punishment for cheating under Section 420?");
     expect(reply.status).toBe(200);
     expect(reply.content.trim().length).toBeGreaterThan(20);
