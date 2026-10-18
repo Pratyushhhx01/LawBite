@@ -68,5 +68,5 @@ Auth (Better Auth) ─► Postgres on Neon (Kysely)
 ## How it scales
 
 - Stateless streaming route → scales horizontally.
-- Immutable S3 act files → cacheable at the CDN/edge.
+- Immutable S3 act files → read-only, so they can be cached aggressively.
 - Next steps: rate limiting at API layer, act-fetch caching, vector search if the corpus grows.
