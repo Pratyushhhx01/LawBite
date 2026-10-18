@@ -17,7 +17,7 @@ No separate typecheck script exists. TypeScript strict mode is on via `tsconfig.
 - Next.js 16 (App Router), React 19, TypeScript 5, Tailwind CSS 4
 - Auth: Better Auth (`lib/auth.ts` server, `lib/auth-client.ts` client)
 - DB: PostgreSQL on Neon (Kysely ORM in app code; Neon tools for schema changes)
-- AI: NVIDIA API (Llama 3.1 8B Instruct) for chat completions
+- AI: Inception Labs (Mercury 2.5 diffusion model) by default, with NVIDIA NIM as the automatic fallback. Provider/model registry lives in `lib/ai-providers.ts`. Mercury's `reasoning_effort` defaults to `medium` server-side, which costs seconds of hidden reasoning — the route always sends an explicit level (`instant` for short modes, `low` for analysis, `medium` for drafting; override with `CHAT_REASONING_EFFORT`).
 - Search: Tavily for real-time web search augmentation
 - Storage: AWS S3 for Indian legal bare acts knowledge base
 
@@ -60,7 +60,7 @@ tests/
 - **Auth session check** is done server-side in `app/chat/page.tsx` using `auth.api.getSession()` with `headers()`. If no session, redirects to `/signin`.
 - **Chat API (`app/api/chat/route.ts`)** is the core business logic. It classifies queries for web search, fetches legal context from S3, and streams responses via SSE. Four conversation modes: default (2-line), analysis (10-12 lines), talk-to-ai (2-line), grill (structured interrogation).
 - **S3 knowledge base** stores Indian bare acts as structured JSON and full text files under `bare-acts/` prefix. The `actMap` in `app/api/chat/route.ts` maps ~157+ Indian acts to their S3 keys.
-- **`.env.local` contains secrets** — never commit it. Required env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `NVIDIA_API_KEY`, `TAVILY_API_KEY`. AWS env vars (`AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`) are also needed for S3 access.
+- **`.env.local` contains secrets** — never commit it. Required env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `TAVILY_API_KEY`. For AI, at least one of `INCEPTION_API_KEY` (default provider) or `NVIDIA_API_KEY` (fallback) is required; set both for full failover. AWS env vars (`AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`) are also needed for S3 access.
 - **`BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL`** are set to `http://localhost:3000` locally. `TRUSTED_ORIGINS` (comma-separated) may be set to allow extra origins.
 
 ## Database Workflow

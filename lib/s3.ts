@@ -95,12 +95,23 @@ async function getJson<T>(key: string): Promise<T | null> {
 }
 
 async function getText(key: string): Promise<string | null> {
+  // Text keys are the large ones (`full.txt` per act, the full-text index), so
+  // skipping the cache here meant re-downloading an entire bare act on every
+  // single request — seconds of latency on the critical path before the model
+  // is even called.
+  const cached = cacheGet<string>(key);
+  if (cached !== null) return cached;
+
   try {
     const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
     const res = await s3.send(cmd);
-    return (await res.Body?.transformToString()) || null;
+    const text = (await res.Body?.transformToString()) || null;
+    if (text !== null) cacheSet(key, text);
+    return text;
   } catch {
-    return readLocalFile(key);
+    const local = await readLocalFile(key);
+    if (local !== null) cacheSet(key, local);
+    return local;
   }
 }
 

@@ -8,16 +8,21 @@ import {
   fixArticleSectionTerminology,
 } from "@/lib/legal-terminology";
 import { SECTION_MAPPINGS, mappingPromptBlock } from "@/lib/section-mapping";
+import {
+  buildCandidateChain,
+  buildProviderPayload,
+  ensureReasoningBudget,
+  getModel,
+  getProviderApiKey,
+  isProviderConfigured,
+  PROVIDERS,
+  resolveReasoningEffort,
+  type ChatRequestParams,
+  type ModelInfo,
+  type ReasoningEffort,
+} from "@/lib/ai-providers";
 
-const NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-const NVIDIA_MODELS = [
-  "meta/muse-glimmer-30b",
-  "nvidia/nemotron-3.5-lightning-30b-a3b",
-  "nvidia/nemotron-3-super-120b-a12b",
-];
-const NVIDIA_MODEL = NVIDIA_MODELS[0];
-const REVIEW_MODEL = "meta/llama-3.2-11b-vision-instruct";
-const NVIDIA_CONNECT_TIMEOUT_MS = 180_000;
+const PROVIDER_CONNECT_TIMEOUT_MS = 180_000;
 
 /**
  * Vercel caps Hobby-plan functions at 300s. Declaring it explicitly means long
@@ -44,9 +49,19 @@ const FIRST_CONTENT_TIMEOUT_MS = (() => {
  */
 const KEEPALIVE_INTERVAL_MS = 5_000;
 
-async function fetchNvidia(url: string, init: RequestInit): Promise<Response> {
+/**
+ * Fetch a provider endpoint with a hard connect timeout. Shared by every
+ * provider (Inception, NVIDIA) so the timeout message stays consistent.
+ */
+async function fetchProvider(
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), NVIDIA_CONNECT_TIMEOUT_MS);
+  const timer = setTimeout(
+    () => controller.abort(),
+    PROVIDER_CONNECT_TIMEOUT_MS,
+  );
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
@@ -59,6 +74,94 @@ async function fetchNvidia(url: string, init: RequestInit): Promise<Response> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Send one chat-completions request to the provider that owns `candidate`.
+ * The API key is resolved from the provider's own env var, so Inception and
+ * NVIDIA can be swapped without touching call sites.
+ */
+async function callProvider(
+  candidate: ModelInfo,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const provider = PROVIDERS[candidate.provider];
+  const key = getProviderApiKey(candidate.provider);
+  if (!key) {
+    throw new Error(`${provider.id}: ${provider.apiKeyEnv} is not configured`);
+  }
+  return fetchProvider(provider.baseUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+/** Retry helpers re-issue a request against whichever model produced output. */
+function retryParams(
+  candidate: ModelInfo,
+  overrides: Partial<ChatRequestParams> & {
+    messages: unknown[];
+    maxTokens: number;
+  },
+): Record<string, unknown> {
+  return buildProviderPayload(candidate, {
+    topP: 0.95,
+    stream: true,
+    ...overrides,
+  });
+}
+
+/**
+ * Retry budget for HTTP 429 on the preferred (fast) model. The Inception free
+ * tier is capacity-limited and returns 429s often, so retrying the same fast
+ * model briefly beats silently degrading to the slower fallback provider —
+ * which is what made replies feel unpredictably slow. Tunable in tests.
+ */
+const RATE_LIMIT_RETRIES = (() => {
+  const override = Number(process.env.CHAT_RATE_LIMIT_RETRIES);
+  return Number.isFinite(override) && override >= 0 ? override : 3;
+})();
+
+const RATE_LIMIT_BACKOFF_MS = (() => {
+  const raw = process.env.CHAT_RATE_LIMIT_BACKOFF_MS;
+  if (raw) {
+    const parsed = raw
+      .split(",")
+      .map((n) => Number(n.trim()))
+      .filter((n) => Number.isFinite(n) && n >= 0);
+    if (parsed.length > 0) return parsed;
+  }
+  return [300, 800, 1600];
+})();
+
+/**
+ * POST to a provider, retrying on HTTP 429 before giving up. The preferred
+ * model gets the full budget; fallback candidates get a single retry, since by
+ * then any answer is better than another round trip.
+ */
+async function callProviderWithRetry(
+  candidate: ModelInfo,
+  body: Record<string, unknown>,
+  retries: number,
+): Promise<Response> {
+  let res = await callProvider(candidate, body);
+  for (let attempt = 0; res.status === 429 && attempt < retries; attempt++) {
+    const wait =
+      RATE_LIMIT_BACKOFF_MS[
+        Math.min(attempt, RATE_LIMIT_BACKOFF_MS.length - 1)
+      ] ?? 1000;
+    console.warn(
+      `Model ${candidate.id} rate-limited (HTTP 429), retry ${attempt + 1}/${retries} in ${wait}ms...`,
+    );
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    res = await callProvider(candidate, body);
+  }
+  return res;
 }
 
 const tvly = process.env.TAVILY_API_KEY
@@ -2142,21 +2245,69 @@ function extractTextFromContent(
     .join(" ");
 }
 
+/**
+ * Short-lived session cache.
+ *
+ * `auth.api.getSession` is a Postgres round trip on every single chat message —
+ * measured at ~0.5s warm and ~1.9s when the Neon pool is cold. That is pure
+ * overhead sitting in front of a model that answers in about a second, so a
+ * multi-turn conversation pays it on every turn. Resolved sessions are cached
+ * per session cookie for a short window; a miss is never cached, so signing in
+ * still takes effect immediately. Bounded and TTL'd like the S3 cache.
+ */
+type Session = Awaited<ReturnType<typeof auth.api.getSession>>;
+const SESSION_CACHE_TTL_MS = 60_000;
+const SESSION_CACHE_MAX = 500;
+const sessionCache = new Map<string, { session: unknown; ts: number }>();
+
+/** Returns `undefined` on a miss so a cached `null` stays distinguishable. */
+function getCachedSession(cookie: string): Session | undefined {
+  if (!cookie) return undefined;
+  const entry = sessionCache.get(cookie);
+  if (!entry) return undefined;
+  if (Date.now() - entry.ts > SESSION_CACHE_TTL_MS) {
+    sessionCache.delete(cookie);
+    return undefined;
+  }
+  return entry.session as Session;
+}
+
+function setCachedSession(cookie: string, session: Session): void {
+  if (!cookie) return;
+  if (sessionCache.size >= SESSION_CACHE_MAX) {
+    const oldest = sessionCache.keys().next().value;
+    if (oldest) sessionCache.delete(oldest);
+  }
+  sessionCache.set(cookie, { session, ts: Date.now() });
+}
+
 export async function POST(request: NextRequest) {
+  // Phase timer: latency is only fixable once you can attribute it. `reqStart`
+  // → context fetch covers auth (a Neon round trip) and body parsing.
+  const reqStart = Date.now();
   try {
-    let session;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        session = await auth.api.getSession({ headers: request.headers });
-        break;
-      } catch {
-        if (attempt === 0) {
-          await new Promise((r) => setTimeout(r, 200));
-          continue;
+    let session = getCachedSession(request.headers.get("cookie") ?? "");
+    if (session === undefined) {
+      session = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          session = await auth.api.getSession({ headers: request.headers });
+          break;
+        } catch {
+          if (attempt === 0) {
+            await new Promise((r) => setTimeout(r, 200));
+            continue;
+          }
+          session = null;
         }
-        session = null;
+      }
+      // Only cache a hit: caching a miss would lock a just-signed-in user out
+      // for the TTL.
+      if (session) {
+        setCachedSession(request.headers.get("cookie") ?? "", session);
       }
     }
+    const sessionMs = Date.now() - reqStart;
 
     if (!session) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -2181,9 +2332,14 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { messages, conversationType: rawConversationType } = body as {
+    const {
+      messages,
+      conversationType: rawConversationType,
+      model: rawModelId,
+    } = body as {
       messages?: unknown;
       conversationType?: string;
+      model?: string;
     };
     let conversationType = rawConversationType;
     if (conversationType === "chat") conversationType = "talk-to-ai";
@@ -2253,10 +2409,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const apiKey = process.env.NVIDIA_API_KEY;
-    if (!apiKey) {
+    if (!isProviderConfigured("inception") && !isProviderConfigured("nvidia")) {
       return Response.json(
-        { error: "NVIDIA_API_KEY is not configured" },
+        {
+          error:
+            "No AI provider is configured. Set INCEPTION_API_KEY (default) or NVIDIA_API_KEY (fallback).",
+        },
         { status: 500 },
       );
     }
@@ -2446,6 +2604,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
     })();
     const skipS3 = isTalkToAi && !hasRefs && !queryMentionsIndianLegalTerm;
 
+    const contextStart = Date.now();
     let needsSearch = false;
     if (contextQuery) {
       needsSearch = await classifyQuery(contextQuery);
@@ -2459,6 +2618,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
         ? { context: "", citations: [] as Citation[] }
         : getLegalKnowledge(contextQuery),
     ]);
+    const contextMs = Date.now() - contextStart;
     let webSearchContext = webResult.context;
     let citations: Citation[] = [...webResult.citations];
     const legalContext = legal.context;
@@ -2544,32 +2704,40 @@ Never transpose tables, never leave a table cell blank, never invent section num
       lastUserMessage.content.some(
         (p: { type: string }) => p.type === "image_url",
       );
-    const model =
-      conversationType === "review" || hasMultimodalContent
-        ? REVIEW_MODEL
-        : NVIDIA_MODEL;
+    // Document review and image attachments need a vision model, so they bypass
+    // the picker and always route to the NVIDIA vision endpoint.
+    const needsVision = conversationType === "review" || hasMultimodalContent;
 
-    // Hidden reasoning is what makes replies feel broken: a reasoning model can
-    // spend 10-60s emitting `reasoning_content` before its first visible token.
-    // Short conversational modes ask for light reasoning so answers start in a
-    // few seconds, while deep modes (analysis/draft/review) keep full quality.
-    const fastReasoning =
-      conversationType !== "analysis" &&
-      conversationType !== "draft" &&
-      conversationType !== "review" &&
-      model !== REVIEW_MODEL;
+    // Resolve the picker selection into an ordered failover chain: the selected
+    // model first (default Mercury 2.5), then its provider siblings, then the
+    // other provider — so an Inception outage degrades to NVIDIA automatically.
+    const modelsToTry = buildCandidateChain({
+      requestedModelId: rawModelId,
+      needsVision,
+    });
+    const requestedModel = modelsToTry[0];
 
-    const payload: Record<string, unknown> = {
-      messages: messagesWithSystem,
-      max_tokens: maxTokens,
-      temperature:
-        (isTalkToAi && tableAppropriate) || isAnalysisMultiRef ? 0.3 : 1.0,
-      top_p: 0.95,
-      stream: true,
-      ...(fastReasoning ? { reasoning_effort: "low" } : {}),
-    };
+    // Reasoning effort is the single biggest latency lever on Mercury. The API
+    // documents `medium` as the default, which costs several seconds of hidden
+    // reasoning before the first visible token — so we always send an explicit
+    // level. Short modes run at `instant`; deeper modes get one step more.
+    // `CHAT_REASONING_EFFORT` overrides every mode. The vision model is not a
+    // reasoning model, so it gets no effort hint at all.
+    const reasoningEffort: ReasoningEffort | undefined = needsVision
+      ? undefined
+      : resolveReasoningEffort(conversationType);
+    // `realtime` is available but off by default: measured against `instant`
+    // effort it added no latency benefit, so we only send it when explicitly
+    // requested via CHAT_REALTIME=1. Providers without support drop the flag
+    // inside buildProviderPayload.
+    const wantRealtime = !needsVision && process.env.CHAT_REALTIME === "1";
 
-    const modelsToTry = model === NVIDIA_MODEL ? NVIDIA_MODELS : [model];
+    if (rawModelId && !getModel(rawModelId)) {
+      console.warn(
+        `[ChatAPI] unknown model "${rawModelId}", using ${requestedModel.id}`,
+      );
+    }
+
     const encoder = new TextEncoder();
     const needsPostProcess = isDraft;
     const explicitTableRequest =
@@ -2588,37 +2756,41 @@ Never transpose tables, never leave a table cell blank, never invent section num
     let streamReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
     let streamHead = "";
     let workingModel = "";
+    let workingCandidate: ModelInfo = requestedModel;
     console.log(
-      `[ChatAPI] convType=${conversationType}, model=${model}, messages=${messagesWithSystem.length}, sysPromptLen=${finalSystemPrompt.length}, buffered=${bufferOutput}`,
+      `[ChatAPI] convType=${conversationType}, model=${requestedModel.id}, effort=${reasoningEffort ?? "none"}, chain=${modelsToTry
+        .map((m) => m.id)
+        .join(
+          " > ",
+        )}, messages=${messagesWithSystem.length}, sysPromptLen=${finalSystemPrompt.length}, sessionMs=${sessionMs}, contextMs=${contextMs}, buffered=${bufferOutput}`,
     );
 
-    for (const m of modelsToTry) {
-      const isReview = m === REVIEW_MODEL;
-      const reqBody = isReview
-        ? {
-            ...Object.fromEntries(
-              Object.entries(payload).filter(
-                ([k]) =>
-                  k !== "chat_template_kwargs" && k !== "reasoning_effort",
-              ),
-            ),
-            model: m,
-          }
-        : { ...payload, model: m };
+    const modelStart = Date.now();
+    for (const candidate of modelsToTry) {
+      const label = candidate.id;
+      const reqBody = buildProviderPayload(candidate, {
+        messages: messagesWithSystem,
+        maxTokens: ensureReasoningBudget(candidate, maxTokens),
+        temperature:
+          (isTalkToAi && tableAppropriate) || isAnalysisMultiRef ? 0.3 : 1.0,
+        topP: 0.95,
+        stream: true,
+        reasoningEffort,
+        realtime: wantRealtime,
+      });
       try {
-        const res = await fetchNvidia(NVIDIA_API_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-          },
-          body: JSON.stringify(reqBody),
-        });
+        // A 429 from the fast default means "retry shortly", not "this model is
+        // broken" — see callProviderWithRetry.
+        const isPreferred = candidate === modelsToTry[0];
+        const res = await callProviderWithRetry(
+          candidate,
+          reqBody,
+          isPreferred ? RATE_LIMIT_RETRIES : 1,
+        );
         if (!res.ok) {
-          lastError = `${m}: HTTP ${res.status}`;
+          lastError = `${label}: HTTP ${res.status}`;
           console.warn(
-            `Model ${m} returned HTTP ${res.status}, trying next...`,
+            `Model ${label} returned HTTP ${res.status}, trying next...`,
           );
           continue;
         }
@@ -2626,8 +2798,10 @@ Never transpose tables, never leave a table cell blank, never invent section num
         if (!needsPostProcess) {
           const reader = res.body?.getReader();
           if (!reader) {
-            lastError = `${m}: empty response body`;
-            console.warn(`Model ${m} returned an empty body, trying next...`);
+            lastError = `${label}: empty response body`;
+            console.warn(
+              `Model ${label} returned an empty body, trying next...`,
+            );
             continue;
           }
           const peekDecoder = new TextDecoder();
@@ -2664,21 +2838,28 @@ Never transpose tables, never leave a table cell blank, never invent section num
           }
           const headError = extractSseError(head);
           const stalled =
-            requireVisibleContent && !headError && !hasVisibleContentDelta(head);
+            requireVisibleContent &&
+            !headError &&
+            !hasVisibleContentDelta(head);
           if (headError || stalled || !hasCompleteDataLine(head)) {
             await reader.cancel().catch(() => {});
             lastError = headError
-              ? `${m}: SSE error: ${headError}`
+              ? `${label}: SSE error: ${headError}`
               : stalled
-                ? `${m}: no visible content within ${FIRST_CONTENT_TIMEOUT_MS}ms`
-                : `${m}: stream ended without content`;
-            console.warn(`Model ${m} unusable (${lastError}), trying next...`);
+                ? `${label}: no visible content within ${FIRST_CONTENT_TIMEOUT_MS}ms`
+                : `${label}: stream ended without content`;
+            console.warn(
+              `Model ${label} unusable (${lastError}), trying next...`,
+            );
             continue;
           }
           streamReader = reader;
           streamHead = head;
-          workingModel = m;
-          console.log(`[ChatAPI] model ${m} streaming directly to client`);
+          workingModel = candidate.apiModel;
+          workingCandidate = candidate;
+          console.log(
+            `[ChatAPI] model ${label} streaming directly to client (firstTokenMs=${Date.now() - modelStart})`,
+          );
           break;
         }
 
@@ -2694,8 +2875,8 @@ Never transpose tables, never leave a table cell blank, never invent section num
             const parsed = JSON.parse(data);
             if (parsed.error) {
               hasSSEError = true;
-              lastError = `${m}: SSE error: ${JSON.stringify(parsed.error)}`;
-              console.warn(`Model ${m} SSE error:`, parsed.error);
+              lastError = `${label}: SSE error: ${JSON.stringify(parsed.error)}`;
+              console.warn(`Model ${label} SSE error:`, parsed.error);
               break;
             }
             if (
@@ -2710,14 +2891,15 @@ Never transpose tables, never leave a table cell blank, never invent section num
         }
         if (hasSSEError) continue;
         responseText = text;
-        workingModel = m;
+        workingModel = candidate.apiModel;
+        workingCandidate = candidate;
         console.log(
-          `[ChatAPI] model ${m} OK, ${text.length} bytes, hasContent=${hasContent}`,
+          `[ChatAPI] model ${label} OK, ${text.length} bytes, hasContent=${hasContent}`,
         );
         break;
       } catch (err) {
-        lastError = `${m}: ${(err as Error).message}`;
-        console.warn(`Model ${m} fetch error:`, (err as Error).message);
+        lastError = `${label}: ${(err as Error).message}`;
+        console.warn(`Model ${label} fetch error:`, (err as Error).message);
         continue;
       }
     }
@@ -2774,6 +2956,21 @@ Never transpose tables, never leave a table cell blank, never invent section num
           } catch {
             /* controller already closed */
           }
+          // Tell the client which model actually answered. A silent failover to
+          // the slower provider is otherwise invisible and just feels slow.
+          try {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  model: workingModel,
+                  modelId: workingCandidate.id,
+                  fallback: workingCandidate.id !== requestedModel.id,
+                })}\n\n`,
+              ),
+            );
+          } catch {
+            /* controller already closed */
+          }
           const decoder = new TextDecoder();
           let buffer = streamHead;
           let analysisFullContent = "";
@@ -2785,6 +2982,11 @@ Never transpose tables, never leave a table cell blank, never invent section num
           const HOLD_CHARS = 40;
           const enqueueContent = (text: string) => {
             if (!text) return;
+            if (!emittedAny) {
+              console.log(
+                `[ChatAPI] first client frame at +${Date.now() - modelStart}ms`,
+              );
+            }
             emittedAny = true;
             controller.enqueue(
               encoder.encode(
@@ -3124,7 +3326,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
           out.push(line);
           continue;
         }
-        const isSeparator = /^---/.test(body[0]);
+        const isSeparator = /^:?-{2,}:?$/.test(body[0].trim());
         const isHeader = /^section$/i.test(body[0]);
         if (isHeader) {
           out.push("| Section | Offence | Punishment |");
@@ -3154,7 +3356,8 @@ Never transpose tables, never leave a table cell blank, never invent section num
         const body = cells.slice(1, -1);
         if (body.length === 0) continue;
         const first = body[0];
-        if (/^---/.test(first) || /^section$/i.test(first)) continue;
+        if (/^:?-{2,}:?$/.test(first.trim()) || /^section$/i.test(first))
+          continue;
         const m = first.match(/\d+[A-Za-z]?/);
         if (m) refs.push(m[0].toUpperCase());
       }
@@ -3191,7 +3394,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
         const cells = t.split("|").map((c) => c.trim());
         const body = t.endsWith("|") ? cells.slice(1, -1) : cells.slice(1);
         if (body.length < 2) continue;
-        if (/^---/.test(body[0]) || /^===/.test(body[0])) {
+        if (/^:?-{2,}:?$/.test(body[0].trim()) || /^===/.test(body[0])) {
           if (!header) header = body.map(() => "");
           afterSeparator = true;
           continue;
@@ -3257,23 +3460,15 @@ Never transpose tables, never leave a table cell blank, never invent section num
       });
       retryMessages.push({ role: "user", content: overrideMessage });
       try {
-        const retryRes = await fetchNvidia(NVIDIA_API_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-          },
-          body: JSON.stringify({
-            model,
+        const retryRes = await callProvider(
+          workingCandidate,
+          retryParams(workingCandidate, {
             messages: retryMessages,
-            max_tokens: maxTokens,
+            maxTokens: ensureReasoningBudget(workingCandidate, maxTokens),
             temperature: 0.3,
-            top_p: 0.95,
-            stream: true,
-            ...(fastReasoning ? { reasoning_effort: "low" } : {}),
+            reasoningEffort,
           }),
-        });
+        );
         if (!retryRes.ok) return null;
         const retryText = await retryRes.text();
         let retryContent = "";
@@ -3327,23 +3522,15 @@ Never transpose tables, never leave a table cell blank, never invent section num
             },
             { role: "user", content: overrideMessage },
           ];
-          const retryRes = await fetchNvidia(NVIDIA_API_URL, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-              Accept: "text/event-stream",
-            },
-            body: JSON.stringify({
-              model,
+          const retryRes = await callProvider(
+            workingCandidate,
+            retryParams(workingCandidate, {
               messages: retryMessages,
-              max_tokens: maxTokens,
+              maxTokens: ensureReasoningBudget(workingCandidate, maxTokens),
               temperature: 0.3,
-              top_p: 0.95,
-              stream: true,
-              ...(fastReasoning ? { reasoning_effort: "low" } : {}),
+              reasoningEffort,
             }),
-          });
+          );
           if (!retryRes.ok) return null;
           const retryText = await retryRes.text();
           let retryContent = "";
@@ -3393,6 +3580,20 @@ Never transpose tables, never leave a table cell blank, never invent section num
         }, KEEPALIVE_INTERVAL_MS);
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));
+        } catch {
+          /* controller already closed */
+        }
+        // Report the model that actually answered so a failover is visible.
+        try {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                model: workingModel,
+                modelId: workingCandidate.id,
+                fallback: workingCandidate.id !== requestedModel.id,
+              })}\n\n`,
+            ),
+          );
         } catch {
           /* controller already closed */
         }
@@ -3579,23 +3780,15 @@ Never transpose tables, never leave a table cell blank, never invent section num
                 { role: "assistant", content: draftContent },
                 { role: "user", content: overrideMessage },
               ];
-              const retryRes = await fetchNvidia(NVIDIA_API_URL, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${apiKey}`,
-                  "Content-Type": "application/json",
-                  Accept: "text/event-stream",
-                },
-                body: JSON.stringify({
-                  model,
+              const retryRes = await callProvider(
+                workingCandidate,
+                retryParams(workingCandidate, {
                   messages: retryMessages,
-                  max_tokens: maxTokens,
+                  maxTokens: ensureReasoningBudget(workingCandidate, maxTokens),
                   temperature: 0.7,
-                  top_p: 0.95,
-                  stream: true,
-                  ...(fastReasoning ? { reasoning_effort: "low" } : {}),
+                  reasoningEffort,
                 }),
-              });
+              );
               if (retryRes.ok) {
                 const retryText = await retryRes.text();
                 let retryContent = "";

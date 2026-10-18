@@ -3,8 +3,11 @@ import type { NextRequest } from "next/server";
 
 // The route reads this at module load, so it must be set before the import
 // below: it keeps the first-content watchdog tests from waiting 20 real seconds.
+// The Inception key is deleted so these cases exercise the NVIDIA path (whose
+// reasoning_effort behaviour they assert).
 vi.hoisted(() => {
   process.env.CHAT_FIRST_CONTENT_TIMEOUT_MS = "200";
+  delete process.env.INCEPTION_API_KEY;
 });
 
 vi.mock("@/lib/auth", () => ({
@@ -141,7 +144,7 @@ afterEach(() => {
 });
 
 describe("chat reasoning budget", () => {
-  it("asks for light reasoning in conversational modes so a reply starts fast", async () => {
+  it("asks for the fastest reasoning tier in conversational modes", async () => {
     const { requests } = stubNvidia(
       framesToText([delta("IPC 143 is now BNS 2023. "), finish]),
     );
@@ -150,11 +153,13 @@ describe("chat reasoning budget", () => {
 
     expect(requests).toHaveLength(1);
     expect(requests[0].url).toContain("integrate.api.nvidia.com");
+    // The route asks for `instant`; NVIDIA has no instant tier, so the nearest
+    // supported level (low) is sent rather than dropping the hint entirely.
     expect(requests[0].body.reasoning_effort).toBe("low");
     expect(requests[0].body.stream).toBe(true);
   });
 
-  it("keeps full reasoning for deep analysis", async () => {
+  it("gives analysis one step more reasoning than a chat reply", async () => {
     const { requests } = stubNvidia(
       framesToText([
         delta("Unlawful assembly needs five or more persons."),
@@ -164,10 +169,10 @@ describe("chat reasoning budget", () => {
 
     await readSse(await POST(makeRequest("analysis", QUERY)));
 
-    expect(requests[0].body.reasoning_effort).toBeUndefined();
+    expect(requests[0].body.reasoning_effort).toBe("low");
   });
 
-  it("keeps full reasoning for document drafting", async () => {
+  it("keeps medium reasoning for document drafting", async () => {
     const { requests } = stubNvidia(
       framesToText([delta("LEGAL NOTICE\n\nDate: 18 October 2026"), finish]),
     );
@@ -181,7 +186,7 @@ describe("chat reasoning budget", () => {
       ),
     );
 
-    expect(requests[0].body.reasoning_effort).toBeUndefined();
+    expect(requests[0].body.reasoning_effort).toBe("medium");
   });
 
   it("omits reasoning_effort for the vision review model", async () => {
@@ -279,7 +284,10 @@ describe("chat first-content watchdog", () => {
       return requests.length === 1
         ? silent
         : sseResponse(
-            framesToText([delta("Theft is defined in IPC Section 378."), finish]),
+            framesToText([
+              delta("Theft is defined in IPC Section 378."),
+              finish,
+            ]),
           );
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -305,7 +313,9 @@ describe("chat first-content watchdog", () => {
       ]),
     );
 
-    const { content } = await readSse(await POST(makeRequest("analysis", QUERY)));
+    const { content } = await readSse(
+      await POST(makeRequest("analysis", QUERY)),
+    );
 
     // Buffered modes keep the reasoning-recovery behaviour: no needless failover.
     expect(fetchMock).toHaveBeenCalledTimes(1);

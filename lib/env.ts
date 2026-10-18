@@ -6,8 +6,12 @@ const requiredEnvVars = [
   "GOOGLE_CLIENT_SECRET",
   "GITHUB_CLIENT_ID",
   "GITHUB_CLIENT_SECRET",
-  "NVIDIA_API_KEY",
 ];
+
+// AI providers. Inception Labs (Mercury) is the default; NVIDIA is the
+// automatic fallback. At least one must be present — the chat route rejects a
+// request only when neither key is configured.
+const aiProviderEnvVars = ["INCEPTION_API_KEY", "NVIDIA_API_KEY"];
 
 const optionalEnvVars = [
   "TAVILY_API_KEY",
@@ -26,6 +30,19 @@ export function validateEnv() {
     console.error(
       "[ENV VALIDATION] The application may not work correctly without these variables.",
     );
+  }
+
+  if (!aiProviderEnvVars.some((key) => process.env[key])) {
+    console.error(
+      `[ENV VALIDATION] No AI provider key configured. Set one of: ${aiProviderEnvVars.join(", ")}.`,
+    );
+  } else {
+    const configured = aiProviderEnvVars.filter((key) => process.env[key]);
+    if (configured.length < aiProviderEnvVars.length) {
+      console.warn(
+        `[ENV VALIDATION] Only these AI provider keys are set: ${configured.join(", ")}. The other provider cannot be used as a fallback.`,
+      );
+    }
   }
 
   const missingOptional = optionalEnvVars.filter((key) => !process.env[key]);

@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { NextRequest } from "next/server";
 
+// Pinned to the NVIDIA fallback path (see tests/chat-providers.test.ts for the
+// Inception-first path). Unsetting the Inception key makes the default chain
+// resolve to the NVIDIA models this file asserts on.
+vi.hoisted(() => {
+  delete process.env.INCEPTION_API_KEY;
+});
+
 vi.mock("@/lib/auth", () => ({
   auth: {
     api: {

@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { NextRequest } from "next/server";
 
+// These cases exercise the NVIDIA fallback path. With the Inception key unset
+// the default candidate chain resolves to the NVIDIA models, which is what the
+// model-id and reasoning_effort assertions below expect. NVIDIA behaviour is
+// covered in depth here; the Inception-first path lives in chat-providers.test.
+vi.hoisted(() => {
+  delete process.env.INCEPTION_API_KEY;
+});
+
 vi.mock("@/lib/auth", () => ({
   auth: {
     api: {
@@ -245,10 +253,15 @@ describe("POST /api/chat streaming", () => {
 
     expect(content).toBe("A contract is an agreement enforceable by law.");
     expect(content).not.toMatch(/apologize|couldn/i);
+    // Every frame must be one we parsed ourselves — either a content delta or
+    // the model announcement. No raw provider frame may leak through.
     expect(
-      raw.every(
-        (f) => typeof (f as { content?: unknown }).content === "string",
-      ),
+      raw.every((f) => {
+        const frame = f as { content?: unknown; model?: unknown };
+        return (
+          typeof frame.content === "string" || typeof frame.model === "string"
+        );
+      }),
     ).toBe(true);
   });
 

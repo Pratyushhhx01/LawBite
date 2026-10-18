@@ -14,6 +14,15 @@ import {
 import { RemindersModal } from "./RemindersModal";
 import { TemplatesModal, FilingModal } from "./ToolsModals";
 import { formatCitation, copyToClipboard } from "@/lib/citations";
+import {
+  getDefaultModel,
+  getModel,
+  getVisionModel,
+  MODELS,
+  PROVIDERS,
+  type ModelInfo,
+  type ProviderId,
+} from "@/lib/ai-providers";
 
 type Role = "user" | "assistant";
 
@@ -31,6 +40,10 @@ type Message = {
   type?: ConversationType;
   documentName?: string;
   citations?: Citation[];
+  /** Model that actually produced this reply (may differ from the picker on failover). */
+  servedModel?: string;
+  /** True when the reply came from the fallback provider, not the selected one. */
+  servedFallback?: boolean;
 };
 
 type ChatUser = {
@@ -74,6 +87,20 @@ type SavedCase = {
 const STORAGE_KEY = "lawbite-saved-cases";
 const CONVERSATIONS_KEY = "lawbite-conversations";
 const DISCLAIMER_KEY = "lawbite-disclaimer-accepted";
+const MODEL_KEY = "lawbite-model";
+
+/** The provider/model preference persisted between sessions. */
+function loadModelId(): string {
+  const fallback = getDefaultModel().id;
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(MODEL_KEY);
+    const resolved = getModel(raw);
+    return resolved ? resolved.id : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 function loadSavedCases(): SavedCase[] {
   if (typeof window === "undefined") return [];
@@ -392,6 +419,9 @@ export default function ChatApp({
   const freshChatInitializedRef = useRef(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const plusMenuRef = useRef<HTMLDivElement | null>(null);
+  const [modelId, setModelId] = useState<string>(() => loadModelId());
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const modelMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (syncStatus !== "synced" || freshChatInitializedRef.current) return;
@@ -508,6 +538,15 @@ export default function ChatApp({
   const active =
     conversations.find((c) => c.id === activeId) ?? conversations[0];
 
+  // Document review and image attachments are pinned to the vision model, so
+  // the picker reflects what the request will actually use.
+  const selectedModel: ModelInfo = getModel(modelId) ?? getDefaultModel();
+  const visionForced = mode === "review" || pendingAttachment?.type === "image";
+  const effectiveModel: ModelInfo = visionForced
+    ? getVisionModel()
+    : selectedModel;
+  const providerLabel = (id: ProviderId) => PROVIDERS[id].name;
+
   const showSuggestion = useMemo(() => {
     if (isThinking) return false;
     if (
@@ -618,6 +657,29 @@ export default function ChatApp({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [plusMenuOpen]);
+
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        modelMenuRef.current &&
+        !modelMenuRef.current.contains(e.target as Node)
+      ) {
+        setModelMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [modelMenuOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(MODEL_KEY, modelId);
+    } catch {
+      /* storage unavailable — selection still applies for this session */
+    }
+  }, [modelId]);
 
   useEffect(() => {
     if (!draftDocTypeOpen) return;
@@ -1662,6 +1724,7 @@ export default function ChatApp({
         signal: controller.signal,
         body: JSON.stringify({
           conversationType: mode,
+          model: modelId,
           messages: conversationMessages,
         }),
       });
@@ -1749,6 +1812,25 @@ export default function ChatApp({
                           ...c,
                           messages: c.messages.map((m) =>
                             m.id === assistantId ? { ...m, citations } : m,
+                          ),
+                        }
+                      : c,
+                  ),
+                );
+              }
+              if (typeof parsed.model === "string" && parsed.model) {
+                const servedModel = parsed.model as string;
+                const servedFallback = parsed.fallback === true;
+                setIsThinking(false);
+                setConversations((prev) =>
+                  prev.map((c) =>
+                    c.id === activeId
+                      ? {
+                          ...c,
+                          messages: c.messages.map((m) =>
+                            m.id === assistantId
+                              ? { ...m, servedModel, servedFallback }
+                              : m,
                           ),
                         }
                       : c,
@@ -3052,6 +3134,128 @@ export default function ChatApp({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative" ref={modelMenuRef}>
+              <button
+                type="button"
+                onClick={() => setModelMenuOpen((o) => !o)}
+                aria-label="Select AI model"
+                aria-expanded={modelMenuOpen}
+                title={
+                  visionForced
+                    ? `${effectiveModel.label} — auto-selected for document review`
+                    : effectiveModel.description
+                }
+                className={`flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-xs transition-colors hover:border-white/25 hover:bg-white/5 ${modelMenuOpen ? "border-white/25 bg-white/5" : ""}`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${effectiveModel.provider === "inception" ? "bg-emerald-400" : "bg-sky-400"}`}
+                />
+                <span className="hidden max-w-[9rem] truncate font-medium text-white/80 sm:inline">
+                  {effectiveModel.shortLabel}
+                </span>
+                {visionForced && (
+                  <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white/50">
+                    Auto
+                  </span>
+                )}
+                <svg
+                  aria-hidden
+                  viewBox="0 0 24 24"
+                  className={`h-3 w-3 text-white/40 transition-transform duration-200 ${modelMenuOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+              {modelMenuOpen && (
+                <div className="animate-dropdown-in absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-white/10 bg-[#141414] shadow-2xl">
+                  <div className="border-b border-white/[0.06] px-4 py-3">
+                    <p className="text-xs font-medium text-white/70">
+                      AI model
+                    </p>
+                    <p className="mt-0.5 text-[10px] leading-snug text-white/35">
+                      {visionForced
+                        ? "Document review always uses the vision model below."
+                        : "Mercury 2.5 is the default; NVIDIA models are used automatically if Inception is unavailable."}
+                    </p>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto py-1">
+                    {(Object.keys(PROVIDERS) as ProviderId[]).map((pid) => (
+                      <div key={pid}>
+                        <div className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/30">
+                          {providerLabel(pid)}
+                        </div>
+                        {MODELS.filter(
+                          (m) => m.provider === pid && !m.vision,
+                        ).map((m) => {
+                          const isSelected = m.id === selectedModel.id;
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                setModelId(m.id);
+                                setModelMenuOpen(false);
+                              }}
+                              className={`flex w-full items-start gap-3 px-4 py-2 text-left transition-colors hover:bg-white/[0.06] ${isSelected ? "bg-white/[0.04]" : ""}`}
+                            >
+                              <span
+                                className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${pid === "inception" ? "bg-emerald-400" : "bg-sky-400"}`}
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex flex-wrap items-center gap-1.5">
+                                  <span className="truncate text-xs font-medium text-white/85">
+                                    {m.label}
+                                  </span>
+                                  {m.isDefault && (
+                                    <span className="rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/80">
+                                      Default
+                                    </span>
+                                  )}
+                                  {m.isFallback && (
+                                    <span className="rounded-full bg-sky-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-300/80">
+                                      Fallback
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="mt-0.5 block text-[10px] leading-snug text-white/40">
+                                  {m.description}
+                                </span>
+                              </span>
+                              {isSelected && (
+                                <svg
+                                  aria-hidden
+                                  viewBox="0 0 24 24"
+                                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M20 6L9 17l-5-5" />
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-white/[0.06] px-4 py-2.5">
+                    <p className="text-[10px] leading-snug text-white/30">
+                      Document reviews use {getVisionModel().label}
+                      {" — "}
+                      {providerLabel(getVisionModel().provider)} vision.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="relative" ref={notificationRef}>
               {(() => {
                 const minDays =
@@ -3415,6 +3619,25 @@ export default function ChatApp({
                             }
                             return renderContentBlocks(blocks);
                           })()}
+                          {message.servedModel && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                title={
+                                  message.servedFallback
+                                    ? "Answered by the fallback provider"
+                                    : "Answered by the selected model"
+                                }
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                                  message.servedFallback
+                                    ? "border-amber-400/30 bg-amber-400/10 text-amber-200/80"
+                                    : "border-white/10 bg-white/[0.03] text-white/40"
+                                }`}
+                              >
+                                {message.servedFallback ? "fallback · " : ""}
+                                {message.servedModel}
+                              </span>
+                            </div>
+                          )}
                           {message.citations &&
                             message.citations.length > 0 && (
                               <div className="flex flex-wrap items-center gap-1.5">
@@ -3795,6 +4018,9 @@ export default function ChatApp({
                       />
                     </span>
                     <span>Thinking…</span>
+                    <span className="text-white/35">
+                      {selectedModel.shortLabel}
+                    </span>
                   </div>
                 </li>
               ) : null}
