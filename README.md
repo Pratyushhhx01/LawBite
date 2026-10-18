@@ -4,6 +4,11 @@ An AI legal assistant for Indian law. Ask questions in plain language and get
 answers grounded in 157+ Indian bare acts (BNS/IPC, BNSS/CrPC, the Constitution
 and more), with optional real-time web search and document drafting/review.
 
+## Requirements
+
+- Node.js 20 or newer
+- A PostgreSQL database (Neon) plus the environment variables listed in `AGENTS.md`
+
 ## Getting Started
 
 First, run the development server:
