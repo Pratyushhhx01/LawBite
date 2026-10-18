@@ -19,6 +19,27 @@ const NVIDIA_MODEL = NVIDIA_MODELS[0];
 const REVIEW_MODEL = "meta/llama-3.2-11b-vision-instruct";
 const NVIDIA_CONNECT_TIMEOUT_MS = 180_000;
 
+/**
+ * Vercel caps Hobby-plan functions at 300s. Declaring it explicitly means long
+ * analyses stream to completion instead of inheriting a smaller default.
+ */
+export const maxDuration = 300;
+
+/**
+ * Reasoning models emit `reasoning_content` for many seconds before the first
+ * user-visible token, and the app strips reasoning. Without a watchdog a model
+ * that never gets past its reasoning phase leaves the browser on a silent,
+ * empty stream until the function is killed. Streaming modes abandon such a
+ * model after this window and fail over to the next one.
+ */
+const FIRST_CONTENT_TIMEOUT_MS = 20_000;
+
+/**
+ * SSE comment cadence. Reasoning phases produce no client-visible bytes, so an
+ * occasional comment keeps proxies from dropping the idle connection.
+ */
+const KEEPALIVE_INTERVAL_MS = 5_000;
+
 async function fetchNvidia(url: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), NVIDIA_CONNECT_TIMEOUT_MS);
@@ -74,6 +95,29 @@ function extractSseError(text: string): string | null {
     }
   }
   return null;
+}
+
+/**
+ * True once the buffered SSE prefix carries a user-visible `content` delta.
+ * `reasoning_content` frames deliberately do NOT count: they are stripped
+ * before the reply reaches the browser, so they must not satisfy the watchdog.
+ */
+function hasVisibleContentDelta(text: string): boolean {
+  const idx = text.lastIndexOf("\n");
+  if (idx === -1) return false;
+  for (const line of text.slice(0, idx).split("\n")) {
+    if (!line.startsWith("data: ")) continue;
+    const data = line.slice(6).trim();
+    if (!data || data === "[DONE]") continue;
+    try {
+      const parsed = JSON.parse(data);
+      const content = parsed.choices?.[0]?.delta?.content;
+      if (typeof content === "string" && content.length > 0) return true;
+    } catch {
+      /* incomplete frame, ignore */
+    }
+  }
+  return false;
 }
 
 const VALID_CONVERSATION_TYPES = new Set([
@@ -2501,6 +2545,16 @@ Never transpose tables, never leave a table cell blank, never invent section num
         ? REVIEW_MODEL
         : NVIDIA_MODEL;
 
+    // Hidden reasoning is what makes replies feel broken: a reasoning model can
+    // spend 10-60s emitting `reasoning_content` before its first visible token.
+    // Short conversational modes ask for light reasoning so answers start in a
+    // few seconds, while deep modes (analysis/draft/review) keep full quality.
+    const fastReasoning =
+      conversationType !== "analysis" &&
+      conversationType !== "draft" &&
+      conversationType !== "review" &&
+      model !== REVIEW_MODEL;
+
     const payload: Record<string, unknown> = {
       messages: messagesWithSystem,
       max_tokens: maxTokens,
@@ -2508,6 +2562,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
         (isTalkToAi && tableAppropriate) || isAnalysisMultiRef ? 0.3 : 1.0,
       top_p: 0.95,
       stream: true,
+      ...(fastReasoning ? { reasoning_effort: "low" } : {}),
     };
 
     const modelsToTry = model === NVIDIA_MODEL ? NVIDIA_MODELS : [model];
@@ -2539,7 +2594,8 @@ Never transpose tables, never leave a table cell blank, never invent section num
         ? {
             ...Object.fromEntries(
               Object.entries(payload).filter(
-                ([k]) => k !== "chat_template_kwargs",
+                ([k]) =>
+                  k !== "chat_template_kwargs" && k !== "reasoning_effort",
               ),
             ),
             model: m,
@@ -2572,17 +2628,30 @@ Never transpose tables, never leave a table cell blank, never invent section num
           }
           const peekDecoder = new TextDecoder();
           let head = "";
-          while (!hasCompleteDataLine(head)) {
+          // Streaming modes reach the browser byte-by-byte, so hold each model
+          // to a first-visible-token deadline and fail over if it only reasons.
+          const requireVisibleContent = !bufferOutput;
+          const peekDeadline = Date.now() + FIRST_CONTENT_TIMEOUT_MS;
+          while (true) {
+            const satisfied = requireVisibleContent
+              ? hasVisibleContentDelta(head)
+              : hasCompleteDataLine(head);
+            if (satisfied) break;
             const { done, value } = await reader.read();
             if (done) break;
             head += peekDecoder.decode(value, { stream: true });
+            if (requireVisibleContent && Date.now() > peekDeadline) break;
           }
           const headError = extractSseError(head);
-          if (headError || !hasCompleteDataLine(head)) {
+          const stalled =
+            requireVisibleContent && !headError && !hasVisibleContentDelta(head);
+          if (headError || stalled || !hasCompleteDataLine(head)) {
             await reader.cancel().catch(() => {});
             lastError = headError
               ? `${m}: SSE error: ${headError}`
-              : `${m}: stream ended without content`;
+              : stalled
+                ? `${m}: no visible content within ${FIRST_CONTENT_TIMEOUT_MS}ms`
+                : `${m}: stream ended without content`;
             console.warn(`Model ${m} unusable (${lastError}), trying next...`);
             continue;
           }
@@ -2670,6 +2739,21 @@ Never transpose tables, never leave a table cell blank, never invent section num
       const reader = streamReader;
       const stream = new ReadableStream({
         async start(controller) {
+          // Buffered modes assemble the whole reply before emitting anything,
+          // so keep the connection warm and prove liveness meanwhile. The
+          // client parser ignores lines that are not `data: `.
+          const keepAlive = setInterval(() => {
+            try {
+              controller.enqueue(encoder.encode(": keepalive\n\n"));
+            } catch {
+              /* controller already closed */
+            }
+          }, KEEPALIVE_INTERVAL_MS);
+          try {
+            controller.enqueue(encoder.encode(": keepalive\n\n"));
+          } catch {
+            /* controller already closed */
+          }
           const decoder = new TextDecoder();
           let buffer = streamHead;
           let analysisFullContent = "";
@@ -2937,6 +3021,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
               }
             }
           } finally {
+            clearInterval(keepAlive);
             try {
               controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               controller.close();
@@ -3166,6 +3251,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
             temperature: 0.3,
             top_p: 0.95,
             stream: true,
+            ...(fastReasoning ? { reasoning_effort: "low" } : {}),
           }),
         });
         if (!retryRes.ok) return null;
@@ -3235,6 +3321,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
               temperature: 0.3,
               top_p: 0.95,
               stream: true,
+              ...(fastReasoning ? { reasoning_effort: "low" } : {}),
             }),
           });
           if (!retryRes.ok) return null;
@@ -3274,6 +3361,21 @@ Never transpose tables, never leave a table cell blank, never invent section num
         let fullContent = "";
         let reasoningContent = "";
         let emittedAny = false;
+        // Reasoning phases emit no client-visible bytes, and buffered modes
+        // hold the whole reply back, so keep the connection warm and prove
+        // liveness. The client parser ignores lines that are not `data: `.
+        const keepAlive = setInterval(() => {
+          try {
+            controller.enqueue(encoder.encode(": keepalive\n\n"));
+          } catch {
+            /* controller already closed */
+          }
+        }, KEEPALIVE_INTERVAL_MS);
+        try {
+          controller.enqueue(encoder.encode(": keepalive\n\n"));
+        } catch {
+          /* controller already closed */
+        }
         const emit = (content: string) => {
           // Fix LLM hallucination: Acts (BNS/BNSS/BSA) have Sections, not Articles.
           controller.enqueue(
@@ -3471,6 +3573,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
                   temperature: 0.7,
                   top_p: 0.95,
                   stream: true,
+                  ...(fastReasoning ? { reasoning_effort: "low" } : {}),
                 }),
               });
               if (retryRes.ok) {
@@ -3538,6 +3641,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
         } catch (error) {
           console.warn("Stream interrupted:", (error as Error).message);
         } finally {
+          clearInterval(keepAlive);
           try {
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           } catch {
