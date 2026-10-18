@@ -1,0 +1,59 @@
+{
+  "title": "Hierarchy of Courts in India",
+  "description": "The Indian judiciary follows a single integrated hierarchical system with the Supreme Court at the apex.",
+  "levels": [
+    {
+      "level": 1,
+      "name": "Supreme Court of India",
+      "location": "New Delhi",
+      "jurisdiction": "Appellate jurisdiction over all High Courts; original jurisdiction for fundamental rights (Art 32); advisory jurisdiction (Art 143); writ jurisdiction",
+      "appointment": "President of India on recommendation of Collegium",
+      "appealsFrom": "High Courts, tribunals, and special courts",
+      "constitution": "Art 124-147 of the Constitution of India",
+      "maxJudges": 34,
+      "head": "Chief Justice of India",
+      "notes": "Highest court of appeal. Decisions binding on all courts in India (Art 141). Law declared by Supreme Court is the law of the land."
+    },
+    {
+      "level": 2,
+      "name": "High Courts",
+      "location": "One in each state/UT — 25 High Courts in total",
+      "jurisdiction": "Appellate jurisdiction over District Courts; original jurisdiction for fundamental rights (Art 226); writ jurisdiction; supervises subordinate courts",
+      "appointment": "President of India on recommendation of Collegium (CJI + Governor + Chief Justice of High Court)",
+      "appealsFrom": "District Courts, Sessions Courts, tribunals within the state",
+      "constitution": "Art 214-231 of the Constitution of India",
+      "head": "Chief Justice of the High Court",
+      "notes": "Each High Court has jurisdiction over one or more states. Some states share a High Court (e.g., Punjab & Haryana). Can issue writs for a wider range than the Supreme Court."
+    },
+    {
+      "level": 3,
+      "name": "District & Sessions Courts",
+      "location": "Each district has a District Court",
+      "jurisdiction": "Original and appellate jurisdiction in civil (District Judge) and criminal (Sessions Judge) matters",
+      "appointment": "High Court, in consultation with Governor and State Public Service Commission",
+      "appealsFrom": "Subordinate courts (Civil Judges, Magistrates)",
+      "constitution": "Code of Civil Procedure 1908; BNSS 2023",
+      "notes": "The District Judge is also the Sessions Judge. Hears appeals from Magistrates and Civil Judges."
+    },
+    {
+      "level": 4,
+      "name": "Civil Judges (Junior & Senior Division) / Judicial Magistrates (First & Second Class)",
+      "location": "Each district has multiple subordinate courts",
+      "civilJurisdiction": "Civil Judge Junior Division (up to Rs. 10 lakh); Civil Judge Senior Division (unlimited, varies by state)",
+      "criminalJurisdiction": "Judicial Magistrate Second Class (up to 1 year imprisonment); Judicial Magistrate First Class (up to 3 years); Chief Judicial Magistrate (up to 7 years)",
+      "appointment": "State Public Service Commission",
+      "appealsFrom": "Civil Judge decisions appeal to District Judge; Magistrate decisions appeal to Sessions Judge",
+      "constitution": "Code of Civil Procedure 1908; BNSS 2023",
+      "notes": "The lowest tier of the judicial hierarchy. Handles the majority of trial-level cases."
+    },
+    {
+      "level": 4.5,
+      "name": "Specialized Tribunals",
+      "location": "Various locations across India",
+      "jurisdiction": "Specific subject matters — tax, service, company law, consumer disputes, armed forces, etc.",
+      "examples": "Income Tax Appellate Tribunal (ITAT), National Company Law Tribunal (NCLT), Central Administrative Tribunal (CAT), Debts Recovery Tribunal (DRT), Armed Forces Tribunal, National Green Tribunal, Consumer Disputes Redressal Commissions (National/State/District)",
+      "appealsFrom": "Appeals from tribunals go to the High Court and/or Supreme Court depending on the statute",
+      "notes": "Tribunals have replaced courts for certain matters to provide faster, specialized justice. Most tribunals are subject to judicial review by High Courts under Art 226/227."
+    }
+  ]
+}

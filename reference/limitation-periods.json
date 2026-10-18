@@ -1,0 +1,247 @@
+[
+  {
+    "type": "Limitation for filing suits",
+    "description": "Contract in writing registered",
+    "period": "3 years",
+    "startingFrom": "When the contract is broken",
+    "law": "Limitation Act 1963, Art 18"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Money lent or advanced",
+    "period": "3 years",
+    "startingFrom": "When the loan is made",
+    "law": "Limitation Act 1963, Art 19"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Simple contract not in writing",
+    "period": "3 years",
+    "startingFrom": "When the contract is broken",
+    "law": "Limitation Act 1963, Art 1"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Sale of goods delivered without payment",
+    "period": "3 years",
+    "startingFrom": "When the goods are delivered",
+    "law": "Limitation Act 1963, Art 14"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Rent recovery by landlord",
+    "period": "3 years",
+    "startingFrom": "When the rent falls due",
+    "law": "Limitation Act 1963, Art 25"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Specific performance of contract",
+    "period": "3 years",
+    "startingFrom": "When the contract is broken",
+    "law": "Limitation Act 1963, Art 54"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Recovery of movable property",
+    "period": "3 years",
+    "startingFrom": "When the right to recover accrues",
+    "law": "Limitation Act 1963, Art 69"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Recovery of immovable property",
+    "period": "12 years",
+    "startingFrom": "When the right to possession accrues",
+    "law": "Limitation Act 1963, Art 65"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Adverse possession (private)",
+    "period": "12 years",
+    "startingFrom": "When adverse possession begins",
+    "law": "Limitation Act 1963, Art 65"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Adverse possession (government)",
+    "period": "30 years",
+    "startingFrom": "When adverse possession begins",
+    "law": "Limitation Act 1963, Art 112"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Mortgage suit (redemption)",
+    "period": "30 years",
+    "startingFrom": "When the right to redeem accrues",
+    "law": "Limitation Act 1963, Art 61"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Mortgage suit (foreclosure)",
+    "period": "30 years",
+    "startingFrom": "When the money becomes due",
+    "law": "Limitation Act 1963, Art 63"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Land acquisition compensation",
+    "period": "6 years",
+    "startingFrom": "When the award is made",
+    "law": "Limitation Act 1963, Art 99"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Tort — defamation",
+    "period": "1 year",
+    "startingFrom": "When the defamatory statement is made",
+    "law": "Limitation Act 1963, Art 75"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Tort — malicious prosecution",
+    "period": "1 year",
+    "startingFrom": "When the plaintiff is acquitted or prosecution is terminated",
+    "law": "Limitation Act 1963, Art 74"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Tort — false imprisonment",
+    "period": "1 year",
+    "startingFrom": "When the imprisonment ends",
+    "law": "Limitation Act 1963, Art 76"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Tort — trespass to land",
+    "period": "3 years",
+    "startingFrom": "When the trespass occurs",
+    "law": "Limitation Act 1963, Art 87"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Tort — negligence",
+    "period": "3 years",
+    "startingFrom": "When the damage is suffered",
+    "law": "Limitation Act 1963, Art 88"
+  },
+  {
+    "type": "Limitation for filing suits",
+    "description": "Tort — nuisance",
+    "period": "3 years",
+    "startingFrom": "When the nuisance continues",
+    "law": "Limitation Act 1963, Art 88"
+  },
+  {
+    "type": "Criminal prosecution",
+    "description": "Summons case (offense punishable with fine/imprisonment up to 2 years)",
+    "period": "1 year",
+    "startingFrom": "From the date of offense",
+    "law": "BNSS 195"
+  },
+  {
+    "type": "Criminal prosecution",
+    "description": "Warrant case (offense punishable with imprisonment 2-7 years)",
+    "period": "3 years",
+    "startingFrom": "From the date of offense",
+    "law": "BNSS 195"
+  },
+  {
+    "type": "Criminal prosecution",
+    "description": "Warrant case (offense punishable with imprisonment 7+ years)",
+    "period": "No limitation",
+    "startingFrom": "N/A",
+    "law": "BNSS 195"
+  },
+  {
+    "type": "Appeals",
+    "description": "Criminal appeal to High Court from Sessions Court",
+    "period": "60 days",
+    "startingFrom": "From the date of judgment",
+    "law": "BNSS 448"
+  },
+  {
+    "type": "Appeals",
+    "description": "Criminal appeal to Sessions Court from Magistrate",
+    "period": "30 days",
+    "startingFrom": "From the date of judgment",
+    "law": "BNSS 448"
+  },
+  {
+    "type": "Appeals",
+    "description": "Civil appeal to High Court from District Court",
+    "period": "90 days",
+    "startingFrom": "From the date of decree",
+    "law": "Limitation Act 1963, Art 116"
+  },
+  {
+    "type": "Appeals",
+    "description": "Civil appeal to Supreme Court",
+    "period": "90 days",
+    "startingFrom": "From the date of judgment/order",
+    "law": "Supreme Court Rules"
+  },
+  {
+    "type": "Appeals",
+    "description": "Revision to High Court (criminal)",
+    "period": "90 days",
+    "startingFrom": "From the date of order",
+    "law": "BNSS 448"
+  },
+  {
+    "type": "Application for execution",
+    "description": "Execution of decree",
+    "period": "12 years",
+    "startingFrom": "From the date decree becomes enforceable",
+    "law": "Limitation Act 1963, Art 136"
+  },
+  {
+    "type": "Arbitration",
+    "description": "Setting aside an arbitral award",
+    "period": "3 months",
+    "startingFrom": "From the date the applicant receives the award",
+    "law": "Arbitration and Conciliation Act 1996, S 34"
+  },
+  {
+    "type": "Arbitration",
+    "description": "Enforcement of arbitral award",
+    "period": "12 years",
+    "startingFrom": "From the date of the award",
+    "law": "Limitation Act 1963, Art 137"
+  },
+  {
+    "type": "Company law",
+    "description": "Petition to NCLT",
+    "period": "3 years",
+    "startingFrom": "From the date of cause of action",
+    "law": "Companies Act 2013"
+  },
+  {
+    "type": "Tax",
+    "description": "Income Tax assessment/reassessment",
+    "period": "3 years from end of assessment year",
+    "startingFrom": "End of relevant assessment year",
+    "law": "Income Tax Act 1961, S 149"
+  },
+  {
+    "type": "Consumer complaint",
+    "description": "Filing before Consumer Commission",
+    "period": "2 years",
+    "startingFrom": "From the date of cause of action",
+    "law": "Consumer Protection Act 2019, S 69"
+  },
+  {
+    "type": "Writ petition",
+    "description": "Writ under Article 226 (High Court)",
+    "period": "Reasonable time (no fixed limit)",
+    "startingFrom": "From the date of cause of action",
+    "law": "Constitution of India, Art 226"
+  },
+  {
+    "type": "Writ petition",
+    "description": "Writ under Article 32 (Supreme Court)",
+    "period": "Reasonable time (no fixed limit)",
+    "startingFrom": "From the date of cause of action",
+    "law": "Constitution of India, Art 32"
+  }
+]

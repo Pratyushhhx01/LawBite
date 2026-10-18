@@ -1,0 +1,47 @@
+[
+  {
+    "type": "Habeas Corpus",
+    "meaning": "\"You may have the body\"",
+    "purpose": "To produce a person who has been detained unlawfully before the court and secure their release",
+    "availableAgainst": "State authorities and private persons",
+    "filedIn": "Supreme Court (Art 32) or High Court (Art 226)",
+    "keyCases": "ADM Jabalpur v Shivkant Shukla (1976), Rudul Sah v State of Bihar (1983)",
+    "notes": "Can be filed by the detained person or any other person on their behalf. Not maintainable if detention is lawful or if the person is in custody of a competent court."
+  },
+  {
+    "type": "Mandamus",
+    "meaning": "\"We command\"",
+    "purpose": "To command a public authority to perform a public duty that it has failed or refused to perform",
+    "availableAgainst": "Public authorities, tribunals, courts, government bodies — NOT against private individuals or the President/Governor",
+    "filedIn": "Supreme Court (Art 32) or High Court (Art 226)",
+    "keyCases": "Chief Constable v R. Mann (2010), Comptroller & Auditor General v KS Jagannathan (1986)",
+    "notes": "Requires the applicant to have made a prior demand for performance of duty. Cannot be issued against a private body unless it performs public functions."
+  },
+  {
+    "type": "Certiorari",
+    "meaning": "\"To be certified\" or \"To be informed\"",
+    "purpose": "To quash an order or decision of a lower court, tribunal, or quasi-judicial body that is illegal, exceeds jurisdiction, or violates natural justice",
+    "availableAgainst": "Lower courts, tribunals, and quasi-judicial authorities",
+    "filedIn": "Supreme Court (Art 32) or High Court (Art 226)",
+    "keyCases": "Hari Vishnu Kamath v Ahmad Ishaque (1955), Syed Yakoob v KS Radhakrishnan (1964)",
+    "notes": "Issued only when there is an error of law apparent on the face of the record. Cannot be used as an appeal remedy."
+  },
+  {
+    "type": "Prohibition",
+    "meaning": "\"To forbid\"",
+    "purpose": "To prevent a lower court or tribunal from exceeding its jurisdiction or acting beyond its powers",
+    "availableAgainst": "Lower courts, tribunals, and quasi-judicial bodies that have not yet passed a final order",
+    "filedIn": "Supreme Court (Art 32) or High Court (Art 226)",
+    "keyCases": "East India Commercial Co v Collector of Customs (1962), Calcutta Discount Co v ITO (1961)",
+    "notes": "Issued before the order is passed (preventive), unlike Certiorari which is issued after the order is passed (curative)."
+  },
+  {
+    "type": "Quo Warranto",
+    "meaning": "\"By what authority\"",
+    "purpose": "To challenge the legality of a person's claim to a public office and remove them if their appointment is invalid",
+    "availableAgainst": "A person holding a public office without lawful authority",
+    "filedIn": "Supreme Court (Art 32) or High Court (Art 226)",
+    "keyCases": "University of Mysore v Govinda Rao (1965), Jamalpur Arya Samaj Sabha v D. Rama (2004)",
+    "notes": "Can be filed by any private person. The office must be a substantive public office of a permanent character created by statute."
+  }
+]

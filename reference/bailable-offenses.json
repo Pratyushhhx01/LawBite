@@ -1,0 +1,91 @@
+[
+  { "offense": "Abetment of suicide (BNS 108)", "category": "Non-Bailable" },
+  { "offense": "Abduction (BNS 140)", "category": "Non-Bailable" },
+  {
+    "offense": "Acquisition of benami property (Benami Transactions Act)",
+    "category": "Non-Bailable"
+  },
+  {
+    "offense": "Adulteration of food or drink (BNS 278)",
+    "category": "Bailable"
+  },
+  { "offense": "Affray (BNS 196)", "category": "Bailable" },
+  {
+    "offense": "Assault or criminal force to woman with intent to disrobe (BNS 76)",
+    "category": "Non-Bailable"
+  },
+  {
+    "offense": "Assault or use of criminal force to woman (BNS 74)",
+    "category": "Bailable"
+  },
+  { "offense": "Attempt to murder (BNS 109)", "category": "Non-Bailable" },
+  { "offense": "Attempt to commit suicide (BNS 226)", "category": "Bailable" },
+  { "offense": "Bigamy (BNS 82)", "category": "Bailable" },
+  { "offense": "Bribery (BNS 163)", "category": "Bailable" },
+  { "offense": "Cheating (BNS 318)", "category": "Bailable" },
+  {
+    "offense": "Child marriage (Prohibition of Child Marriage Act)",
+    "category": "Bailable"
+  },
+  {
+    "offense": "Criminal breach of trust (BNS 316)",
+    "category": "Non-Bailable"
+  },
+  {
+    "offense": "Criminal conspiracy (BNS 111)",
+    "category": "Varies by underlying offense"
+  },
+  { "offense": "Criminal intimidation (BNS 351)", "category": "Bailable" },
+  { "offense": "Criminal trespass (BNS 330)", "category": "Bailable" },
+  {
+    "offense": "Cruelty by husband or relatives (BNS 85)",
+    "category": "Non-Bailable"
+  },
+  {
+    "offense": "Culpable homicide not amounting to murder (BNS 108)",
+    "category": "Non-Bailable"
+  },
+  { "offense": "Defamation (BNS 356)", "category": "Bailable" },
+  { "offense": "Dowry death (BNS 80)", "category": "Non-Bailable" },
+  { "offense": "Driving under influence (MV Act)", "category": "Bailable" },
+  { "offense": "Drug trafficking (NDPS Act)", "category": "Non-Bailable" },
+  { "offense": "False evidence (BNS 229)", "category": "Bailable" },
+  { "offense": "False imprisonment (BNS 129)", "category": "Bailable" },
+  { "offense": "Forgery (BNS 336)", "category": "Non-Bailable" },
+  { "offense": "Gang rape (BNS 70)", "category": "Non-Bailable" },
+  { "offense": "House-breaking (BNS 334)", "category": "Non-Bailable" },
+  { "offense": "Kidnapping (BNS 139)", "category": "Non-Bailable" },
+  { "offense": "Mischief (BNS 324)", "category": "Bailable" },
+  {
+    "offense": "Mischief by fire or explosive (BNS 325)",
+    "category": "Non-Bailable"
+  },
+  { "offense": "Murder (BNS 103)", "category": "Non-Bailable" },
+  { "offense": "Obscene acts or songs (BNS 296)", "category": "Bailable" },
+  { "offense": "Obstructing public servant (BNS 224)", "category": "Bailable" },
+  {
+    "offense": "Possession of stolen property (BNS 317)",
+    "category": "Non-Bailable"
+  },
+  { "offense": "Public nuisance (BNS 291)", "category": "Bailable" },
+  { "offense": "Rape (BNS 64)", "category": "Non-Bailable" },
+  { "offense": "Rape of woman under 16 (BNS 65)", "category": "Non-Bailable" },
+  { "offense": "Rape of woman under 12 (BNS 66)", "category": "Non-Bailable" },
+  { "offense": "Rash driving or riding (BNS 281)", "category": "Bailable" },
+  { "offense": "Robbery (BNS 307)", "category": "Non-Bailable" },
+  {
+    "offense": "Robbery with attempt to cause death (BNS 310)",
+    "category": "Non-Bailable"
+  },
+  { "offense": "Sexual harassment (BNS 75)", "category": "Bailable" },
+  { "offense": "Stalking (BNS 78)", "category": "Bailable" },
+  { "offense": "Theft (BNS 303)", "category": "Bailable" },
+  { "offense": "Theft in a building (BNS 305)", "category": "Non-Bailable" },
+  { "offense": "Unlawful assembly (BNS 189)", "category": "Bailable" },
+  { "offense": "Uttering false coins (BNS 180)", "category": "Non-Bailable" },
+  { "offense": "Voyeurism (BNS 77)", "category": "Bailable" },
+  {
+    "offense": "Waging war against India (BNS 152)",
+    "category": "Non-Bailable"
+  }
+]
