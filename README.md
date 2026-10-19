@@ -71,12 +71,12 @@ HTTP error, rate limit, connection timeout, a stalled stream, or an SSE error
 frame — the request is transparently retried against the NVIDIA chain, so a
 single-provider outage never takes the assistant down.
 
-| Model id                                | Role                                      |
-| --------------------------------------- | ----------------------------------------- |
+| Model id                                | Role                                       |
+| --------------------------------------- | ------------------------------------------ |
 | `nvidia/nemotron-3-super-120b-a12b`     | Primary NVIDIA fallback (fastest measured) |
-| `nvidia/nemotron-3.5-lightning-30b-a3b` | Second-line fallback                      |
-| `meta/muse-glimmer-30b`                 | Last-resort fallback                      |
-| `meta/llama-3.2-11b-vision-instruct`    | Vision model for document review          |
+| `nvidia/nemotron-3.5-lightning-30b-a3b` | Second-line fallback                       |
+| `meta/muse-glimmer-30b`                 | Last-resort fallback                       |
+| `meta/llama-3.2-11b-vision-instruct`    | Vision model for document review           |
 
 The order is deliberate: measured on this deployment, Nemotron Super returned
 its first token in roughly 3–5s, while Glimmer and Lightning could stall for
@@ -213,6 +213,29 @@ so every request starts at Mercury 2.5 and the route walks the failover chain on
 its own: same-provider siblings first, then the NVIDIA fallback. Document review
 and image attachments always use the vision model. Because there is no model
 picker in the chat UI, all users get the same default-first behaviour.
+
+### Sharing conversations
+
+Each saved conversation can be shared from its context menu or from the share
+button under an assistant reply. The link points at the canonical public origin
+(`NEXT_PUBLIC_APP_URL`, falling back to the request origin) and opens
+`/shared/<id>`.
+
+A shared page is a read-only public snapshot: it needs no login and shows only
+that conversation's messages, the sender's display name, and a **Continue to
+chat** action. Continuing sends the visitor through sign-in, then the server
+imports the snapshot into their own history exactly once under a deterministic
+id. The imported copy is a normal chat they can keep using, and the sender's
+original conversation is never modified.
+
+```text
+Share button -> POST /api/share -> /shared/<id>
+                                    |
+                                    +-- Continue to chat -> /chat?shareId=<id>
+                                                           (sign-in if needed)
+                                                           -> server-side import
+                                                           -> /chat?conversation=<id>
+```
 
 ### Environment variables
 

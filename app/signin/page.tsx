@@ -42,17 +42,29 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
+function shareIdFromNext(next: string | null): string | null {
+  if (!next) return null;
+  try {
+    const parsed = new URL(next, "https://lawbite.local");
+    const shareId = parsed.searchParams.get("shareId");
+    return shareId && shareId.trim() ? shareId : null;
+  } catch {
+    return null;
+  }
+}
+
 function SignInForm() {
   const searchParams = useSearchParams();
-  const shareId = searchParams.get("shareId");
   const next = searchParams.get("next");
   const [loading, setLoading] = useState<"google" | "github" | null>(null);
   const [error, setError] = useState("");
 
   const safeNext =
     next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+  const shareId = searchParams.get("shareId") ?? shareIdFromNext(safeNext);
   const callbackURL =
-    safeNext ?? (shareId ? `/chat?shareId=${shareId}` : "/chat");
+    safeNext ??
+    (shareId ? `/chat?shareId=${encodeURIComponent(shareId)}` : "/chat");
 
   async function handleSocialLogin(provider: "google" | "github") {
     setLoading(provider);

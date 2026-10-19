@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { signOut } from "@/lib/auth-client";
 import {
@@ -49,7 +56,8 @@ type ChatAppProps = {
   user: ChatUser;
   /** Id of the current sign-in session; a new one is issued on every login. */
   sessionId?: string | null;
-  shareId?: string | null;
+  /** Conversation to open after a shared chat has been imported server-side. */
+  initialConversationId?: string | null;
   initialTool?: "templates" | "filing" | null;
   initialItem?: string | null;
 };
@@ -171,7 +179,7 @@ const freshConversation: Conversation = {
 export default function ChatApp({
   user: initialUser,
   sessionId = null,
-  shareId,
+  initialConversationId = null,
   initialTool = null,
   initialItem = null,
 }: ChatAppProps) {
@@ -179,7 +187,9 @@ export default function ChatApp({
   const [conversations, setConversations] = useState<Conversation[]>(() => [
     freshConversation,
   ]);
-  const [activeId, setActiveId] = useState<string>(freshConversation.id);
+  const [activeId, setActiveId] = useState<string>(
+    initialConversationId ?? freshConversation.id,
+  );
   const [syncStatus, setSyncStatus] = useState<"idle" | "synced">("idle");
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIdRef = useRef(activeId);
@@ -229,40 +239,6 @@ export default function ChatApp({
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (!shareId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/share?id=${shareId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled || !data?.messages) return;
-        const sharedConv: Conversation = {
-          id: newId("c"),
-          title: data.title || "Shared conversation",
-          preview: data.messages[0]?.content?.slice(0, 100) || "Shared chat",
-          type: (data.type as ConversationType) || "chat",
-          createdAt: Date.now(),
-          messages: data.messages.map(
-            (m: { role: string; content: string }) => ({
-              id: newId("msg"),
-              role: m.role as Role,
-              content: m.content,
-            }),
-          ),
-        };
-        setConversations((prev) => [sharedConv, ...prev]);
-        setActiveId(sharedConv.id);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [shareId]);
 
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
@@ -374,8 +350,7 @@ export default function ChatApp({
     [hydrated, sessionId],
   );
   const disclaimerOpen =
-    showDisclaimer ||
-    (hydrated && !disclaimerAccepted && !acceptedThisVisit);
+    showDisclaimer || (hydrated && !disclaimerAccepted && !acceptedThisVisit);
   const [citationOpen, setCitationOpen] = useState<Citation | null>(null);
   const [copiedCitation, setCopiedCitation] = useState<string | null>(null);
   const [feedbackGiven, setFeedbackGiven] = useState<
@@ -1623,11 +1598,7 @@ export default function ChatApp({
         state.started = true;
         setIsThinking(false);
       }
-      setMessageContent(
-        state.conversationId,
-        state.messageId,
-        state.shownText,
-      );
+      setMessageContent(state.conversationId, state.messageId, state.shownText);
       // Follow the growing reply unless the reader has scrolled up.
       state.ticks += 1;
       if (state.ticks % 8 === 0) {
@@ -1806,7 +1777,10 @@ export default function ChatApp({
               const parsed = JSON.parse(data);
               // A repaired talk-to-ai table replaces the streamed one; keep
               // any still-valid prefix so only the corrected tail re-types.
-              if (parsed.replace === true && typeof parsed.content === "string") {
+              if (
+                parsed.replace === true &&
+                typeof parsed.content === "string"
+              ) {
                 const replaced = parsed.content;
                 const tw = typewriterRef.current;
                 if (tw.messageId === assistantId) {
@@ -2132,39 +2106,82 @@ export default function ChatApp({
     syncDeleteServer(removedIds);
   }
 
-  async function shareConversation(conv: Conversation, platform?: string) {
-    let shareUrl = "";
+  async function createShareLink(conv: Conversation): Promise<string | null> {
     try {
+      // The normal history sync is debounced. Save this conversation first so
+      // sharing a brand-new chat cannot race the sync and 404.
+      const saved = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ conversations: [conv] }),
+      });
+      if (!saved.ok) return null;
+
       const res = await fetch("/api/share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ conversationId: conv.id }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        shareUrl = `${window.location.origin}${data.url}`;
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (typeof data?.url === "string" && data.url) {
+        return data.url.startsWith("http")
+          ? data.url
+          : `${window.location.origin}${data.url}`;
       }
+      if (typeof data?.shareId === "string" && data.shareId) {
+        return `${window.location.origin}/shared/${data.shareId}`;
+      }
+      return null;
     } catch {
-      /* ignore */
+      return null;
     }
+  }
+
+  async function shareConversation(conv: Conversation, platform?: string) {
+    if (isResponding) {
+      alert("Please wait for the response to finish before sharing.");
+      return;
+    }
+
+    const shareUrl = await createShareLink(conv);
     if (!shareUrl) {
       alert("Failed to generate share link.");
       return;
     }
 
-    if (platform === "more" && navigator.share) {
-      navigator.share({ title: conv.title, url: shareUrl }).catch(() => {});
+    const shareText = `Check out this conversation on Lawbite: ${conv.title}`;
+
+    if (platform === "more") {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({
+            title: conv.title,
+            text: shareText,
+            url: shareUrl,
+          });
+          return;
+        } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") return;
+        }
+      }
+      const copied = await copyToClipboard(shareUrl);
+      alert(
+        copied ? "Share link copied to clipboard!" : `Share link: ${shareUrl}`,
+      );
       return;
     }
 
     if (platform === "copy") {
-      await navigator.clipboard.writeText(shareUrl);
-      alert("Share link copied to clipboard!");
+      const copied = await copyToClipboard(shareUrl);
+      alert(
+        copied ? "Share link copied to clipboard!" : `Share link: ${shareUrl}`,
+      );
       return;
     }
 
-    const shareText = `Check out this conversation on Lawbite: ${conv.title}`;
     const shareUrls: Record<string, string> = {
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`,
@@ -3709,19 +3726,10 @@ export default function ChatApp({
                           <button
                             type="button"
                             onClick={() => {
-                              const text = stripThinkingTokens(message.content)
-                                .replace(/\[ADVICE_COMPLETE\]/g, "")
-                                .trim();
-                              if (navigator.share) {
-                                navigator
-                                  .share({ title: "Lawbite Response", text })
-                                  .catch(() => {});
-                              } else {
-                                copyToClipboard(text);
-                              }
+                              if (active) shareConversation(active, "more");
                             }}
                             className="rounded-md p-1 text-white/30 transition-colors hover:text-white/60"
-                            title="Share"
+                            title="Share chat"
                           >
                             <svg
                               viewBox="0 0 24 24"

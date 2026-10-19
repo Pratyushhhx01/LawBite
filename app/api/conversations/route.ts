@@ -44,6 +44,9 @@ export async function GET(request: NextRequest) {
       .selectFrom("conversation")
       .selectAll()
       .where("userId", "=", user.id)
+      // Public share snapshots live in this table but must never appear in the
+      // sender's own chat history.
+      .where("type", "!=", "shared")
       .orderBy("pinned", "desc")
       .orderBy("updatedAt", "desc")
       .execute();
@@ -94,6 +97,9 @@ export async function POST(request: NextRequest) {
 
     for (const item of items) {
       if (!item || typeof item.id !== "string" || !item.id) continue;
+      // Share snapshots are created only by /api/share and must never be
+      // inserted or overwritten through the conversation sync endpoint.
+      if (item.id.startsWith("share-") || item.type === "shared") continue;
 
       const type = ALLOWED_TYPES.includes(item.type) ? item.type : "talk-to-ai";
       const title =
@@ -126,15 +132,20 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(),
         })
         .onConflict((oc) =>
-          oc.column("id").doUpdateSet({
-            title,
-            preview,
-            type,
-            pinned,
-            folderId,
-            messages: sql`${JSON.stringify(messages)}::jsonb`,
-            updatedAt: new Date(),
-          }),
+          oc
+            .column("id")
+            .doUpdateSet({
+              title,
+              preview,
+              type,
+              pinned,
+              folderId,
+              messages: sql`${JSON.stringify(messages)}::jsonb`,
+              updatedAt: new Date(),
+            })
+            // Never let an authenticated user overwrite a conversation owned
+            // by somebody else just by guessing its id.
+            .where("conversation.userId", "=", user.id),
         )
         .execute();
     }
