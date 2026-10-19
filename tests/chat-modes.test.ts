@@ -405,6 +405,89 @@ describe("AI Lawyer (grill) mode", () => {
     expect(content).toContain("[ADVICE_COMPLETE]");
     expect(content).not.toMatch(NO_FALLBACK);
   });
+
+  it("sends an adaptive, non-repeating intake prompt instead of a fixed checklist", async () => {
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () =>
+      sseResponse(
+        framesToText([
+          delta(
+            "Understood.\n\n---\n\nIs there a written rent agreement?",
+          ),
+          finish,
+        ]),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      makeRequest("grill", "My landlord is trying to evict me."),
+    );
+    await readSse(res);
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    const systemPrompt = String(body.messages[0].content);
+
+    // Relevance, one-at-a-time, and no-repeat rules are present.
+    expect(systemPrompt).toMatch(/exactly ONE question per message/i);
+    expect(systemPrompt).toMatch(/NEVER repeat a question/i);
+    expect(systemPrompt).toMatch(/question bank/i);
+    expect(systemPrompt).toMatch(/usually after 2-3 answers/i);
+
+    // The old fixed 8-step checklist is gone.
+    expect(systemPrompt).not.toMatch(/Interrogation Sequence/i);
+    expect(systemPrompt).not.toMatch(/at least 5 answers/i);
+  });
+
+  it("forces the final advice after three user answers", async () => {
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () =>
+      sseResponse(
+        framesToText([delta("Final advice. [ADVICE_COMPLETE]"), finish]),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const request = new Request("http://localhost:3000/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversationType: "grill",
+        messages: [
+          {
+            role: "user",
+            content: "A cheque of Rs 2 lakh given to me has bounced.",
+          },
+          {
+            role: "assistant",
+            content: "Understood.\n\n---\n\nHave you sent a demand notice?",
+          },
+          { role: "user", content: "Yes, 20 days ago." },
+          {
+            role: "assistant",
+            content: "Thank you.\n\n---\n\nIs the amount still unpaid?",
+          },
+          { role: "user", content: "It is still unpaid." },
+        ],
+      }),
+    }) as unknown as NextRequest;
+
+    const res = await POST(request);
+    await readSse(res);
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    const lastUser = [...body.messages]
+      .reverse()
+      .find((m: { role: string }) => m.role === "user");
+    expect(lastUser.content).toContain("Do NOT ask any question");
+    expect(lastUser.content).toContain("[ADVICE_COMPLETE]");
+  });
 });
 
 describe("Document Drafter mode", () => {

@@ -133,7 +133,7 @@ const features = [
   {
     title: "AI Lawyer",
     description:
-      "A structured interrogation mode that asks one question at a time across 8 legal lenses before delivering tailored advice.",
+      "An adaptive case-intake mode that asks only the questions relevant to your problem, one at a time, before delivering tailored advice.",
     href: "/chat",
     icon: (
       <svg

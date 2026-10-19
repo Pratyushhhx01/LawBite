@@ -4737,9 +4737,8 @@ export default function ChatApp({
                     Interrogate an idea with sharp follow-up questions
                   </h2>
                   <p className="mt-3 max-w-md text-sm leading-relaxed text-white/55">
-                    Describe your legal situation and I will ask one question at
-                    a time to build a complete picture. Based on your state,
-                    age, and specific circumstances, I will provide tailored
+                    Describe your legal situation and I will ask only the
+                    relevant questions, one at a time, then give you tailored
                     Indian legal advice with relevant sections and next steps.
                   </p>
                   <div className="mt-8 flex flex-wrap justify-center gap-3">

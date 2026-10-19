@@ -70,11 +70,10 @@ export default function GuidesPage() {
           AI Lawyer
         </GuideHeading>
         <p className="mt-3">
-          A structured case intake session that asks one question at a time
-          across 8 legal lenses — problem, location, role, details, sections,
-          evidence, status, and desired outcome. Once enough information is
-          gathered, Lawbite delivers comprehensive advice with actionable next
-          steps.
+          An adaptive case intake session that asks only the questions relevant
+          to your problem, one at a time, and never repeats one you have already
+          answered. Once it has the facts it needs, Lawbite delivers tailored
+          advice with actionable next steps.
         </p>
       </section>
 

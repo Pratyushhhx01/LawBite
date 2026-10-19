@@ -24,7 +24,7 @@ const features: Feature[] = [
     tag: "03",
     title: "AI Lawyer",
     description:
-      "A structured interrogation mode that asks one question at a time across 8 legal lenses — building a complete picture before delivering tailored advice.",
+      "An adaptive case-intake mode that asks only the questions relevant to your problem, one at a time, then delivers tailored advice.",
   },
   {
     tag: "04",

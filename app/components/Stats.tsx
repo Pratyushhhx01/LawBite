@@ -13,7 +13,7 @@ type Stat = {
 const stats: Stat[] = [
   { value: 157, suffix: "+", label: "Indian bare acts covered" },
   { value: 5, suffix: "", label: "AI conversation modes" },
-  { value: 8, suffix: "", label: "Legal analysis lenses in AI Lawyer" },
+  { value: 1, suffix: "", label: "Relevant question at a time in AI Lawyer" },
   { value: 0, suffix: "", label: "Cost to get started", decimals: 0 },
 ];
 

@@ -16,7 +16,7 @@ const items: Item[] = [
   },
   {
     q: "How does the AI Lawyer mode work?",
-    a: "AI Lawyer asks one question at a time across 8 legal lenses — problem, state, role, details, sections, evidence, status, and outcome. It builds a complete picture of your situation before delivering tailored legal analysis.",
+    a: "AI Lawyer asks only the questions that matter for your specific problem, one at a time, and never repeats one you have already answered. Once it has the facts it needs, it delivers tailored Indian legal analysis.",
   },
   {
     q: "Is my data secure?",
