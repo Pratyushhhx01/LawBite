@@ -2,9 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { signOut } from "@/lib/auth-client";
+import {
+  clearDisclaimerAcceptance,
+  isDisclaimerAccepted,
+  rememberDisclaimerAcceptance,
+} from "@/lib/disclaimer";
 import LogoIcon from "../../components/LogoIcon";
 import { stripThinkingTokens } from "@/lib/utils";
 import {
@@ -14,15 +19,6 @@ import {
 import { RemindersModal } from "./RemindersModal";
 import { TemplatesModal, FilingModal } from "./ToolsModals";
 import { formatCitation, copyToClipboard } from "@/lib/citations";
-import {
-  getDefaultModel,
-  getModel,
-  getVisionModel,
-  MODELS,
-  PROVIDERS,
-  type ModelInfo,
-  type ProviderId,
-} from "@/lib/ai-providers";
 
 type Role = "user" | "assistant";
 
@@ -40,10 +36,6 @@ type Message = {
   type?: ConversationType;
   documentName?: string;
   citations?: Citation[];
-  /** Model that actually produced this reply (may differ from the picker on failover). */
-  servedModel?: string;
-  /** True when the reply came from the fallback provider, not the selected one. */
-  servedFallback?: boolean;
 };
 
 type ChatUser = {
@@ -55,6 +47,8 @@ type ChatUser = {
 
 type ChatAppProps = {
   user: ChatUser;
+  /** Id of the current sign-in session; a new one is issued on every login. */
+  sessionId?: string | null;
   shareId?: string | null;
   initialTool?: "templates" | "filing" | null;
   initialItem?: string | null;
@@ -86,21 +80,6 @@ type SavedCase = {
 
 const STORAGE_KEY = "lawbite-saved-cases";
 const CONVERSATIONS_KEY = "lawbite-conversations";
-const DISCLAIMER_KEY = "lawbite-disclaimer-accepted";
-const MODEL_KEY = "lawbite-model";
-
-/** The provider/model preference persisted between sessions. */
-function loadModelId(): string {
-  const fallback = getDefaultModel().id;
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(MODEL_KEY);
-    const resolved = getModel(raw);
-    return resolved ? resolved.id : fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 function loadSavedCases(): SavedCase[] {
   if (typeof window === "undefined") return [];
@@ -152,102 +131,29 @@ function visibleAssistantText(content: string): string {
     .trim();
 }
 
-const initialConversations: Conversation[] = [
-  {
-    id: "c-1",
-    title: "Welcome to Lawbite AI",
-    preview: "Talk to AI",
-    type: "talk-to-ai",
-    pinned: true,
-    createdAt: Date.now() - 1000 * 60 * 30,
-    messages: [
-      {
-        id: "m-1-1",
-        role: "user",
-        content:
-          "What is the punishment for theft under the Bharatiya Nyaya Sanhita?",
-      },
-      {
-        id: "m-1-2",
-        role: "assistant",
-        content:
-          "Under Section 303 of the BNS (formerly IPC Section 378), theft is punishable with imprisonment of either description for up to 3 years, or with a fine, or both. For a first conviction, the term may extend to 7 years in cases of theft in a building, vessel, or public conveyance (Section 303(2)).",
-      },
-      {
-        id: "m-1-3",
-        role: "user",
-        content: "What if the theft is committed at night?",
-      },
-      {
-        id: "m-1-4",
-        role: "assistant",
-        content:
-          "If theft is committed after 8 p.m. and before 6 a.m. (in a building, tent, or vessel used for human habitation), the BNS provides enhanced punishment — imprisonment for up to 7 years, along with a fine.",
-      },
-    ],
-  },
-  {
-    id: "c-2",
-    title: "Tenant eviction rights",
-    preview: "Eviction notice…",
-    type: "chat",
-    createdAt: Date.now() - 1000 * 60 * 60 * 3,
-    messages: [
-      {
-        id: "m-2-1",
-        role: "user",
-        content:
-          "My tenant has stopped paying rent for 4 months. How do I get him evicted?",
-      },
-      {
-        id: "m-2-2",
-        role: "assistant",
-        content:
-          "Start by serving a written demand notice requiring payment of arrears within a specified period (often 15 days). If the tenant fails to comply, you can file for eviction under the rent control law of your state (e.g., the Rent Control Act applicable where the property is located), or under Section 106 of the Transfer of Property Act, 1882 after terminating the tenancy. A police complaint is not the correct route for a rent dispute — this is a civil matter.",
-      },
-    ],
-  },
-  {
-    id: "c-3",
-    title: "Void vs voidable contract",
-    preview: "Contract basics…",
-    type: "chat",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
-    messages: [
-      {
-        id: "m-3-1",
-        role: "user",
-        content: "What is the difference between a void and voidable contract?",
-      },
-      {
-        id: "m-3-2",
-        role: "assistant",
-        content:
-          "A void contract is treated as if it never existed — no enforceable obligations on either side, and either party can raise the issue. A voidable contract is valid until the injured party elects to rescind (for example, contracts entered into under duress, fraud, or with a minor). Once rescinded, it is treated as void.",
-      },
-    ],
-  },
-  {
-    id: "c-4",
-    title: "Filing an FIR",
-    preview: "FIR procedure…",
-    type: "chat",
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 15,
-    messages: [
-      {
-        id: "m-4-1",
-        role: "user",
-        content: "How do I file an FIR in India?",
-      },
-      {
-        id: "m-4-2",
-        role: "assistant",
-        content:
-          "You can file an FIR at the police station having jurisdiction over the place where the offence occurred. The police are duty-bound to register it under the BNSS if the information discloses a cognizable offence — they cannot refuse. If the local police refuse, you can write to the Superintendent of Police or approach the Magistrate under Section 156(3) of the CrPC (now the BNSS). Since July 2024, zero FIR and e-FIR options are available across most states.",
-      },
-    ],
-  },
-];
+const emptySubscribe = () => () => {};
+
+/**
+ * False during SSR and the hydration render, true afterwards. Lets us defer
+ * client-only storage reads without a setState-in-effect cascade.
+ */
+function useHydrated() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
+
+const THINKING_STEPS = [
+  "Thinking",
+  "Searching legal resources",
+  "Generating your response",
+  "Finalizing your response",
+] as const;
+
+/** When each step becomes active, measured from the moment the reply starts. */
+const THINKING_STEP_DELAYS_MS = [1_600, 3_600, 9_000];
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -264,19 +170,15 @@ const freshConversation: Conversation = {
 
 export default function ChatApp({
   user: initialUser,
+  sessionId = null,
   shareId,
   initialTool = null,
   initialItem = null,
 }: ChatAppProps) {
   const [user, setUser] = useState<ChatUser>(initialUser);
-  const [conversations, setConversations] = useState<Conversation[]>(() => {
-    const demos = initialConversations.map((c) => ({
-      ...c,
-      id: newId("demo"),
-      messages: c.messages.map((m) => ({ ...m, id: newId("dm") })),
-    }));
-    return [freshConversation, ...demos];
-  });
+  const [conversations, setConversations] = useState<Conversation[]>(() => [
+    freshConversation,
+  ]);
   const [activeId, setActiveId] = useState<string>(freshConversation.id);
   const [syncStatus, setSyncStatus] = useState<"idle" | "synced">("idle");
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -364,6 +266,11 @@ export default function ChatApp({
 
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [thinkingStage, setThinkingStage] = useState(0);
+  const [showThinking, setShowThinking] = useState(false);
+  // True from the moment a reply is requested until its typewriter reveal has
+  // finished. `isThinking` is only the "waiting for the first word" indicator.
+  const [isResponding, setIsResponding] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<"all" | ConversationType>("all");
@@ -381,6 +288,7 @@ export default function ChatApp({
   const [dismissedNotifications, setDismissedNotifications] = useState<
     { id: string; threshold: number }[]
   >(() => {
+    if (typeof window === "undefined") return [];
     try {
       const stored = localStorage.getItem("lawbite-dismissed-notifications");
       return stored ? JSON.parse(stored) : [];
@@ -416,87 +324,58 @@ export default function ChatApp({
   const lastTalkIdRef = useRef<string | null>(null);
   const lastAnalysisIdRef = useRef<string | null>(null);
   const [mode, setMode] = useState<ConversationType>("chat");
-  const freshChatInitializedRef = useRef(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const plusMenuRef = useRef<HTMLDivElement | null>(null);
-  const [modelId, setModelId] = useState<string>(() => loadModelId());
-  const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const modelMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (syncStatus !== "synced" || freshChatInitializedRef.current) return;
-    freshChatInitializedRef.current = true;
-    const prefix =
-      mode === "analysis"
-        ? "a"
-        : mode === "grill"
-          ? "g"
-          : mode === "draft"
-            ? "d"
-            : mode === "review"
-              ? "r"
-              : "t";
-    const convType: ConversationType =
-      mode === "analysis"
-        ? "analysis"
-        : mode === "grill"
-          ? "grill"
-          : mode === "draft"
-            ? "draft"
-            : mode === "review"
-              ? "review"
-              : "talk-to-ai";
-    const fresh: Conversation = {
-      id: newId(prefix),
-      title:
-        mode === "analysis"
-          ? "New analysis"
-          : mode === "grill"
-            ? "New case"
-            : mode === "draft"
-              ? "New draft"
-              : mode === "review"
-                ? "New review"
-                : "New conversation",
-      preview:
-        mode === "analysis"
-          ? "Deep analysis"
-          : mode === "grill"
-            ? "Case intake"
-            : mode === "draft"
-              ? "Document drafting"
-              : mode === "review"
-                ? "Document review"
-                : "Just started",
-      type: convType,
-      createdAt: Date.now(),
-      messages: [],
-    };
-    setConversations((prev) => [fresh, ...prev]);
-    setActiveId(fresh.id);
-  }, [syncStatus, mode]);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
   const escCountRef = useRef(0);
   const escTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Reveals assistant text word by word, whether the server streams it in many
+  // chunks or delivers the whole reply at once (analysis/table modes do).
+  const typewriterRef = useRef<{
+    timer: ReturnType<typeof setInterval> | null;
+    fullText: string;
+    shownText: string;
+    conversationId: string;
+    messageId: string;
+    done: boolean;
+    started: boolean;
+    ticks: number;
+    resolveDone: (() => void) | null;
+  }>({
+    timer: null,
+    fullText: "",
+    shownText: "",
+    conversationId: "",
+    messageId: "",
+    done: false,
+    started: false,
+    ticks: 0,
+    resolveDone: null,
+  });
   const [confirmAction, setConfirmAction] = useState<
     | { type: "clearHistory"; section?: ConversationType }
     | { type: "deleteConversation"; id: string }
     | null
   >(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [disclaimerOpen, setDisclaimerOpen] = useState<boolean>(() => {
-    try {
-      if (typeof window === "undefined") return false;
-      return localStorage.getItem(DISCLAIMER_KEY) !== "true";
-    } catch {
-      return true;
-    }
-  });
+  const hydrated = useHydrated();
+  // Starts closed on both the server and the hydration render; once mounted it
+  // opens only if this login session hasn't accepted the disclaimer yet.
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [acceptedThisVisit, setAcceptedThisVisit] = useState(false);
+  const disclaimerAccepted = useMemo(
+    () => (hydrated ? isDisclaimerAccepted(sessionId) : false),
+    [hydrated, sessionId],
+  );
+  const disclaimerOpen =
+    showDisclaimer ||
+    (hydrated && !disclaimerAccepted && !acceptedThisVisit);
   const [citationOpen, setCitationOpen] = useState<Citation | null>(null);
   const [copiedCitation, setCopiedCitation] = useState<string | null>(null);
   const [feedbackGiven, setFeedbackGiven] = useState<
@@ -538,17 +417,8 @@ export default function ChatApp({
   const active =
     conversations.find((c) => c.id === activeId) ?? conversations[0];
 
-  // Document review and image attachments are pinned to the vision model, so
-  // the picker reflects what the request will actually use.
-  const selectedModel: ModelInfo = getModel(modelId) ?? getDefaultModel();
-  const visionForced = mode === "review" || pendingAttachment?.type === "image";
-  const effectiveModel: ModelInfo = visionForced
-    ? getVisionModel()
-    : selectedModel;
-  const providerLabel = (id: ProviderId) => PROVIDERS[id].name;
-
   const showSuggestion = useMemo(() => {
-    if (isThinking) return false;
+    if (isThinking || isResponding) return false;
     if (
       mode === "analysis" ||
       mode === "grill" ||
@@ -593,25 +463,61 @@ export default function ChatApp({
       return true;
     }
     return false;
-  }, [active, mode, isThinking]);
+  }, [active, mode, isThinking, isResponding]);
 
   useEffect(() => {
+    const scroller = chatScrollRef.current;
+    if (!scroller) return;
+    if (isThinking) {
+      // Jump straight to the bottom so the user message and the wait status
+      // are visible without scrolling. The status card mounts a moment later,
+      // which is why `showThinking` is also a dependency. Wait one frame so
+      // the new card has been laid out before measuring the scroll height.
+      const frame = requestAnimationFrame(() => {
+        scroller.scrollTop = scroller.scrollHeight;
+      });
+      return () => cancelAnimationFrame(frame);
+    }
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "end",
     });
-  }, [active?.messages.length, isThinking, showSuggestion]);
+  }, [
+    active?.messages.length,
+    isThinking,
+    isResponding,
+    showThinking,
+    showSuggestion,
+  ]);
+
+  // Reveal the wait as a short pipeline. The card is held back briefly so a
+  // fast reply appears directly without a status flash, and it is removed the
+  // instant the first real content arrives.
+  useEffect(() => {
+    if (!isThinking) return;
+    const showTimer = setTimeout(() => setShowThinking(true), 240);
+    const stageTimers = THINKING_STEP_DELAYS_MS.map((delay, index) =>
+      setTimeout(() => setThinkingStage(index + 1), delay),
+    );
+    return () => {
+      clearTimeout(showTimer);
+      stageTimers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [isThinking]);
 
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
 
   useEffect(() => {
+    // Don't overwrite the local cache before the server/local load completes,
+    // and don't write on every typewriter tick.
+    if (syncStatus !== "synced" || isResponding) return;
     saveConversations(conversations);
-  }, [conversations]);
+  }, [conversations, syncStatus, isResponding]);
 
   useEffect(() => {
-    if (syncStatus !== "synced") return;
+    if (syncStatus !== "synced" || isResponding) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       fetch("/api/conversations", {
@@ -624,7 +530,15 @@ export default function ChatApp({
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-  }, [conversations, syncStatus]);
+  }, [conversations, syncStatus, isResponding]);
+
+  useEffect(() => {
+    const ref = typewriterRef;
+    return () => {
+      if (ref.current.timer) clearInterval(ref.current.timer);
+      ref.current.resolveDone?.();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -659,29 +573,6 @@ export default function ChatApp({
   }, [plusMenuOpen]);
 
   useEffect(() => {
-    if (!modelMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        modelMenuRef.current &&
-        !modelMenuRef.current.contains(e.target as Node)
-      ) {
-        setModelMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [modelMenuOpen]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(MODEL_KEY, modelId);
-    } catch {
-      /* storage unavailable — selection still applies for this session */
-    }
-  }, [modelId]);
-
-  useEffect(() => {
     if (!draftDocTypeOpen) return;
     const handler = (e: MouseEvent) => {
       if (
@@ -712,7 +603,7 @@ export default function ChatApp({
 
   useEffect(() => {
     function handleKeyDown(e: globalThis.KeyboardEvent) {
-      if (e.key !== "Escape" || !isThinking) return;
+      if (e.key !== "Escape" || !isResponding) return;
       escCountRef.current += 1;
       if (escTimerRef.current) clearTimeout(escTimerRef.current);
       escTimerRef.current = setTimeout(() => {
@@ -726,7 +617,7 @@ export default function ChatApp({
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isThinking]);
+  }, [isResponding]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -1631,6 +1522,133 @@ export default function ChatApp({
     }
   }
 
+  function setMessageContent(
+    conversationId: string,
+    messageId: string,
+    content: string,
+  ) {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId
+          ? {
+              ...c,
+              messages: c.messages.map((m) =>
+                m.id === messageId ? { ...m, content } : m,
+              ),
+            }
+          : c,
+      ),
+    );
+  }
+
+  function stopTypewriter() {
+    const tw = typewriterRef.current;
+    if (tw.timer) {
+      clearInterval(tw.timer);
+      tw.timer = null;
+    }
+    const resolve = tw.resolveDone;
+    tw.resolveDone = null;
+    resolve?.();
+  }
+
+  function finishTypewriter() {
+    typewriterRef.current.done = true;
+  }
+
+  function flushTypewriter() {
+    const tw = typewriterRef.current;
+    if (!tw.messageId) {
+      stopTypewriter();
+      return;
+    }
+    tw.shownText = tw.fullText;
+    setMessageContent(tw.conversationId, tw.messageId, tw.fullText);
+    setIsThinking(false);
+    stopTypewriter();
+  }
+
+  function startTypewriter(conversationId: string, messageId: string) {
+    stopTypewriter();
+    const tw = typewriterRef.current;
+    tw.fullText = "";
+    tw.shownText = "";
+    tw.conversationId = conversationId;
+    tw.messageId = messageId;
+    tw.done = false;
+    tw.started = false;
+    tw.ticks = 0;
+    tw.timer = setInterval(() => {
+      const state = typewriterRef.current;
+      if (!state.messageId) return;
+
+      const full = state.fullText;
+      let available = full.length;
+      // While the stream is live, hold back an unfinished trailing word so a
+      // token split across chunks doesn't flash as a broken word.
+      if (!state.done) {
+        const lastBreak = Math.max(
+          full.lastIndexOf(" "),
+          full.lastIndexOf("\n"),
+          full.lastIndexOf("\t"),
+        );
+        if (lastBreak >= 0 && lastBreak < full.length - 1) {
+          available = lastBreak + 1;
+        }
+      }
+
+      if (available <= state.shownText.length) {
+        if (state.done && state.shownText.length < full.length) {
+          // Reveal the final fragment (text that has no trailing whitespace).
+          state.shownText = full;
+          setMessageContent(state.conversationId, state.messageId, full);
+        }
+        if (state.done && state.shownText.length >= full.length) {
+          stopTypewriter();
+        }
+        return;
+      }
+
+      const remaining = full.slice(state.shownText.length, available);
+      const words = remaining.match(/\s*\S+\s*/g) ?? [remaining];
+      // Reveal at least one word per tick; accelerate when a buffered reply
+      // (analysis / table mode) arrives as one large block so the reveal takes
+      // about a second rather than trailing the answer by several seconds.
+      // A short backlog still moves in two-word steps so it never feels slow.
+      const wordsPerTick =
+        words.length > 6 ? Math.max(2, Math.ceil(words.length / 70)) : 1;
+      const take = words.slice(0, wordsPerTick).join("");
+      state.shownText += take;
+      if (!state.started) {
+        state.started = true;
+        setIsThinking(false);
+      }
+      setMessageContent(
+        state.conversationId,
+        state.messageId,
+        state.shownText,
+      );
+      // Follow the growing reply unless the reader has scrolled up.
+      state.ticks += 1;
+      if (state.ticks % 8 === 0) {
+        const scroller = chatScrollRef.current;
+        if (scroller) {
+          const distance =
+            scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+          if (distance < 140) scroller.scrollTop = scroller.scrollHeight;
+        }
+      }
+    }, 16);
+  }
+
+  async function waitForTypewriter() {
+    const tw = typewriterRef.current;
+    if (!tw.timer) return;
+    await new Promise<void>((resolve) => {
+      tw.resolveDone = resolve;
+    });
+  }
+
   async function sendMessage(
     text: string,
     documentName?: string,
@@ -1644,7 +1662,7 @@ export default function ChatApp({
     },
   ) {
     const trimmed = text.trim();
-    if (!trimmed || isThinking) return;
+    if (!trimmed || isResponding) return;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -1672,7 +1690,18 @@ export default function ChatApp({
               preview: attachment?.fileName
                 ? draft.trim() || `Review: ${attachment.fileName}`
                 : trimmed,
-              messages: [...c.messages, userMsg],
+              messages: [
+                ...c.messages,
+                userMsg,
+                // Insert the reply bubble up front so network/API errors can
+                // still fill it; it stays hidden while `isThinking` is true.
+                {
+                  id: assistantId,
+                  role: "assistant" as const,
+                  content: "",
+                  type: mode,
+                },
+              ],
             }
           : c,
       );
@@ -1680,6 +1709,10 @@ export default function ChatApp({
     });
     setDraft("");
     setIsThinking(true);
+    setIsResponding(true);
+    setThinkingStage(0);
+    setShowThinking(false);
+    startTypewriter(activeId, assistantId);
 
     const currentConversations = conversationsRef.current;
     const activeConversation = currentConversations.find(
@@ -1707,10 +1740,19 @@ export default function ChatApp({
     }
 
     const conversationMessages = [
-      ...(activeConversation?.messages ?? []).map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
+      ...(activeConversation?.messages ?? [])
+        // The ref can briefly contain the optimistic user message or the empty
+        // assistant placeholder we just added; neither belongs in the request.
+        .filter(
+          (m) =>
+            m.id !== userMsg.id &&
+            m.id !== assistantId &&
+            m.content.trim().length > 0,
+        )
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
       { role: "user" as const, content: userApiContent },
     ];
 
@@ -1724,7 +1766,6 @@ export default function ChatApp({
         signal: controller.signal,
         body: JSON.stringify({
           conversationType: mode,
-          model: modelId,
           messages: conversationMessages,
         }),
       });
@@ -1747,25 +1788,6 @@ export default function ChatApp({
       const decoder = new TextDecoder();
       let sseBuffer = "";
 
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === activeId
-            ? {
-                ...c,
-                messages: [
-                  ...c.messages,
-                  {
-                    id: assistantId,
-                    role: "assistant",
-                    content: "",
-                    type: mode,
-                  },
-                ],
-              }
-            : c,
-        ),
-      );
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -1782,26 +1804,34 @@ export default function ChatApp({
             if (!data) continue;
             try {
               const parsed = JSON.parse(data);
+              // A repaired talk-to-ai table replaces the streamed one; keep
+              // any still-valid prefix so only the corrected tail re-types.
+              if (parsed.replace === true && typeof parsed.content === "string") {
+                const replaced = parsed.content;
+                const tw = typewriterRef.current;
+                if (tw.messageId === assistantId) {
+                  const max = Math.min(tw.shownText.length, replaced.length);
+                  let common = 0;
+                  while (
+                    common < max &&
+                    tw.shownText[common] === replaced[common]
+                  ) {
+                    common += 1;
+                  }
+                  tw.fullText = replaced;
+                  tw.shownText = replaced.slice(0, common);
+                  setMessageContent(activeId, assistantId, tw.shownText);
+                }
+                assistantContent = replaced;
+                continue;
+              }
               const chunk: unknown =
                 parsed.content ?? parsed.choices?.[0]?.delta?.content;
               if (typeof chunk === "string" && chunk) {
                 assistantContent += chunk;
-                if (assistantContent.length === chunk.length) {
-                  setIsThinking(false);
-                }
-                const content = assistantContent;
-                setConversations((prev) =>
-                  prev.map((c) =>
-                    c.id === activeId
-                      ? {
-                          ...c,
-                          messages: c.messages.map((m) =>
-                            m.id === assistantId ? { ...m, content } : m,
-                          ),
-                        }
-                      : c,
-                  ),
-                );
+                // The typewriter reveals this progressively; when the server
+                // streams, it naturally keeps up with the incoming chunks.
+                typewriterRef.current.fullText += chunk;
               }
               if (Array.isArray(parsed.citations)) {
                 const citations = parsed.citations as Citation[];
@@ -1818,25 +1848,6 @@ export default function ChatApp({
                   ),
                 );
               }
-              if (typeof parsed.model === "string" && parsed.model) {
-                const servedModel = parsed.model as string;
-                const servedFallback = parsed.fallback === true;
-                setIsThinking(false);
-                setConversations((prev) =>
-                  prev.map((c) =>
-                    c.id === activeId
-                      ? {
-                          ...c,
-                          messages: c.messages.map((m) =>
-                            m.id === assistantId
-                              ? { ...m, servedModel, servedFallback }
-                              : m,
-                          ),
-                        }
-                      : c,
-                  ),
-                );
-              }
             } catch {
               // skip malformed JSON
             }
@@ -1844,61 +1855,42 @@ export default function ChatApp({
         }
       }
 
+      // Let the reveal finish so the next send can't race this response.
+      finishTypewriter();
+      await waitForTypewriter();
+
       if (!visibleAssistantText(assistantContent)) {
+        stopTypewriter();
         const fallbackMsg = assistantContent.trim()
           ? "I couldn't finish that response. Please try again."
           : "Sorry, I encountered an error. Please try again.";
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === activeId
-              ? {
-                  ...c,
-                  messages: c.messages.map((m) =>
-                    m.id === assistantId ? { ...m, content: fallbackMsg } : m,
-                  ),
-                }
-              : c,
-          ),
-        );
+        setMessageContent(activeId, assistantId, fallbackMsg);
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         if (!visibleAssistantText(assistantContent)) {
-          const abortMsg = "Sorry, I encountered an error. Please try again.";
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === activeId
-                ? {
-                    ...c,
-                    messages: c.messages.map((m) =>
-                      m.id === assistantId ? { ...m, content: abortMsg } : m,
-                    ),
-                  }
-                : c,
-            ),
+          stopTypewriter();
+          setMessageContent(
+            activeId,
+            assistantId,
+            "Sorry, I encountered an error. Please try again.",
           );
+        } else {
+          // Keep whatever had already arrived visible.
+          flushTypewriter();
         }
       } else {
         console.error("Chat error:", error);
+        stopTypewriter();
         const errorContent = visibleAssistantText(assistantContent)
           ? assistantContent
           : "Sorry, I encountered an error. Please try again.";
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === activeId
-              ? {
-                  ...c,
-                  messages: c.messages.map((m) =>
-                    m.id === assistantId ? { ...m, content: errorContent } : m,
-                  ),
-                }
-              : c,
-          ),
-        );
+        setMessageContent(activeId, assistantId, errorContent);
       }
     } finally {
       abortRef.current = null;
       setIsThinking(false);
+      setIsResponding(false);
 
       // Auto-save completed grill sessions
       if (mode === "grill") {
@@ -1972,6 +1964,7 @@ export default function ChatApp({
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isResponding) return;
     if (pendingAttachment && !draft.trim()) {
       const defaultPrompt =
         pendingAttachment.type === "image"
@@ -1987,6 +1980,7 @@ export default function ChatApp({
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
+      if (isResponding) return;
       if (pendingAttachment && !draft.trim()) {
         const defaultPrompt =
           pendingAttachment.type === "image"
@@ -2006,6 +2000,7 @@ export default function ChatApp({
   }
 
   async function handleSignOut() {
+    clearDisclaimerAcceptance();
     await signOut();
     window.location.href = "/signin";
   }
@@ -3134,128 +3129,6 @@ export default function ChatApp({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="relative" ref={modelMenuRef}>
-              <button
-                type="button"
-                onClick={() => setModelMenuOpen((o) => !o)}
-                aria-label="Select AI model"
-                aria-expanded={modelMenuOpen}
-                title={
-                  visionForced
-                    ? `${effectiveModel.label} — auto-selected for document review`
-                    : effectiveModel.description
-                }
-                className={`flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-xs transition-colors hover:border-white/25 hover:bg-white/5 ${modelMenuOpen ? "border-white/25 bg-white/5" : ""}`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${effectiveModel.provider === "inception" ? "bg-emerald-400" : "bg-sky-400"}`}
-                />
-                <span className="hidden max-w-[9rem] truncate font-medium text-white/80 sm:inline">
-                  {effectiveModel.shortLabel}
-                </span>
-                {visionForced && (
-                  <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white/50">
-                    Auto
-                  </span>
-                )}
-                <svg
-                  aria-hidden
-                  viewBox="0 0 24 24"
-                  className={`h-3 w-3 text-white/40 transition-transform duration-200 ${modelMenuOpen ? "rotate-180" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
-              {modelMenuOpen && (
-                <div className="animate-dropdown-in absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-white/10 bg-[#141414] shadow-2xl">
-                  <div className="border-b border-white/[0.06] px-4 py-3">
-                    <p className="text-xs font-medium text-white/70">
-                      AI model
-                    </p>
-                    <p className="mt-0.5 text-[10px] leading-snug text-white/35">
-                      {visionForced
-                        ? "Document review always uses the vision model below."
-                        : "Mercury 2.5 is the default; NVIDIA models are used automatically if Inception is unavailable."}
-                    </p>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto py-1">
-                    {(Object.keys(PROVIDERS) as ProviderId[]).map((pid) => (
-                      <div key={pid}>
-                        <div className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/30">
-                          {providerLabel(pid)}
-                        </div>
-                        {MODELS.filter(
-                          (m) => m.provider === pid && !m.vision,
-                        ).map((m) => {
-                          const isSelected = m.id === selectedModel.id;
-                          return (
-                            <button
-                              key={m.id}
-                              type="button"
-                              onClick={() => {
-                                setModelId(m.id);
-                                setModelMenuOpen(false);
-                              }}
-                              className={`flex w-full items-start gap-3 px-4 py-2 text-left transition-colors hover:bg-white/[0.06] ${isSelected ? "bg-white/[0.04]" : ""}`}
-                            >
-                              <span
-                                className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${pid === "inception" ? "bg-emerald-400" : "bg-sky-400"}`}
-                              />
-                              <span className="min-w-0 flex-1">
-                                <span className="flex flex-wrap items-center gap-1.5">
-                                  <span className="truncate text-xs font-medium text-white/85">
-                                    {m.label}
-                                  </span>
-                                  {m.isDefault && (
-                                    <span className="rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/80">
-                                      Default
-                                    </span>
-                                  )}
-                                  {m.isFallback && (
-                                    <span className="rounded-full bg-sky-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-300/80">
-                                      Fallback
-                                    </span>
-                                  )}
-                                </span>
-                                <span className="mt-0.5 block text-[10px] leading-snug text-white/40">
-                                  {m.description}
-                                </span>
-                              </span>
-                              {isSelected && (
-                                <svg
-                                  aria-hidden
-                                  viewBox="0 0 24 24"
-                                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <path d="M20 6L9 17l-5-5" />
-                                </svg>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t border-white/[0.06] px-4 py-2.5">
-                    <p className="text-[10px] leading-snug text-white/30">
-                      Document reviews use {getVisionModel().label}
-                      {" — "}
-                      {providerLabel(getVisionModel().provider)} vision.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
             <div className="relative" ref={notificationRef}>
               {(() => {
                 const minDays =
@@ -3433,7 +3306,10 @@ export default function ChatApp({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-8 sm:px-8">
+        <div
+          ref={chatScrollRef}
+          className="min-h-0 flex-1 overflow-y-auto px-5 py-8 sm:px-8"
+        >
           {active && active.messages.length > 0 ? (
             <ul className="mx-auto flex max-w-3xl flex-col gap-6">
               {active.messages.map((message) => {
@@ -3619,25 +3495,6 @@ export default function ChatApp({
                             }
                             return renderContentBlocks(blocks);
                           })()}
-                          {message.servedModel && (
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span
-                                title={
-                                  message.servedFallback
-                                    ? "Answered by the fallback provider"
-                                    : "Answered by the selected model"
-                                }
-                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                                  message.servedFallback
-                                    ? "border-amber-400/30 bg-amber-400/10 text-amber-200/80"
-                                    : "border-white/10 bg-white/[0.03] text-white/40"
-                                }`}
-                              >
-                                {message.servedFallback ? "fallback · " : ""}
-                                {message.servedModel}
-                              </span>
-                            </div>
-                          )}
                           {message.citations &&
                             message.citations.length > 0 && (
                               <div className="flex flex-wrap items-center gap-1.5">
@@ -4003,9 +3860,9 @@ export default function ChatApp({
                   </li>
                 );
               })}
-              {isThinking ? (
+              {isThinking && showThinking ? (
                 <li className="animate-message-in flex justify-start">
-                  <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
+                  <div className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
                     <span className="flex gap-1" aria-hidden>
                       <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-white/60" />
                       <span
@@ -4017,9 +3874,13 @@ export default function ChatApp({
                         style={{ animationDelay: "0.3s" }}
                       />
                     </span>
-                    <span>Thinking…</span>
-                    <span className="text-white/35">
-                      {selectedModel.shortLabel}
+                    <span
+                      key={thinkingStage}
+                      role="status"
+                      aria-live="polite"
+                      className="animate-status-in"
+                    >
+                      {THINKING_STEPS[thinkingStage]}
                     </span>
                   </div>
                 </li>
@@ -4458,7 +4319,7 @@ export default function ChatApp({
                       <button
                         type="submit"
                         disabled={
-                          (!draft.trim() && !pendingAttachment) || isThinking
+                          (!draft.trim() && !pendingAttachment) || isResponding
                         }
                         aria-label="Send message"
                         className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
@@ -4823,7 +4684,7 @@ export default function ChatApp({
                       <button
                         type="submit"
                         disabled={
-                          (!draft.trim() && !pendingAttachment) || isThinking
+                          (!draft.trim() && !pendingAttachment) || isResponding
                         }
                         aria-label="Send message"
                         className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
@@ -4911,7 +4772,7 @@ export default function ChatApp({
                       <button
                         type="submit"
                         disabled={
-                          (!draft.trim() && !pendingAttachment) || isThinking
+                          (!draft.trim() && !pendingAttachment) || isResponding
                         }
                         aria-label="Send message"
                         className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
@@ -6640,7 +6501,7 @@ export default function ChatApp({
               />
               <button
                 type="submit"
-                disabled={(!draft.trim() && !pendingAttachment) || isThinking}
+                disabled={(!draft.trim() && !pendingAttachment) || isResponding}
                 aria-label="Send message"
                 className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
               >
@@ -7566,7 +7427,7 @@ export default function ChatApp({
               <button
                 type="button"
                 onClick={() => {
-                  setDisclaimerOpen(true);
+                  setShowDisclaimer(true);
                 }}
                 className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-white/70 transition-colors hover:bg-white/[0.05] hover:text-white"
               >
@@ -7847,12 +7708,7 @@ export default function ChatApp({
         <div
           className="animate-overlay-in fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm"
           onClick={() => {
-            try {
-              if (localStorage.getItem(DISCLAIMER_KEY) === "true")
-                setDisclaimerOpen(false);
-            } catch {
-              setDisclaimerOpen(false);
-            }
+            setShowDisclaimer(false);
           }}
         >
           <div
@@ -7866,12 +7722,7 @@ export default function ChatApp({
               <button
                 type="button"
                 onClick={() => {
-                  try {
-                    if (localStorage.getItem(DISCLAIMER_KEY) === "true")
-                      setDisclaimerOpen(false);
-                  } catch {
-                    setDisclaimerOpen(false);
-                  }
+                  setShowDisclaimer(false);
                 }}
                 className="rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/5 hover:text-white"
                 aria-label="Close"
@@ -7925,12 +7776,9 @@ export default function ChatApp({
               <button
                 type="button"
                 onClick={() => {
-                  try {
-                    localStorage.setItem(DISCLAIMER_KEY, "true");
-                  } catch {
-                    /* ignore */
-                  }
-                  setDisclaimerOpen(false);
+                  rememberDisclaimerAcceptance(sessionId);
+                  setAcceptedThisVisit(true);
+                  setShowDisclaimer(false);
                 }}
                 className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-white/90"
               >

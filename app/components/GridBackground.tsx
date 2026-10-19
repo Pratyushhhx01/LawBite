@@ -11,8 +11,10 @@ export default function GridBackground({
   return (
     <div
       aria-hidden
-      className={`pointer-events-none absolute inset-0 ${pattern} ${className}`}
-      style={{ animation: "grid-pan 30s linear infinite" }}
-    />
+      className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
+    >
+      {/* Oversized by one full loop (120px) so the transform stays seamless. */}
+      <div className={`grid-pan-layer absolute -inset-[120px] ${pattern}`} />
+    </div>
   );
 }

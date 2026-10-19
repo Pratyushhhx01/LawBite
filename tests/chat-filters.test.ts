@@ -3,6 +3,7 @@ import {
   isNonLegalQuery,
   mentionsForeignJurisdiction,
   classifyQuery,
+  legalAcronymContext,
 } from "@/app/api/chat/route";
 
 // ─── isNonLegalQuery ────────────────────────────────────────────────
@@ -572,5 +573,28 @@ describe("Combined pipeline: non-legal + foreign jurisdiction", () => {
     nonLegalWhoIs.forEach((q) => {
       expect(isNonLegalQuery(q)).toBe(true);
     });
+  });
+});
+
+// ─── legalAcronymContext ────────────────────────────────────────────
+
+describe("legalAcronymContext", () => {
+  it("expands bare Indian legal acronyms instead of refusing them", () => {
+    const context = legalAcronymContext("what is ipc");
+    expect(context).toContain("IPC = Indian Penal Code, 1860");
+    expect(context).toContain("Bharatiya Nyaya Sanhita");
+    expect(context).toContain("MUST be answered");
+  });
+
+  it("expands several acronyms without confusing BNS and BNSS", () => {
+    const context = legalAcronymContext("compare IPC, CrPC, BNS and BNSS");
+    expect(context).toContain("IPC = Indian Penal Code");
+    expect(context).toContain("CrPC = Code of Criminal Procedure");
+    expect(context).toContain("BNS = Bharatiya Nyaya Sanhita");
+    expect(context).toContain("BNSS = Bharatiya Nagarik Suraksha Sanhita");
+  });
+
+  it("adds nothing to an unrelated query", () => {
+    expect(legalAcronymContext("what is the weather today")).toBe("");
   });
 });

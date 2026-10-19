@@ -261,8 +261,12 @@ describe("chat first-content watchdog", () => {
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(requests[0].body.model).toBe("meta/muse-glimmer-30b");
-    expect(requests[1].body.model).not.toBe("meta/muse-glimmer-30b");
+    expect(requests[0].body.model).toBe(
+      "nvidia/nemotron-3-super-120b-a12b",
+    );
+    expect(requests[1].body.model).not.toBe(
+      "nvidia/nemotron-3-super-120b-a12b",
+    );
     expect(content).toContain("unlawful assembly");
   });
 

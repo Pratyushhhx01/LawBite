@@ -37,8 +37,9 @@ npm run test:watch   # Vitest in watch mode
 LawBite is provider-agnostic. Every provider is an OpenAI-compatible
 `/v1/chat/completions` endpoint, and `lib/ai-providers.ts` is the single source
 of truth for the provider list, the model catalogue, request shaping, and the
-failover order. The UI reads that same module, so the picker can never drift
-from what the server actually supports.
+failover order. Model choice is entirely server-side: the chat client never
+sends a model, so the route always starts at the default and walks the failover
+chain on its own.
 
 ### Default provider: Inception Labs (Mercury 2.5)
 
@@ -57,9 +58,11 @@ noticeably faster for the short, high-turnover replies the chat UI produces.
 | Sampling params | `temperature`, `stop`, `reasoning_effort`, `max_completion_tokens` |
 | Modalities      | text                                                               |
 
-Inception exposes two more models, `mercury-2` and `mercury-decide`. Mercury 2
-is selectable in the UI; Mercury Decide is a typed-decision preview that uses a
-different endpoint and is intentionally not listed.
+Inception also offers `mercury-2` and `mercury-decide`. Mercury 2 stays in the
+catalogue for explicit legacy selections but is **not** used automatically:
+accuracy testing showed it inventing old IPC section numbers and misnaming the
+new statutes. Mercury Decide is a typed-decision preview that uses a different
+endpoint and is intentionally not listed.
 
 ### Fallback provider: NVIDIA
 
@@ -68,22 +71,33 @@ HTTP error, rate limit, connection timeout, a stalled stream, or an SSE error
 frame — the request is transparently retried against the NVIDIA chain, so a
 single-provider outage never takes the assistant down.
 
-| Model id                                | Role                             |
-| --------------------------------------- | -------------------------------- |
-| `meta/muse-glimmer-30b`                 | Primary NVIDIA fallback          |
-| `nvidia/nemotron-3.5-lightning-30b-a3b` | Second-line fallback             |
-| `nvidia/nemotron-3-super-120b-a12b`     | High-quality fallback            |
-| `meta/llama-3.2-11b-vision-instruct`    | Vision model for document review |
+| Model id                                | Role                                      |
+| --------------------------------------- | ----------------------------------------- |
+| `nvidia/nemotron-3-super-120b-a12b`     | Primary NVIDIA fallback (fastest measured) |
+| `nvidia/nemotron-3.5-lightning-30b-a3b` | Second-line fallback                      |
+| `meta/muse-glimmer-30b`                 | Last-resort fallback                      |
+| `meta/llama-3.2-11b-vision-instruct`    | Vision model for document review          |
+
+The order is deliberate: measured on this deployment, Nemotron Super returned
+its first token in roughly 3–5s, while Glimmer and Lightning could stall for
+20s+. Putting Super first keeps an Inception outage from turning into a
+half-minute wait.
 
 ### Behaviour
 
 - **Default:** Inception Mercury 2.5.
-- **Failover chain:** selected model → its provider's other models → the other
+- **Failover chain:** default model → its provider's other models → the other
   provider's models. Providers without a configured API key are skipped, so a
-  local checkout with only one key still works.
+  local checkout with only one key still works. For short chat modes, Mercury
+  2.5 is retried a few times before NVIDIA: a free-tier 429 returns in a few
+  hundred milliseconds, so another attempt is much faster than waiting on the
+  slow fallback.
+- **Bare legal acronyms:** IPC, CrPC, BNS, BNSS, BSA and CPC are expanded in the
+  prompt, so a one-word question like `what is ipc` is answered as an Indian-law
+  question instead of being refused as an unknown abbreviation.
 - **Vision:** document review (`review` mode) and any message carrying an image
-  are pinned to the NVIDIA vision model regardless of the picker. The header chip
-  shows an **Auto** badge when this happens.
+  are pinned to the NVIDIA vision model, whatever the failover chain would have
+  picked.
 - **Reasoning budget:** Mercury emits hidden reasoning tokens that count against
   the completion budget. The route enforces a floor
   (`MIN_REASONING_MAX_TOKENS = 4096`) so a small budget can never be consumed
@@ -122,18 +136,21 @@ Override every mode with an env var:
 CHAT_REASONING_EFFORT=instant   # instant | low | medium | high
 ```
 
-Two further knobs exist but are not on by default:
+Two further knobs:
 
-- `CHAT_REALTIME=1` sends Inception's `realtime` flag. Measured against
-  `instant` effort it made no meaningful difference, so it is opt-in.
+- `CHAT_REALTIME` sends Inception's latency hint. It is **on by default** for
+  Inception requests because measurements showed roughly half the
+  time-to-first-token and a better chance of getting through a busy free tier.
+  Set `CHAT_REALTIME=0` to disable it.
 - `CHAT_RATE_LIMIT_RETRIES` / `CHAT_RATE_LIMIT_BACKOFF_MS` tune the HTTP 429
-  retry policy (default 3 retries at 300/800/1600 ms).
+  retry policy for deep modes (default 3 retries at 300/800/1600 ms). Short
+  modes skip the same-model backoff and retry Mercury 2.5 a few times instead.
 
 **Why retries matter:** the Inception free tier is capacity-limited and returned
-`429 free tier is at capacity` on roughly half of requests during testing.
-Because 429 is recoverable, the route retries the _fast_ model briefly before
-walking the failover chain — otherwise every capacity blip silently produced a
-slow NVIDIA answer.
+`429 free tier is at capacity` on a large share of requests during testing.
+Because 429 is recoverable, short modes retry the accurate Mercury 2.5 several
+times before walking to NVIDIA — so a capacity blip costs a few hundred
+milliseconds instead of a slow fallback answer.
 
 The route also logs its own timings so you can see where a request spends time:
 
@@ -150,7 +167,7 @@ Where the milliseconds actually go on a warm request:
 | -------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sessionMs`          | ~0 warm, ~500 warm-miss, ~1900 cold | `auth.api.getSession` is a Postgres round trip. Now cached per session cookie for 60s, which took typical chat from ~1.5s to **~0.8s** end to end. |
 | `contextMs`          | ~400-600                            | S3 bare-acts lookup + optional Tavily search, run in parallel. `0` when the query needs no lookup.                                                 |
-| `firstTokenMs`       | ~0.7-1.6s                           | The model. This is what `reasoning_effort` controls.                                                                                               |
+| `firstTokenMs`       | ~0.5-1.8s                           | The model. `reasoning_effort` and the `realtime` flag control this.                                                                                |
 | `first client frame` | ≈ `firstTokenMs`                    | Proof the server is not buffering — the reply leaves as soon as the model produces it.                                                             |
 
 For reference, the same question measured **~8-11s** end to end before the
@@ -160,31 +177,42 @@ For reference, the same question measured **~8-11s** end to end before the
 
 Two things are outside the app's control and show up as occasional slowness:
 
-- **Inception free-tier capacity.** The tier is rate-limited per minute on
-  _output_ tokens (100K/min) and returned `429 free tier is at capacity` on
-  roughly half of rapid sequential test requests. Requests can also just take
-  5s+ to first token when the tier is busy. Lowering `reasoning_effort` reduces
-  output tokens, which directly reduces how often this happens.
+- **Inception free-tier capacity.** The tier is rate-limited per minute and
+  returned `429 free tier is at capacity` on a large share of rapid test
+  requests. Short modes therefore use `realtime` by default and retry Mercury 2.5
+  several times before falling back; a 429 costs only a few hundred
+  milliseconds. Set `CHAT_REALTIME=0` to disable the latency hint.
 - **NVIDIA fallback is markedly slower.** When Inception fails after its retries,
-  the reply is served by NVIDIA and takes much longer. The per-message model chip
-  shows `fallback · <model>` in amber when this happens, so it is visible rather
-  than simply feeling slow.
+  the reply is served by NVIDIA. The fallback order now starts with Nemotron
+  Super, which measured 3–5s to first token; Glimmer and Lightning are kept only
+  as last resorts because they can take 20s or more. The failover is automatic
+  and silent in the UI, so a slow reply usually means it fell back rather than
+  that the request was lost.
 
-Buffered modes (`analysis`, and table-shaped `talk-to-ai` replies) deliberately
-hold the whole answer before sending it, because the reply is repaired
-afterwards (blank table cells, missing section references). They therefore feel
-slower than their actual `firstTokenMs`: the user sees one frame at the end.
-Switching those to stream-then-replace would improve perceived speed at the cost
-of a possible visible rewrite, so it is left as a deliberate tradeoff.
+Deep Analysis is the only buffered mode: it holds the whole answer because the
+reply is repaired afterwards (blank table cells, missing section references), so
+the server sends one frame at the end and the chat UI reveals it word by word.
+The reveal runs at ~60 words/s and catches up on a buffered block in about a
+second.
 
-### Switching models
+Table-shaped `talk-to-ai` replies stream as they are generated. The same checks
+run at the end, but the route sends a `replace` frame only when a requested
+section was actually omitted or a cell was left blank. The common case has no
+extra wait and no visible rewrite; a genuine repair is applied to the already
+visible table.
 
-Open any conversation and click the model chip in the top-right header. The chip
-is visible in every mode — Talk to AI, Deep Analysis, AI Lawyer, Document Drafter
-and Document Reviewer (the PDF/document reader) — and the selection is persisted
-to `localStorage` under `lawbite-model`. Each request then carries that model id
-in its `POST /api/chat` body; the server resolves and validates it, falling back
-to the default if it is unknown.
+While a reply is pending, the chat shows a short staged status
+(thinking → searching legal resources → generating → finalizing), one label at a
+time. The card is held back for a moment so fast replies appear directly without
+a status flash, and it is removed the instant real content starts arriving.
+
+### Model selection
+
+Model choice is automatic and server-side. The chat client never sends a model,
+so every request starts at Mercury 2.5 and the route walks the failover chain on
+its own: same-provider siblings first, then the NVIDIA fallback. Document review
+and image attachments always use the vision model. Because there is no model
+picker in the chat UI, all users get the same default-first behaviour.
 
 ### Environment variables
 

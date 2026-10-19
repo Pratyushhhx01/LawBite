@@ -229,7 +229,7 @@ describe("buildCandidateChain", () => {
     vi.stubEnv("NVIDIA_API_KEY", "test-nvidia");
     const chain = buildCandidateChain({});
     expect(chain.every((m) => m.provider === "nvidia")).toBe(true);
-    expect(chain[0].id).toBe("nvidia:meta/muse-glimmer-30b");
+    expect(chain[0].id).toBe("nvidia:nvidia/nemotron-3-super-120b-a12b");
   });
 
   it("always routes review/image requests to the vision model", () => {
@@ -252,6 +252,19 @@ describe("buildCandidateChain", () => {
     configureBoth();
     const chain = buildCandidateChain({ requestedModelId: "not-a-model" });
     expect(chain[0].id).toBe("inception:mercury-2.5");
+  });
+
+  it("never selects Mercury 2 automatically because it misquotes the new statutes", () => {
+    configureBoth();
+    const chain = buildCandidateChain({});
+    expect(chain.some((m) => m.id === "inception:mercury-2")).toBe(false);
+    expect(chain[0].id).toBe("inception:mercury-2.5");
+  });
+
+  it("still honours an explicit legacy Mercury 2 request", () => {
+    configureBoth();
+    const chain = buildCandidateChain({ requestedModelId: "mercury-2" });
+    expect(chain[0].id).toBe("inception:mercury-2");
   });
 
   it("never returns an empty chain even with no keys configured", () => {

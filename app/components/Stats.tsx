@@ -64,7 +64,7 @@ function StatItem({ stat, index }: { stat: Stat; index: number }) {
       <div className="group relative flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/[0.015] p-7 transition-all duration-500 hover:border-white/25 hover:bg-white/[0.03] sm:p-9">
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/0 blur-2xl transition-all duration-700 group-hover:bg-white/10"
+          className="hover-blur-glow pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/0 blur-2xl transition-all duration-700 group-hover:bg-white/10"
         />
         <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.25em] text-white/40">
           <span className="inline-block h-1 w-1 rounded-full bg-white/40" />

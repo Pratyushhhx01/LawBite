@@ -29,7 +29,12 @@ vi.mock("@/lib/s3", () => ({
 }));
 
 const { searchMock } = vi.hoisted(() => ({
-  searchMock: vi.fn(async () => ({ answer: "", results: [] })),
+  searchMock: vi.fn(
+    async (): Promise<{
+      answer: string;
+      results: { title: string; content: string; url: string }[];
+    }> => ({ answer: "", results: [] }),
+  ),
 }));
 vi.mock("@tavily/core", () => ({
   tavily: () => ({ search: searchMock }),
@@ -113,17 +118,24 @@ async function readSse(res: Response): Promise<{
       if (Array.isArray(parsed.citations)) citations.push(parsed.citations);
     }
   }
-  const content = raw
-    .map((f) => {
-      const frame = f as {
-        content?: unknown;
-        choices?: { delta?: { content?: unknown } }[];
-      };
-      if (typeof frame.content === "string") return frame.content;
-      const nested = frame.choices?.[0]?.delta?.content;
-      return typeof nested === "string" ? nested : "";
-    })
-    .join("");
+  let content = "";
+  for (const f of raw) {
+    const frame = f as {
+      content?: unknown;
+      replace?: unknown;
+      choices?: { delta?: { content?: unknown } }[];
+    };
+    if (frame.replace === true && typeof frame.content === "string") {
+      content = frame.content;
+      continue;
+    }
+    if (typeof frame.content === "string") {
+      content += frame.content;
+      continue;
+    }
+    const nested = frame.choices?.[0]?.delta?.content;
+    if (typeof nested === "string") content += nested;
+  }
   return { content, raw, citations, doneCount };
 }
 
@@ -142,7 +154,9 @@ describe("Talk to AI mode", () => {
       delta("You can file a consumer complaint within two years of the issue."),
       finish,
     ]);
-    const fetchMock = vi.fn(async () => sseResponse(text, 9));
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () => sseResponse(text, 9));
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await POST(
@@ -163,12 +177,40 @@ describe("Talk to AI mode", () => {
     expect(body.max_tokens).toBe(4096);
   });
 
+  it("expands a bare legal acronym so the model does not refuse it", async () => {
+    const text = framesToText([
+      delta(
+        "IPC is the Indian Penal Code, 1860, replaced by the BNS in 2024.",
+      ),
+      finish,
+    ]);
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () => sseResponse(text));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(makeRequest("talk-to-ai", "what is ipc"));
+    const { content } = await readSse(res);
+
+    expect(content).toBe(
+      "IPC is the Indian Penal Code, 1860, replaced by the BNS in 2024.",
+    );
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    expect(body.messages[0].content).toContain(
+      "IPC = Indian Penal Code, 1860",
+    );
+  });
+
   it("maps the legacy chat type onto talk-to-ai", async () => {
     const text = framesToText([
       delta("Bail is the release of an accused pending trial."),
       finish,
     ]);
-    const fetchMock = vi.fn(async () => sseResponse(text));
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () => sseResponse(text));
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await POST(makeRequest("chat", "What is bail?"));
@@ -223,7 +265,7 @@ describe("Talk to AI mode", () => {
     ]);
   });
 
-  it("buffers a multi-section table reply, repairs blank cells, and emits it once", async () => {
+  it("streams a multi-section table reply, repairs blank cells, and replaces it once", async () => {
     const badTable = [
       "| Section | Offence | Punishment |",
       "| --- | --- | --- |",
@@ -280,6 +322,27 @@ describe("Deep Analysis mode", () => {
     expect(content).toBe(analysis);
     expect(content).not.toMatch(NO_FALLBACK);
     expect(doneCount).toBe(1);
+  });
+
+  it("injects the legal-acronym glossary so 'what is ipc' is not refused", async () => {
+    const answer =
+      "IPC stands for the Indian Penal Code, 1860, replaced by the BNS in 2024.";
+    const text = framesToText([delta(answer), finish]);
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () => sseResponse(text));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(makeRequest("analysis", "what is ipc"));
+    const { content } = await readSse(res);
+
+    expect(content).toBe(answer);
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    expect(body.messages[0].content).toContain(
+      "IPC = Indian Penal Code, 1860",
+    );
   });
 
   it("detects a table missing a requested section and repairs it via retry", async () => {
@@ -408,9 +471,9 @@ describe("Document Reviewer mode", () => {
   it("routes to the vision review model and streams the review", async () => {
     const review =
       "Clause 1: Payment terms are 30 days — low risk. Clause 2: Unlimited liability — high risk, negotiate a cap.";
-    const fetchMock = vi.fn(async () =>
-      sseResponse(framesToText([delta(review), finish]), 8),
-    );
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () => sseResponse(framesToText([delta(review), finish]), 8));
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await POST(

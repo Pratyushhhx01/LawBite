@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
+import { clearDisclaimerAcceptance } from "@/lib/disclaimer";
 import {
   handleSectionAnchor,
   isSectionHref,
@@ -46,6 +47,7 @@ export default function Navbar() {
   }, [profileOpen]);
 
   async function handleSignOut() {
+    clearDisclaimerAcceptance();
     await signOut();
     window.location.href = "/";
   }
@@ -53,10 +55,10 @@ export default function Navbar() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-4 sm:pt-6">
       <nav
-        className={`relative flex w-full max-w-6xl items-center justify-between gap-6 rounded-full border px-4 py-2.5 sm:px-6 transition-all duration-500 ${
+        className={`relative flex w-full max-w-6xl items-center justify-between gap-6 rounded-full border px-4 py-2.5 sm:px-6 transition-colors duration-500 ${
           scrolled
-            ? "border-white/15 bg-black/70 backdrop-blur-xl"
-            : "border-white/10 bg-black/40 backdrop-blur-md"
+            ? "border-white/15 bg-black/70 backdrop-blur-xl [@media(hover:none)]:bg-black/90 [@media(hover:none)]:backdrop-blur-none"
+            : "border-white/10 bg-black/40 backdrop-blur-md [@media(hover:none)]:bg-black/80 [@media(hover:none)]:backdrop-blur-none"
         }`}
       >
         <Link

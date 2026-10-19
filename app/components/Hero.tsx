@@ -12,7 +12,7 @@ export default function Hero() {
         <GridBackground />
         <div className="absolute inset-0 bg-gradient-to-b from-black via-black/60 to-black" />
         <div
-          className="absolute left-1/2 top-1/2 h-[520px] w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70 blur-3xl"
+          className="absolute left-1/2 top-1/2 h-[520px] w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70"
           style={{
             background:
               "radial-gradient(closest-side, rgba(255,255,255,0.18), transparent 70%)",

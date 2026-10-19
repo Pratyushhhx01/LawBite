@@ -1195,6 +1195,60 @@ export function mentionsForeignJurisdiction(query: string): boolean {
   });
 }
 
+/**
+ * Bare acronyms like "ipc" are unambiguously Indian statutes to a lawyer, but
+ * models often read them as generic tech/government abbreviations and refuse.
+ * Inject the expansion so a one-word acronym question is answered instead of
+ * rejected as non-legal.
+ */
+const LEGAL_ACRONYMS: Array<{ pattern: RegExp; definition: string }> = [
+  {
+    pattern: /\bipc\b/i,
+    definition:
+      "IPC = Indian Penal Code, 1860. Replaced by the Bharatiya Nyaya Sanhita (BNS), 2023, with effect from 1 July 2024.",
+  },
+  {
+    pattern: /\bcrpc\b/i,
+    definition:
+      "CrPC = Code of Criminal Procedure, 1973. Replaced by the Bharatiya Nagarik Suraksha Sanhita (BNSS), 2023, with effect from 1 July 2024.",
+  },
+  {
+    pattern: /\bevidence\s+act\b/i,
+    definition:
+      "Evidence Act = Indian Evidence Act, 1872. Replaced by the Bharatiya Sakshya Adhiniyam (BSA), 2023, with effect from 1 July 2024.",
+  },
+  {
+    pattern: /\bbns\b/i,
+    definition:
+      "BNS = Bharatiya Nyaya Sanhita, 2023 — the current Indian criminal code, replacing the IPC.",
+  },
+  {
+    pattern: /\bbnss\b/i,
+    definition:
+      "BNSS = Bharatiya Nagarik Suraksha Sanhita, 2023 — the current Indian criminal procedure code, replacing the CrPC.",
+  },
+  {
+    pattern: /\bbsa\b/i,
+    definition:
+      "BSA = Bharatiya Sakshya Adhiniyam, 2023 — the current Indian evidence law, replacing the Indian Evidence Act.",
+  },
+  {
+    pattern: /\bcpc\b/i,
+    definition:
+      "CPC = Code of Civil Procedure, 1908 — the Indian law governing civil procedure.",
+  },
+];
+
+export function legalAcronymContext(query: string): string {
+  const definitions = LEGAL_ACRONYMS.filter(({ pattern }) =>
+    pattern.test(query),
+  ).map(({ definition }) => `- ${definition}`);
+  if (definitions.length === 0) return "";
+  return `REFERENCE — INDIAN LEGAL ACRONYMS (these are Indian statutes; a question that uses only an acronym is still a legal question and MUST be answered):\n${definitions.join(
+    "\n",
+  )}\nIf the user asks what an acronym means, identify the Act, its year, and whether it remains in force or has been replaced.`;
+}
+
 export async function classifyQuery(query: string): Promise<boolean> {
   const lower = query.toLowerCase();
   const currentYear = new Date().getFullYear();
@@ -2594,6 +2648,12 @@ Never transpose tables, never leave a table cell blank, never invent section num
     const isTalkToAi = conversationType === "talk-to-ai";
     const isDraft = conversationType === "draft";
     const isAnalysis = conversationType === "analysis";
+    // Chat, Talk to AI, and Grill are latency-sensitive short modes. Analysis,
+    // drafting, and document review deliberately favour depth over speed.
+    const isShortMode =
+      !conversationType ||
+      conversationType === "talk-to-ai" ||
+      conversationType === "grill";
     const isAnalysisMultiRef =
       conversationType === "analysis" && tableAppropriate;
     const hasRefs = refCount >= 1;
@@ -2640,6 +2700,8 @@ Never transpose tables, never leave a table cell blank, never invent section num
 
     let finalSystemPrompt = systemPrompt;
     const contextParts: string[] = [];
+    const acronymContext = legalAcronymContext(`${userQuery}\n${contextQuery}`);
+    if (acronymContext) contextParts.push(acronymContext);
     if (webSearchContext) contextParts.push(webSearchContext);
     if (legalContext) contextParts.push(legalContext);
     if (refs.sections.length > 0) {
@@ -2704,18 +2766,30 @@ Never transpose tables, never leave a table cell blank, never invent section num
       lastUserMessage.content.some(
         (p: { type: string }) => p.type === "image_url",
       );
-    // Document review and image attachments need a vision model, so they bypass
-    // the picker and always route to the NVIDIA vision endpoint.
+    // Document review and image attachments need a vision model, so they ignore
+    // the chain and always route to the NVIDIA vision endpoint.
     const needsVision = conversationType === "review" || hasMultimodalContent;
 
-    // Resolve the picker selection into an ordered failover chain: the selected
-    // model first (default Mercury 2.5), then its provider siblings, then the
-    // other provider — so an Inception outage degrades to NVIDIA automatically.
+    // Resolve the request into an ordered failover chain: the requested model
+    // first (the chat client sends none, so this is the default Mercury 2.5),
+    // then its provider siblings, then the other provider — so an Inception
+    // outage degrades to NVIDIA automatically.
     const modelsToTry = buildCandidateChain({
       requestedModelId: rawModelId,
       needsVision,
     });
     const requestedModel = modelsToTry[0];
+    // The Inception free tier is frequently at capacity and answers a 429 in a
+    // few hundred milliseconds. For short modes, retry the accurate Mercury 2.5
+    // a few times before dropping to NVIDIA, whose first token is several
+    // seconds slower. Mercury 2 is not retried automatically: it is fast but
+    // hallucinated old IPC numbers in accuracy testing.
+    const requestChain = (() => {
+      if (!isShortMode || needsVision) return modelsToTry;
+      const best = modelsToTry[0];
+      if (best.id !== "inception:mercury-2.5") return modelsToTry;
+      return [best, best, best, best, ...modelsToTry.slice(1)];
+    })();
 
     // Reasoning effort is the single biggest latency lever on Mercury. The API
     // documents `medium` as the default, which costs several seconds of hidden
@@ -2726,11 +2800,11 @@ Never transpose tables, never leave a table cell blank, never invent section num
     const reasoningEffort: ReasoningEffort | undefined = needsVision
       ? undefined
       : resolveReasoningEffort(conversationType);
-    // `realtime` is available but off by default: measured against `instant`
-    // effort it added no latency benefit, so we only send it when explicitly
-    // requested via CHAT_REALTIME=1. Providers without support drop the flag
-    // inside buildProviderPayload.
-    const wantRealtime = !needsVision && process.env.CHAT_REALTIME === "1";
+    // `realtime` asks Inception for the lowest time-to-first-token. Measurements
+    // on the free tier show it roughly halves TTFT and improves the chance of
+    // getting through when capacity is tight, so it is on by default. Set
+    // CHAT_REALTIME=0 to turn it off. NVIDIA drops the flag (unsupported).
+    const wantRealtime = !needsVision && process.env.CHAT_REALTIME !== "0";
 
     if (rawModelId && !getModel(rawModelId)) {
       console.warn(
@@ -2745,12 +2819,12 @@ Never transpose tables, never leave a table cell blank, never invent section num
       /(comparison|compare|difference|differences|in a table|as a table|\btable\b)/i.test(
         userQuery,
       );
-    // Analysis and table replies are quality-checked (tightened, missing
-    // refs/blank cells repaired) after the stream ends, so they are buffered
-    // instead of streamed — otherwise the checked version would duplicate the
-    // raw one, or the checks would never run at all.
-    const bufferOutput =
-      isAnalysis || (isTalkToAi && (tableAppropriate || explicitTableRequest));
+    // Deep Analysis is quality-checked (tightened, missing refs/blank cells
+    // repaired) after the stream ends, so it is buffered instead of streamed.
+    // Talk-to-ai tables stream as they are generated and only send a `replace`
+    // frame when the repair materially changes the answer, so users see text
+    // immediately instead of waiting for the whole table.
+    const bufferOutput = isAnalysis;
     let responseText = "";
     let lastError = "";
     let streamReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
@@ -2758,7 +2832,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
     let workingModel = "";
     let workingCandidate: ModelInfo = requestedModel;
     console.log(
-      `[ChatAPI] convType=${conversationType}, model=${requestedModel.id}, effort=${reasoningEffort ?? "none"}, chain=${modelsToTry
+      `[ChatAPI] convType=${conversationType}, model=${requestedModel.id}, effort=${reasoningEffort ?? "none"}, chain=${requestChain
         .map((m) => m.id)
         .join(
           " > ",
@@ -2766,7 +2840,22 @@ Never transpose tables, never leave a table cell blank, never invent section num
     );
 
     const modelStart = Date.now();
-    for (const candidate of modelsToTry) {
+    // Short modes rely on the repeated Mercury 2.5 pass (above) instead of the
+    // same-model retry loop, so each 429 is followed immediately by another
+    // attempt without the long backoff. Deep modes keep the env-tunable budget.
+    const retriesFor = (candidate: ModelInfo) =>
+      isShortMode
+        ? 0
+        : candidate.id === modelsToTry[0].id
+          ? RATE_LIMIT_RETRIES
+          : 1;
+    // A short-mode request either starts quickly or is rate-limited quickly;
+    // don't let a silent model sit for the full 20s watchdog before failover.
+    const firstContentTimeoutMs =
+      isShortMode && !needsVision
+        ? Math.min(FIRST_CONTENT_TIMEOUT_MS, 10_000)
+        : FIRST_CONTENT_TIMEOUT_MS;
+    for (const candidate of requestChain) {
       const label = candidate.id;
       const reqBody = buildProviderPayload(candidate, {
         messages: messagesWithSystem,
@@ -2779,13 +2868,10 @@ Never transpose tables, never leave a table cell blank, never invent section num
         realtime: wantRealtime,
       });
       try {
-        // A 429 from the fast default means "retry shortly", not "this model is
-        // broken" — see callProviderWithRetry.
-        const isPreferred = candidate === modelsToTry[0];
         const res = await callProviderWithRetry(
           candidate,
           reqBody,
-          isPreferred ? RATE_LIMIT_RETRIES : 1,
+          retriesFor(candidate),
         );
         if (!res.ok) {
           lastError = `${label}: HTTP ${res.status}`;
@@ -2809,7 +2895,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
           // Streaming modes reach the browser byte-by-byte, so hold each model
           // to a first-visible-token deadline and fail over if it only reasons.
           const requireVisibleContent = !bufferOutput;
-          const peekDeadline = Date.now() + FIRST_CONTENT_TIMEOUT_MS;
+          const peekDeadline = Date.now() + firstContentTimeoutMs;
           // A model that goes completely quiet sends no bytes at all, so the
           // deadline has to race the read instead of being checked after it —
           // otherwise failover stalls until the provider finally gives up.
@@ -2817,7 +2903,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
           const peekExpired = new Promise<null>((resolve) => {
             peekTimer = setTimeout(
               () => resolve(null),
-              FIRST_CONTENT_TIMEOUT_MS,
+              firstContentTimeoutMs,
             );
           });
           try {
@@ -2846,7 +2932,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
             lastError = headError
               ? `${label}: SSE error: ${headError}`
               : stalled
-                ? `${label}: no visible content within ${FIRST_CONTENT_TIMEOUT_MS}ms`
+                ? `${label}: no visible content within ${firstContentTimeoutMs}ms`
                 : `${label}: stream ended without content`;
             console.warn(
               `Model ${label} unusable (${lastError}), trying next...`,
@@ -2979,6 +3065,9 @@ Never transpose tables, never leave a table cell blank, never invent section num
           let allReasoningContent = "";
           let rawContent = "";
           let emittedLen = 0;
+          // Exact bytes the client has been told to display, so an end-of-stream
+          // repair can decide whether a `replace` frame is actually needed.
+          let emittedVisibleText = "";
           const HOLD_CHARS = 40;
           const enqueueContent = (text: string) => {
             if (!text) return;
@@ -2988,9 +3077,11 @@ Never transpose tables, never leave a table cell blank, never invent section num
               );
             }
             emittedAny = true;
+            const fixed = fixArticleSectionTerminology(text);
+            emittedVisibleText += fixed;
             controller.enqueue(
               encoder.encode(
-                `data: ${JSON.stringify({ content: fixArticleSectionTerminology(text) })}\n\n`,
+                `data: ${JSON.stringify({ content: fixed })}\n\n`,
               ),
             );
           };
@@ -3137,9 +3228,15 @@ Never transpose tables, never leave a table cell blank, never invent section num
               }
             }
 
-            // Table replies in Talk to AI are buffered, then tightened and
-            // repaired (missing sections, blank cells) before a single emit.
-            if (isTalkToAi && bufferOutput && rawContent) {
+            // Talk-to-ai tables stream as they are generated. The quality
+            // checks still run afterwards, but only a genuine defect (omitted
+            // section or blank cell) sends a `replace` frame — so the common
+            // case costs no extra wait and no visible rewrite.
+            if (
+              isTalkToAi &&
+              (tableAppropriate || explicitTableRequest) &&
+              rawContent
+            ) {
               const strippedFull = stripThinkingTokens(rawContent);
               const cleaned = cleanTalkToAiContent(strippedFull);
               let processed = tableAppropriate
@@ -3158,7 +3255,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
                 const blankCells = findBlankTableCells(processed);
                 if (missingRefs.length > 0 || blankCells.length > 0) {
                   console.log(
-                    `[ChatAPI] talk-to-ai table issues, retrying: missing=[${missingRefs.join(", ")}] blank=${blankCells.length}`,
+                    `[ChatAPI] talk-to-ai table issues, repairing: missing=[${missingRefs.join(", ")}] blank=${blankCells.length}`,
                   );
                   if (tableAppropriate && missingRefs.length > 0) {
                     const retried = await retryMultiRefTable(
@@ -3181,10 +3278,17 @@ Never transpose tables, never leave a table cell blank, never invent section num
                     );
                     if (retried) processed = normalizeTableRows(retried);
                   }
+                  const fixed = processed
+                    ? fixArticleSectionTerminology(processed)
+                    : "";
+                  if (fixed && fixed !== emittedVisibleText) {
+                    controller.enqueue(
+                      encoder.encode(
+                        `data: ${JSON.stringify({ replace: true, content: fixed })}\n\n`,
+                      ),
+                    );
+                  }
                 }
-              }
-              if (processed) {
-                enqueueContent(processed);
               }
             }
 
@@ -3220,11 +3324,6 @@ Never transpose tables, never leave a table cell blank, never invent section num
               if (isAnalysis) {
                 const partial = stripThinkingTokens(
                   analysisFullContent || analysisReasoningContent,
-                ).trim();
-                if (partial) enqueueContent(partial);
-              } else if (bufferOutput) {
-                const partial = cleanTalkToAiContent(
-                  stripThinkingTokens(rawContent),
                 ).trim();
                 if (partial) enqueueContent(partial);
               } else {

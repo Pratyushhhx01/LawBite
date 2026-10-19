@@ -156,7 +156,9 @@ describe("POST /api/chat streaming", () => {
       sseResponse(framesToText([errorFrame("Service temporarily overloaded")])),
       sseResponse(goodText, 13),
     ];
-    const fetchMock = vi.fn(async () => responses.shift()!);
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () => responses.shift()!);
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await POST(makeRequest("talk-to-ai", QUERY));
@@ -169,7 +171,7 @@ describe("POST /api/chat streaming", () => {
     const secondBody = JSON.parse(
       String((fetchMock.mock.calls[1][1] as RequestInit).body),
     );
-    expect(firstBody.model).toBe("meta/muse-glimmer-30b");
+    expect(firstBody.model).toBe("nvidia/nemotron-3-super-120b-a12b");
     expect(secondBody.model).toBe("nvidia/nemotron-3.5-lightning-30b-a3b");
     expect(content).toContain("Natural justice demands fairness");
   });

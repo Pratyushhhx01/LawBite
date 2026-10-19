@@ -11,8 +11,9 @@
  *    models.
  *  - NVIDIA stays available as the automatic fallback whenever Inception is
  *    unavailable (missing key, rate limit, timeout, or an SSE error frame).
- *  - The user can switch models at runtime; the UI lists exactly what this
- *    module exposes, so the two can never drift apart.
+ *  - The user never picks a model: the chat route always starts at the default
+ *    and walks this catalogue for the failover order, so the two can never
+ *    drift apart.
  *
  * Every provider exposes an OpenAI-compatible `/v1/chat/completions` endpoint,
  * but they do not accept the same sampling parameters. `buildProviderPayload`
@@ -128,7 +129,7 @@ export type ModelInfo = {
   isFallback?: boolean;
 };
 
-/** Model catalogue, ordered the way the picker should show it. */
+/** Model catalogue, ordered by preference: default first, then fallbacks. */
 export const MODELS: ModelInfo[] = [
   {
     id: "inception:mercury-2.5",
@@ -158,13 +159,13 @@ export const MODELS: ModelInfo[] = [
     reasoning: true,
   },
   {
-    id: "nvidia:meta/muse-glimmer-30b",
+    id: "nvidia:nvidia/nemotron-3-super-120b-a12b",
     provider: "nvidia",
-    apiModel: "meta/muse-glimmer-30b",
-    label: "Muse Glimmer 30B (NVIDIA)",
-    shortLabel: "Muse Glimmer 30B",
+    apiModel: "nvidia/nemotron-3-super-120b-a12b",
+    label: "Nemotron 3 Super 120B (NVIDIA)",
+    shortLabel: "Nemotron Super 120B",
     description:
-      "NVIDIA NIM general-purpose model. Reliable long-form legal analysis.",
+      "NVIDIA NIM large model. Highest-quality fallback and the fastest measured NVIDIA option.",
     contextLength: 128_000,
     maxOutput: 16_384,
     vision: false,
@@ -177,19 +178,20 @@ export const MODELS: ModelInfo[] = [
     apiModel: "nvidia/nemotron-3.5-lightning-30b-a3b",
     label: "Nemotron 3.5 Lightning 30B (NVIDIA)",
     shortLabel: "Nemotron Lightning",
-    description: "NVIDIA NIM fast reasoning model. Second-line fallback.",
+    description: "NVIDIA NIM reasoning model. Second-line fallback.",
     contextLength: 128_000,
     maxOutput: 16_384,
     vision: false,
     reasoning: true,
   },
   {
-    id: "nvidia:nvidia/nemotron-3-super-120b-a12b",
+    id: "nvidia:meta/muse-glimmer-30b",
     provider: "nvidia",
-    apiModel: "nvidia/nemotron-3-super-120b-a12b",
-    label: "Nemotron 3 Super 120B (NVIDIA)",
-    shortLabel: "Nemotron Super 120B",
-    description: "NVIDIA NIM large model. Highest-quality fallback.",
+    apiModel: "meta/muse-glimmer-30b",
+    label: "Muse Glimmer 30B (NVIDIA)",
+    shortLabel: "Muse Glimmer 30B",
+    description:
+      "NVIDIA NIM general-purpose model. Last-resort fallback; slower to first token.",
     contextLength: 128_000,
     maxOutput: 16_384,
     vision: false,
@@ -210,7 +212,7 @@ export const MODELS: ModelInfo[] = [
   },
 ];
 
-/** The vision model always handles document review, regardless of the picker. */
+/** The vision model always handles document review, regardless of the requested model. */
 export const VISION_MODEL_ID = "nvidia:meta/llama-3.2-11b-vision-instruct";
 
 const MODEL_BY_ID = new Map(MODELS.map((m) => [m.id, m]));
@@ -275,7 +277,8 @@ export function listModels(opts?: { visionOnly?: boolean }): ModelInfo[] {
  * Build the ordered list of models to try for a request.
  *
  * Order:
- *  1. The explicit selection (default: Mercury 2.5).
+ *  1. The requested model, when one is supplied. The chat client never sends
+ *     one, so in practice this is the default: Mercury 2.5.
  *  2. Same-provider siblings, so a temporary Inception hiccup can still be
  *     served by Inception before leaving the provider.
  *  3. The other provider's chain (NVIDIA), so an Inception outage degrades
@@ -298,12 +301,23 @@ export function buildCandidateChain(opts: {
   }
 
   const requested = getModel(opts.requestedModelId) ?? getDefaultModel();
+  const explicitlyRequested = getModel(opts.requestedModelId);
   const include = (m: ModelInfo) =>
     !m.vision && (includeUnconfigured || isProviderConfigured(m.provider));
 
   const chain: ModelInfo[] = [];
   const push = (m: ModelInfo | null | undefined) => {
-    if (m && !m.vision && !chain.some((c) => c.id === m.id)) chain.push(m);
+    if (!m || m.vision || chain.some((c) => c.id === m.id)) return;
+    // Mercury 2 remains available when a client explicitly asks for it, but it
+    // is never chosen automatically: accuracy testing showed it inventing old
+    // IPC section numbers and misnaming the new statutes. Slow and correct is
+    // better than fast and wrong for legal advice.
+    if (
+      m.id === "inception:mercury-2" &&
+      explicitlyRequested?.id !== "inception:mercury-2"
+    )
+      return;
+    chain.push(m);
   };
 
   push(requested);

@@ -50,6 +50,7 @@ export default async function ChatPage({
         email: session.user.email,
         image: session.user.image ?? null,
       }}
+      sessionId={session.session.id}
       shareId={params.shareId ?? null}
       initialTool={tool}
       initialItem={item}

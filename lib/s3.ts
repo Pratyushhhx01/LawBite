@@ -61,7 +61,7 @@ function cacheSet(key: string, data: unknown): void {
 
 function localPathForKey(key: string): string {
   const localRoot = key.startsWith("bare-acts/") ? "kb-build" : "kb-data";
-  return join(process.cwd(), localRoot, key);
+  return join(/* turbopackIgnore: true */ process.cwd(), localRoot, key);
 }
 
 async function readLocalFile(key: string): Promise<string | null> {

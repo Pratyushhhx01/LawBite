@@ -124,7 +124,11 @@ async function readSse(res: Response): Promise<string> {
       if (!data || data === "[DONE]") continue;
       try {
         const frame = JSON.parse(data);
-        if (typeof frame.content === "string") content += frame.content;
+        if (frame.replace === true && typeof frame.content === "string") {
+          content = frame.content;
+        } else if (typeof frame.content === "string") {
+          content += frame.content;
+        }
       } catch {
         /* skip */
       }
@@ -155,7 +159,11 @@ async function readSseFrames(
       try {
         const frame = JSON.parse(data);
         frames.push(frame);
-        if (typeof frame.content === "string") content += frame.content;
+        if (frame.replace === true && typeof frame.content === "string") {
+          content = frame.content;
+        } else if (typeof frame.content === "string") {
+          content += frame.content;
+        }
       } catch {
         /* skip */
       }
@@ -281,6 +289,9 @@ describe("Inception → NVIDIA failover", () => {
     expect(calls.every((c) => c.url.includes("api.inceptionlabs.ai"))).toBe(
       true,
     );
+    // Mercury 2 is explicit-selection only; accuracy testing showed it
+    // inventing old IPC numbers, so it must never answer a default request.
+    expect(calls.every((c) => c.body.model !== "mercury-2")).toBe(true);
   });
 
   it("tells the client which model actually answered", async () => {

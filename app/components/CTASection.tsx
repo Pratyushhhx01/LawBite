@@ -15,7 +15,7 @@ export default function CTASection() {
             >
               <div className="absolute inset-0 bg-dots opacity-30" />
               <div
-                className="absolute left-1/2 top-1/2 h-[420px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-60 blur-3xl"
+                className="absolute left-1/2 top-1/2 h-[420px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-60"
                 style={{
                   background:
                     "radial-gradient(closest-side, rgba(255,255,255,0.18), transparent 70%)",
@@ -25,17 +25,24 @@ export default function CTASection() {
 
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0"
+              className="pointer-events-none absolute inset-0 overflow-hidden"
               style={{
-                background:
-                  "conic-gradient(from var(--angle, 0deg), transparent 0deg, rgba(255,255,255,0.18) 40deg, transparent 80deg)",
-                animation: "border-spin 8s linear infinite",
                 maskImage:
                   "radial-gradient(circle at center, black 60%, transparent 75%)",
                 WebkitMaskImage:
                   "radial-gradient(circle at center, black 60%, transparent 75%)",
               }}
-            />
+            >
+              <div className="absolute left-1/2 top-1/2 h-[150%] w-[150%] -translate-x-1/2 -translate-y-1/2">
+                <div
+                  className="cta-sheen h-full w-full"
+                  style={{
+                    background:
+                      "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.18) 40deg, transparent 80deg)",
+                  }}
+                />
+              </div>
+            </div>
 
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-white/50">
               / Get started
