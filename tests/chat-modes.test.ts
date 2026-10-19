@@ -478,6 +478,21 @@ describe("AI Lawyer (grill) mode", () => {
     expect(systemPrompt).toMatch(/question bank/i);
     expect(systemPrompt).toMatch(/usually after 2-3 answers/i);
 
+    // Final advice may add a compact remedies table when 2-3 options exist.
+    expect(systemPrompt).toMatch(/OPTIONAL REMEDIES TABLE/i);
+    expect(systemPrompt).toMatch(/2-3 realistic remedies/i);
+    expect(systemPrompt).toMatch(/One compact markdown comparison table/i);
+    // The advice turn must not leak the delimiter or repeat the marker.
+    expect(systemPrompt).toMatch(/FINAL ADVICE OUTPUT FORMAT/i);
+    expect(systemPrompt).toMatch(/exactly ONCE/i);
+
+    // Common remedy advice is grounded in current law.
+    expect(systemPrompt).toMatch(/four Labour Codes took effect on 21 November 2025/i);
+    expect(systemPrompt).toMatch(/Insurance Ombudsman/i);
+    expect(systemPrompt).toMatch(/Do NOT invent a BNSS\/BNS criminal section/i);
+    expect(systemPrompt).toMatch(/CrPC 438.*BNSS 482/);
+    expect(systemPrompt).toMatch(/IPC 302.*BNS 103/);
+
     // The old fixed 8-step checklist is gone.
     expect(systemPrompt).not.toMatch(/Interrogation Sequence/i);
     expect(systemPrompt).not.toMatch(/at least 5 answers/i);
@@ -527,6 +542,8 @@ describe("AI Lawyer (grill) mode", () => {
       .reverse()
       .find((m: { role: string }) => m.role === "user");
     expect(lastUser.content).toContain("Do NOT ask any question");
+    expect(lastUser.content).toContain("2-3 remedies or options");
+    expect(lastUser.content).toContain("one compact comparison table");
     expect(lastUser.content).toContain("[ADVICE_COMPLETE]");
   });
 });
