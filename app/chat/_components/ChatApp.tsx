@@ -803,7 +803,11 @@ export default function ChatApp({
         tabLines.length = 0;
       }
 
-      const defMatch = line.match(/^\*\*([^*]+?)[:\u2013\u2014\-]\s+(.+)/);
+      // Accept both "**Term: definition**" and "**Term:** definition" so the
+      // comparison definitions always render as definition cards.
+      const defMatch = line.match(
+        /^(?:[-*+]\s+)?\*\*([^*]+?)[:\u2013\u2014\-]\s*\*{0,2}\s*(.+)/,
+      );
       if (defMatch) {
         let content = defMatch[2];
         i++;

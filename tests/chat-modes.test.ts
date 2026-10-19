@@ -177,7 +177,41 @@ describe("Talk to AI mode", () => {
     expect(body.messages[0].content).toContain(
       "concise Indian legal assistant",
     );
+    expect(body.messages[0].content).toContain("STRUCTURED COMPARISON FORMAT");
+    expect(body.messages[0].content).toContain("Definitions");
     expect(body.max_tokens).toBe(4096);
+  });
+
+  it("preserves a definitions-plus-table comparison instead of truncating it", async () => {
+    const comparison = [
+      "**Definitions**",
+      "**Bailable offence: An offence for which bail is a matter of right under the BNSS, 2023.**",
+      "**Non-bailable offence: An offence for which bail is discretionary and the court must apply its mind.**",
+      "",
+      "| Aspect | Bailable offence | Non-bailable offence |",
+      "| --- | --- | --- |",
+      "| Meaning | Bail is a right. | Bail is discretionary. |",
+      "| Governing law | BNSS, 2023 | BNSS, 2023 |",
+      "| Key element | Less serious offences | Serious offences |",
+      "| Example | Cheating under BNS 318 | Murder under BNS 103 |",
+      "",
+      "**Bottom line:** Bailable offences allow bail as of right, while non-bailable offences leave it to the court's discretion.",
+    ].join("\n");
+    const text = framesToText([delta(comparison), finish]);
+    vi.stubGlobal("fetch", vi.fn(async () => sseResponse(text, 17)));
+
+    const res = await POST(
+      makeRequest(
+        "talk-to-ai",
+        "What is the difference between a bailable and a non-bailable offence?",
+      ),
+    );
+    const { content } = await readSse(res);
+
+    expect(content).toContain("Bailable offence");
+    expect(content).toContain("| Aspect |");
+    expect(content).toContain("**Bottom line:**");
+    expect(content).not.toMatch(NO_FALLBACK);
   });
 
   it("expands a bare legal acronym so the model does not refuse it", async () => {
@@ -346,6 +380,10 @@ describe("Deep Analysis mode", () => {
     expect(body.messages[0].content).toContain(
       "IPC = Indian Penal Code, 1860",
     );
+    // Comparison answers must define each item first, then differentiate in a table.
+    expect(body.messages[0].content).toContain("DIFFERENCES / COMPARISONS");
+    expect(body.messages[0].content).toContain("**Definitions**");
+    expect(body.messages[0].content).toContain("**Bottom line:**");
   });
 
   it("detects a table missing a requested section and repairs it via retry", async () => {
