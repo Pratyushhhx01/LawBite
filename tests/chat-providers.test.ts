@@ -379,7 +379,7 @@ describe("Inception → NVIDIA failover", () => {
 });
 
 describe("vision-required requests", () => {
-  it("forces the vision model for document review regardless of the selection", async () => {
+  it("uses the text model for a text-only document review", async () => {
     const { calls } = stubProvider(() => happy());
 
     await readSse(
@@ -391,9 +391,8 @@ describe("vision-required requests", () => {
     );
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toContain("integrate.api.nvidia.com");
-    expect(calls[0].body.model).toBe("meta/llama-3.2-11b-vision-instruct");
-    expect(VISION_MODEL_ID).toBe("nvidia:meta/llama-3.2-11b-vision-instruct");
+    expect(calls[0].url).toContain("api.inceptionlabs.ai");
+    expect(calls[0].body.model).toBe("mercury-2.5");
   });
 
   it("forces the vision model when the user attaches an image", async () => {
@@ -424,6 +423,7 @@ describe("vision-required requests", () => {
 
     await readSse(res);
     expect(calls[0].body.model).toBe("meta/llama-3.2-11b-vision-instruct");
+    expect(VISION_MODEL_ID).toBe("nvidia:meta/llama-3.2-11b-vision-instruct");
   });
 });
 

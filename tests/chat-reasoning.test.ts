@@ -197,9 +197,31 @@ describe("chat reasoning budget", () => {
       ]),
     );
 
-    await readSse(
-      await POST(makeRequest("review", "Review this rental agreement clause.")),
+    const res = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationType: "review",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Review this scanned rental agreement clause.",
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: "data:image/png;base64,AAAA" },
+                },
+              ],
+            },
+          ],
+        }),
+      }) as unknown as NextRequest,
     );
+    await readSse(res);
 
     expect(requests[0].body.model).toBe("meta/llama-3.2-11b-vision-instruct");
     expect(requests[0].body.reasoning_effort).toBeUndefined();

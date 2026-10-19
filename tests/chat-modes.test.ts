@@ -52,6 +52,9 @@ const errorFrame = (message: string): Frame => ({
   error: { message, type: "service_unavailable", code: 503 },
 });
 
+const DRAFT_DISCLAIMER =
+  "[DISCLAIMER: This document is an AI-generated draft for reference purposes only. It does not constitute legal advice or a substitute for a professionally drafted document. Consult a practicing lawyer before signing, filing, or acting upon this document.]";
+
 function framesToText(frames: Frame[]): string {
   return (
     frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join("") +
@@ -524,10 +527,41 @@ describe("Document Drafter mode", () => {
     const { content, doneCount } = await readSse(res);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(content).toBe(document);
+    expect(content).toBe(`${document}\n\n${DRAFT_DISCLAIMER}`);
     expect(content).not.toMatch(/cannot draft|refusal/i);
     expect(content).not.toMatch(NO_FALLBACK);
     expect(doneCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("retries a cheque notice that omits Section 138", async () => {
+    const incomplete =
+      "LEGAL NOTICE\n\nSubject: Dishonour of Cheque\n\nI call upon you to pay Rs 50,000 within 15 days of receipt of this notice under the Negotiable Instruments Act, 1881.\n\nYours faithfully,\n[sender name]";
+    const complete =
+      "LEGAL NOTICE\n\nSubject: Legal Notice under Section 138 of the Negotiable Instruments Act, 1881\n\nI call upon you to pay Rs 50,000 within 15 days of receipt of this notice under Section 138 of the Negotiable Instruments Act, 1881.\n\nYours faithfully,\n[sender name]";
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      // The system prompt also mentions Section 138, so key the retry on the
+      // override instruction itself, not on the section number.
+      const isRetry = JSON.stringify(body.messages).includes(
+        "Do not omit the statutory section.",
+      );
+      return sseResponse(
+        framesToText([delta(isRetry ? complete : incomplete), finish]),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      makeRequest(
+        "draft",
+        "Please draft a legal notice for cheque dishonour: cheque of Rs 50,000 returned unpaid for insufficient funds.",
+      ),
+    );
+    const { content } = await readSse(res);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(content).toContain("Section 138");
+    expect(content).toBe(`${complete}\n\n${DRAFT_DISCLAIMER}`);
   });
 
   it("emits a complete document on the happy path without retries", async () => {
@@ -544,14 +578,14 @@ describe("Document Drafter mode", () => {
     const { content, doneCount } = await readSse(res);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(content).toBe(document);
+    expect(content).toBe(`${document}\n\n${DRAFT_DISCLAIMER}`);
     expect(content).not.toMatch(NO_FALLBACK);
     expect(doneCount).toBeGreaterThanOrEqual(1);
   });
 });
 
 describe("Document Reviewer mode", () => {
-  it("routes to the vision review model and streams the review", async () => {
+  it("streams a text-only document review using the text model", async () => {
     const review =
       "Clause 1: Payment terms are 30 days — low risk. Clause 2: Unlimited liability — high risk, negotiate a cap.";
     const fetchMock = vi.fn<
@@ -572,7 +606,7 @@ describe("Document Reviewer mode", () => {
     const body = JSON.parse(
       String((fetchMock.mock.calls[0][1] as RequestInit).body),
     );
-    expect(body.model).toBe("meta/llama-3.2-11b-vision-instruct");
+    expect(body.model).toBe("nvidia/nemotron-3-super-120b-a12b");
     expect(body.max_tokens).toBe(4096);
   });
 });

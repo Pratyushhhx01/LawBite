@@ -399,6 +399,32 @@ describe("isNonLegalQuery", () => {
       });
     });
   });
+
+  describe("legal queries containing generic non-legal words — PASS", () => {
+    const legalQueriesWithAmbiguousWords = [
+      "Who is liable for the accident?",
+      "What is the history of the Dowry Prohibition Act?",
+      "My relationship with my landlord broke down",
+      "Explain the scientific evidence rules under BSA",
+      "Who is the accused in the FIR?",
+      "Who is the chief justice of India?",
+      "What is the history of the Supreme Court?",
+      "Explain the science behind DNA evidence in criminal trials",
+      "What is the relationship between law and morality?",
+      "Tell me about the partnership dispute between the partners",
+      "What is the punishment for unlawful assembly?",
+      "How do I file a consumer complaint about a defective product?",
+      "Who is the best lawyer for a property dispute?",
+      "What is the tax on a property sale?",
+      "Can a company terminate an employee without notice?",
+      "What does the scientific method have to do with burden of proof?",
+    ];
+    legalQueriesWithAmbiguousWords.forEach((q) => {
+      it(`should PASS: "${q}"`, () => {
+        expect(isNonLegalQuery(q)).toBe(false);
+      });
+    });
+  });
 });
 
 // ─── mentionsForeignJurisdiction ────────────────────────────────────
@@ -458,6 +484,37 @@ describe("mentionsForeignJurisdiction", () => {
     indianQueries.forEach((q) => {
       it(`should PASS: "${q}"`, () => {
         expect(mentionsForeignJurisdiction(q)).toBe(false);
+      });
+    });
+  });
+
+  describe("English 'us' in ordinary prose — PASS", () => {
+    const proseQueries = [
+      "Can you help us file a consumer complaint?",
+      "Tell us about bail",
+      "Help us understand maintenance",
+      "Please help us with a legal notice",
+      "Let us know the limitation period for a cheque bounce",
+    ];
+    proseQueries.forEach((q) => {
+      it(`should PASS: "${q}"`, () => {
+        expect(mentionsForeignJurisdiction(q)).toBe(false);
+      });
+    });
+  });
+
+  describe("short country codes — detected", () => {
+    const codeQueries = [
+      "what is the law in the US?",
+      "US copyright law",
+      "UK criminal law",
+      "EU competition law",
+      "UAE employment law",
+      "u.s. tax law",
+    ];
+    codeQueries.forEach((q) => {
+      it(`should detect: "${q}"`, () => {
+        expect(mentionsForeignJurisdiction(q)).toBe(true);
       });
     });
   });
