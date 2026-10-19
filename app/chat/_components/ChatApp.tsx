@@ -308,6 +308,9 @@ export default function ChatApp({
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Distinguishes a user-pressed Stop from an unmount/navigation abort, so a
+  // stopped reply keeps its partial text instead of showing an error.
+  const stopRequestedRef = useRef(false);
   const conversationsRef = useRef<Conversation[]>([]);
   const escCountRef = useRef(0);
   const escTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -587,6 +590,7 @@ export default function ChatApp({
       if (escCountRef.current >= 3) {
         escCountRef.current = 0;
         if (escTimerRef.current) clearTimeout(escTimerRef.current);
+        stopRequestedRef.current = true;
         abortRef.current?.abort();
       }
     }
@@ -1520,6 +1524,16 @@ export default function ChatApp({
     );
   }
 
+  function removeMessage(conversationId: string, messageId: string) {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId
+          ? { ...c, messages: c.messages.filter((m) => m.id !== messageId) }
+          : c,
+      ),
+    );
+  }
+
   function stopTypewriter() {
     const tw = typewriterRef.current;
     if (tw.timer) {
@@ -1639,6 +1653,7 @@ export default function ChatApp({
     const trimmed = text.trim();
     if (!trimmed || isResponding) return;
 
+    stopRequestedRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -1846,7 +1861,17 @@ export default function ChatApp({
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
-        if (!visibleAssistantText(assistantContent)) {
+        if (stopRequestedRef.current) {
+          // User pressed Stop: keep whatever already arrived. If nothing had
+          // arrived, remove the empty reply bubble so the thread stays clean
+          // and the user can immediately ask the next question.
+          if (visibleAssistantText(assistantContent)) {
+            flushTypewriter();
+          } else {
+            stopTypewriter();
+            removeMessage(activeId, assistantId);
+          }
+        } else if (!visibleAssistantText(assistantContent)) {
           stopTypewriter();
           setMessageContent(
             activeId,
@@ -1867,6 +1892,7 @@ export default function ChatApp({
       }
     } finally {
       abortRef.current = null;
+      stopRequestedRef.current = false;
       setIsThinking(false);
       setIsResponding(false);
 
@@ -1975,6 +2001,15 @@ export default function ChatApp({
       }
       setPendingAttachment(null);
     }
+  }
+
+  function stopResponse() {
+    if (!abortRef.current) return;
+    stopRequestedRef.current = true;
+    abortRef.current.abort();
+    // Keep the text that has already arrived and freeze it where it is.
+    flushTypewriter();
+    setIsThinking(false);
   }
 
   async function handleSignOut() {
@@ -2861,6 +2896,47 @@ export default function ChatApp({
     const id = setTimeout(() => setNow(Date.now()), 0);
     return () => clearTimeout(id);
   }, []);
+
+  // While a reply is streaming, the send button becomes a stop button so the
+  // user can interrupt it (like ChatGPT). Clicking it aborts the request and
+  // keeps any text that has already arrived.
+  function renderSendOrStop() {
+    if (isResponding) {
+      return (
+        <button
+          type="button"
+          onClick={stopResponse}
+          aria-label="Stop generating"
+          title="Stop generating"
+          className="group relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black transition-transform duration-200 hover:scale-[1.05]"
+        >
+          <span className="block h-3 w-3 rounded-[2px] bg-black" />
+        </button>
+      );
+    }
+    return (
+      <button
+        type="submit"
+        disabled={(!draft.trim() && !pendingAttachment) || isResponding}
+        aria-label="Send message"
+        className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+      >
+        <svg
+          aria-hidden
+          viewBox="0 0 24 24"
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 12h14M13 5l7 7-7 7" />
+        </svg>
+      </button>
+    );
+  }
+
   return (
     <div className="relative flex h-screen w-full overflow-hidden bg-black text-white">
       <div
@@ -4328,27 +4404,7 @@ export default function ChatApp({
                         rows={1}
                         className="min-h-[40px] max-h-40 w-full resize-none bg-transparent px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 focus:outline-none"
                       />
-                      <button
-                        type="submit"
-                        disabled={
-                          (!draft.trim() && !pendingAttachment) || isResponding
-                        }
-                        aria-label="Send message"
-                        className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-                      >
-                        <svg
-                          aria-hidden
-                          viewBox="0 0 24 24"
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 12h14M13 5l7 7-7 7" />
-                        </svg>
-                      </button>
+                      {renderSendOrStop()}
                     </form>
                     <p className="mx-auto mt-2 text-[11px] text-white/35">
                       Press{" "}
@@ -4693,27 +4749,7 @@ export default function ChatApp({
                         rows={1}
                         className="min-h-[40px] max-h-40 w-full resize-none bg-transparent px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 focus:outline-none"
                       />
-                      <button
-                        type="submit"
-                        disabled={
-                          (!draft.trim() && !pendingAttachment) || isResponding
-                        }
-                        aria-label="Send message"
-                        className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-                      >
-                        <svg
-                          aria-hidden
-                          viewBox="0 0 24 24"
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 12h14M13 5l7 7-7 7" />
-                        </svg>
-                      </button>
+                      {renderSendOrStop()}
                     </form>
                     <p className="mx-auto mt-2 text-[11px] text-white/35">
                       Press{" "}
@@ -4780,27 +4816,7 @@ export default function ChatApp({
                         rows={1}
                         className="min-h-[40px] max-h-40 w-full resize-none bg-transparent px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 focus:outline-none"
                       />
-                      <button
-                        type="submit"
-                        disabled={
-                          (!draft.trim() && !pendingAttachment) || isResponding
-                        }
-                        aria-label="Send message"
-                        className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-                      >
-                        <svg
-                          aria-hidden
-                          viewBox="0 0 24 24"
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 12h14M13 5l7 7-7 7" />
-                        </svg>
-                      </button>
+                      {renderSendOrStop()}
                     </form>
                     <p className="mx-auto mt-2 text-[11px] text-white/35">
                       Press{" "}
@@ -6510,25 +6526,7 @@ export default function ChatApp({
                 rows={1}
                 className="min-h-[40px] max-h-40 w-full resize-none bg-transparent px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 focus:outline-none"
               />
-              <button
-                type="submit"
-                disabled={(!draft.trim() && !pendingAttachment) || isResponding}
-                aria-label="Send message"
-                className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-              >
-                <svg
-                  aria-hidden
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M5 12h14M13 5l7 7-7 7" />
-                </svg>
-              </button>
+              {renderSendOrStop()}
             </form>
             <p className="mx-auto mt-2 max-w-3xl text-[11px] text-white/35">
               Press{" "}
