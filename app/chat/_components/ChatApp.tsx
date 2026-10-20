@@ -33,6 +33,7 @@ import {
   type ContentBlockType,
   type SegmentVariant,
 } from "./messageParser";
+import { isRetryableChatFailure, takeSseLines } from "./chatTransport";
 
 type Role = "user" | "assistant";
 
@@ -1686,149 +1687,204 @@ export default function ChatApp({
     ];
 
     let assistantContent = "";
+    // One silent retry absorbs dropped streams, a transient 5xx, and a
+    // serverless invocation that dies before flushing its final frame. The
+    // user should never see a dead-end error for a one-off failure.
+    const MAX_CHAT_ATTEMPTS = 2;
+    const waitBeforeRetry = () =>
+      new Promise((resolve) => setTimeout(resolve, 400));
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        signal: controller.signal,
-        body: JSON.stringify({
-          conversationType: mode,
-          messages: conversationMessages,
-        }),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => "");
-        let msg = "Sorry, I encountered an error. Please try again.";
-        try {
-          const parsed = JSON.parse(errBody);
-          if (parsed.error) msg = parsed.error;
-        } catch {
-          if (errBody) msg = errBody;
+    for (let attempt = 1; attempt <= MAX_CHAT_ATTEMPTS; attempt++) {
+      try {
+        if (attempt > 1) {
+          // Nothing readable arrived, so reset the bubble and its reveal
+          // before asking again instead of appending a second reply.
+          assistantContent = "";
+          startTypewriter(activeId, assistantId);
+          setMessageContent(activeId, assistantId, "");
         }
-        throw new Error(msg);
-      }
 
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No reader");
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          signal: controller.signal,
+          body: JSON.stringify({
+            conversationType: mode,
+            messages: conversationMessages,
+          }),
+        });
 
-      const decoder = new TextDecoder();
-      let sseBuffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        sseBuffer += chunk;
-        const parts = sseBuffer.split("\n");
-        sseBuffer = parts.pop() ?? "";
-
-        for (const line of parts) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6).trim();
-            if (data === "[DONE]") continue;
-            if (!data) continue;
-            try {
-              const parsed = JSON.parse(data);
-              // A repaired talk-to-ai table replaces the streamed one; keep
-              // any still-valid prefix so only the corrected tail re-types.
-              if (
-                parsed.replace === true &&
-                typeof parsed.content === "string"
-              ) {
-                const replaced = parsed.content;
-                const tw = typewriterRef.current;
-                if (tw.messageId === assistantId) {
-                  const max = Math.min(tw.shownText.length, replaced.length);
-                  let common = 0;
-                  while (
-                    common < max &&
-                    tw.shownText[common] === replaced[common]
-                  ) {
-                    common += 1;
-                  }
-                  tw.fullText = replaced;
-                  tw.shownText = replaced.slice(0, common);
-                  setMessageContent(activeId, assistantId, tw.shownText);
-                }
-                assistantContent = replaced;
-                continue;
-              }
-              const chunk: unknown =
-                parsed.content ?? parsed.choices?.[0]?.delta?.content;
-              if (typeof chunk === "string" && chunk) {
-                assistantContent += chunk;
-                // The typewriter reveals this progressively; when the server
-                // streams, it naturally keeps up with the incoming chunks.
-                typewriterRef.current.fullText += chunk;
-              }
-              if (Array.isArray(parsed.citations)) {
-                const citations = parsed.citations as Citation[];
-                setConversations((prev) =>
-                  prev.map((c) =>
-                    c.id === activeId
-                      ? {
-                          ...c,
-                          messages: c.messages.map((m) =>
-                            m.id === assistantId ? { ...m, citations } : m,
-                          ),
-                        }
-                      : c,
-                  ),
-                );
-              }
-            } catch {
-              // skip malformed JSON
-            }
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => "");
+          let msg = "The assistant could not respond just now.";
+          try {
+            const parsed = JSON.parse(errBody);
+            if (parsed.error) msg = parsed.error;
+          } catch {
+            // Never surface a raw HTML error page as the reply text.
+            if (errBody && !/^\s*</.test(errBody)) msg = errBody;
           }
+          // Attach the status so the retry loop can tell a transient outage
+          // (5xx/429) from a request that will never succeed (4xx).
+          const failure = new Error(msg) as Error & { status?: number };
+          failure.status = res.status;
+          throw failure;
         }
-      }
 
-      // Let the reveal finish so the next send can't race this response.
-      finishTypewriter();
-      await waitForTypewriter();
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("No response stream");
 
-      if (!visibleAssistantText(assistantContent)) {
+        const decoder = new TextDecoder();
+        let sseBuffer = "";
+
+        const consumeLine = (line: string) => {
+          if (!line.startsWith("data: ")) return;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]" || !data) return;
+          try {
+            const parsed = JSON.parse(data);
+            // A repaired talk-to-ai table replaces the streamed one; keep
+            // any still-valid prefix so only the corrected tail re-types.
+            if (parsed.replace === true && typeof parsed.content === "string") {
+              const replaced = parsed.content;
+              const tw = typewriterRef.current;
+              if (tw.messageId === assistantId) {
+                const max = Math.min(tw.shownText.length, replaced.length);
+                let common = 0;
+                while (
+                  common < max &&
+                  tw.shownText[common] === replaced[common]
+                ) {
+                  common += 1;
+                }
+                tw.fullText = replaced;
+                tw.shownText = replaced.slice(0, common);
+                setMessageContent(activeId, assistantId, tw.shownText);
+              }
+              assistantContent = replaced;
+              return;
+            }
+            const chunk: unknown =
+              parsed.content ?? parsed.choices?.[0]?.delta?.content;
+            if (typeof chunk === "string" && chunk) {
+              assistantContent += chunk;
+              // The typewriter reveals this progressively; when the server
+              // streams, it naturally keeps up with the incoming chunks.
+              typewriterRef.current.fullText += chunk;
+            }
+            if (Array.isArray(parsed.citations)) {
+              const citations = parsed.citations as Citation[];
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === activeId
+                    ? {
+                        ...c,
+                        messages: c.messages.map((m) =>
+                          m.id === assistantId ? { ...m, citations } : m,
+                        ),
+                      }
+                    : c,
+                ),
+              );
+            }
+          } catch {
+            // skip malformed JSON
+          }
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const split = takeSseLines(
+            sseBuffer + decoder.decode(value, { stream: true }),
+          );
+          sseBuffer = split.rest;
+          for (const line of split.lines) consumeLine(line);
+        }
+
+        // Streams can end without a trailing newline, and the decoder can
+        // still hold a multi-byte character. Flush both so the final content
+        // frame is never silently dropped (which used to look like an error).
+        sseBuffer += decoder.decode();
+        if (sseBuffer.trim()) {
+          for (const line of sseBuffer.split("\n")) consumeLine(line);
+        }
+
+        // Let the reveal finish so the next send can't race this response.
+        finishTypewriter();
+        await waitForTypewriter();
+
+        if (visibleAssistantText(assistantContent)) break;
+
+        // The stream completed but carried no readable text. Retry once
+        // before surfacing anything.
         stopTypewriter();
-        const fallbackMsg = assistantContent.trim()
-          ? "I couldn't finish that response. Please try again."
-          : "Sorry, I encountered an error. Please try again.";
-        setMessageContent(activeId, assistantId, fallbackMsg);
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        if (stopRequestedRef.current) {
-          // User pressed Stop: keep whatever already arrived. If nothing had
-          // arrived, remove the empty reply bubble so the thread stays clean
-          // and the user can immediately ask the next question.
-          if (visibleAssistantText(assistantContent)) {
+        if (attempt < MAX_CHAT_ATTEMPTS) {
+          console.warn("[Chat] empty reply, retrying once");
+          await waitBeforeRetry();
+          continue;
+        }
+        console.error("[Chat] empty reply after retry");
+        setMessageContent(
+          activeId,
+          assistantId,
+          "I couldn't get a reply that time. Your question is saved — please send it once more.",
+        );
+        break;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          if (stopRequestedRef.current) {
+            // User pressed Stop: keep whatever already arrived. If nothing had
+            // arrived, remove the empty reply bubble so the thread stays clean
+            // and the user can immediately ask the next question.
+            if (visibleAssistantText(assistantContent)) {
+              flushTypewriter();
+            } else {
+              stopTypewriter();
+              removeMessage(activeId, assistantId);
+            }
+          } else if (visibleAssistantText(assistantContent)) {
+            // Keep whatever had already arrived visible.
             flushTypewriter();
           } else {
             stopTypewriter();
-            removeMessage(activeId, assistantId);
+            setMessageContent(
+              activeId,
+              assistantId,
+              "The connection dropped before the reply arrived. Your question is saved — please send it once more.",
+            );
           }
-        } else if (!visibleAssistantText(assistantContent)) {
-          stopTypewriter();
-          setMessageContent(
-            activeId,
-            assistantId,
-            "Sorry, I encountered an error. Please try again.",
-          );
-        } else {
-          // Keep whatever had already arrived visible.
-          flushTypewriter();
+          break;
         }
-      } else {
+
         console.error("Chat error:", error);
+        if (visibleAssistantText(assistantContent)) {
+          // Keep the part of the answer that did arrive.
+          flushTypewriter();
+          break;
+        }
+
         stopTypewriter();
-        const errorContent = visibleAssistantText(assistantContent)
-          ? assistantContent
-          : "Sorry, I encountered an error. Please try again.";
-        setMessageContent(activeId, assistantId, errorContent);
+        if (isRetryableChatFailure(error) && attempt < MAX_CHAT_ATTEMPTS) {
+          console.warn("[Chat] transient failure, retrying once");
+          await waitBeforeRetry();
+          continue;
+        }
+        setMessageContent(
+          activeId,
+          assistantId,
+          "I couldn't reach the assistant just now. Your question is saved — please send it once more.",
+        );
+        break;
       }
+    }
+
+    // The per-attempt try/catch owns recovery; this finally guarantees the
+    // composer is re-enabled whichever branch finished the attempt.
+    try {
+      // no-op
     } finally {
       abortRef.current = null;
       stopRequestedRef.current = false;

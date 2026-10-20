@@ -3528,7 +3528,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
                   }
                 }
                 if (analysis) {
-                  enqueueContent(trimAfterBottomLine(analysis));
+                  enqueueContent(safelyTrimAfterBottomLine(analysis));
                 }
               }
             }
@@ -3603,6 +3603,12 @@ Never transpose tables, never leave a table cell blank, never invent section num
             }
 
             if (!emittedAny) {
+              // This is the one server-side path that used to reach the
+              // client with no content at all. Log the exact shape so a
+              // recurrence is diagnosable instead of a mystery.
+              console.warn(
+                `[ChatAPI] empty reply after post-processing (analysis=${analysisFullContent.length}ch, reasoning=${analysisReasoningContent.length}ch, buffered=${bufferOutput}, talkToAi=${isTalkToAi})`,
+              );
               const reasoningFallback =
                 stripThinkingTokens(allReasoningContent).trim();
               const truncated = reasoningFallback
@@ -3777,6 +3783,19 @@ Never transpose tables, never leave a table cell blank, never invent section num
         }
       }
       return text;
+    }
+
+    /**
+     * A cosmetic trim must never be able to blank out a valid answer. If the
+     * guard itself fails, fall back to the untouched analysis so the user
+     * still gets the legal content instead of an empty (error-looking) stream.
+     */
+    function safelyTrimAfterBottomLine(text: string): string {
+      try {
+        return trimAfterBottomLine(text);
+      } catch {
+        return text;
+      }
     }
 
     function cleanTalkToAiContent(text: string): string {
@@ -4190,7 +4209,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
             }
             if (truncated) {
               emit(
-                trimAfterBottomLine(normalizeBottomLine(truncated)),
+                safelyTrimAfterBottomLine(normalizeBottomLine(truncated)),
               );
             }
             console.log(
@@ -4208,10 +4227,12 @@ Never transpose tables, never leave a table cell blank, never invent section num
                 (r) => r.toUpperCase(),
               );
               const issues: string[] = [];
-              if (requestedRefs.length > 0) {
-                const presentRefs = isAnalysisMultiRef
-                  ? extractTableRowRefs(analysis)
-                  : [];
+              // Ref presence is only verifiable in a multi-ref table. A prose
+              // analysis that merely mentions "Article 370" has no table rows,
+              // so checking it here would always report every ref as missing
+              // and burn two extra model calls that can never pass.
+              if (requestedRefs.length > 0 && isAnalysisMultiRef) {
+                const presentRefs = extractTableRowRefs(analysis);
                 const missingRefs = requestedRefs.filter(
                   (r) => !presentRefs.includes(r),
                 );
@@ -4234,10 +4255,8 @@ Never transpose tables, never leave a table cell blank, never invent section num
                     : text;
                   const blankCellsNow = findBlankTableCells(normalized);
                   if (blankCellsNow.length > 0) return false;
-                  if (requestedRefs.length > 0) {
-                    const presentNow = isAnalysisMultiRef
-                      ? extractTableRowRefs(normalized)
-                      : [];
+                  if (requestedRefs.length > 0 && isAnalysisMultiRef) {
+                    const presentNow = extractTableRowRefs(normalized);
                     if (requestedRefs.some((r) => !presentNow.includes(r)))
                       return false;
                   }
@@ -4250,7 +4269,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
                 );
                 if (retried) analysis = retried;
               }
-              emit(trimAfterBottomLine(analysis));
+              emit(safelyTrimAfterBottomLine(analysis));
             }
           }
 
@@ -4367,6 +4386,22 @@ Never transpose tables, never leave a table cell blank, never invent section num
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (error) {
           console.warn("Stream interrupted:", (error as Error).message);
+          // Never close an interrupted stream with zero content: the client
+          // would render that as a failed reply even though the model output
+          // (or most of it) is already available.
+          try {
+            if (!emittedAny) {
+              const partial = stripThinkingTokens(
+                fullContent || reasoningContent,
+              ).trim();
+              emit(
+                partial ||
+                  "I apologize, but I couldn't complete that response. Please try again or ask a specific question about Indian law.",
+              );
+            }
+          } catch {
+            /* controller may be closed */
+          }
         } finally {
           clearInterval(keepAlive);
           try {
