@@ -26,6 +26,10 @@ import {
 import { RemindersModal } from "./RemindersModal";
 import { TemplatesModal, FilingModal } from "./ToolsModals";
 import { formatCitation, copyToClipboard } from "@/lib/citations";
+import {
+  parseContent,
+  type ContentBlockType,
+} from "./messageParser";
 
 type Role = "user" | "assistant";
 
@@ -664,231 +668,6 @@ export default function ChatApp({
     });
   }
 
-  type ContentBlockType =
-    | { type: "text"; content: string }
-    | { type: "table"; headers: string[]; rows: string[][] }
-    | { type: "steps"; steps: { title: string; content: string }[] }
-    | {
-        type: "warning";
-        content: string;
-        variant: "warning" | "important" | "note";
-      }
-    | { type: "definition"; term: string; content: string }
-    | { type: "summary"; content: string[] };
-
-  function parseContent(text: string): ContentBlockType[] {
-    const blocks: ContentBlockType[] = [];
-    const lines = text.split("\n");
-    let i = 0;
-
-    while (i < lines.length) {
-      const line = lines[i].trim();
-
-      if (!line) {
-        i++;
-        continue;
-      }
-
-      const stepMatch = line.match(
-        /^\*\*Step\s+(\d+)[:\u2013\u2014\-]+\s*(.+?)\*\*\s*(.*)/i,
-      );
-      if (stepMatch) {
-        const steps: { title: string; content: string }[] = [];
-        steps.push({
-          title: stepMatch[1],
-          content: (stepMatch[2] + " " + stepMatch[3]).trim(),
-        });
-        i++;
-        while (i < lines.length) {
-          const next = lines[i].trim();
-          const nextStep = next.match(
-            /^\*\*Step\s+(\d+)[:\u2013\u2014\-]+\s*(.+?)\*\*\s*(.*)/i,
-          );
-          if (nextStep) {
-            steps.push({
-              title: nextStep[1],
-              content: (nextStep[2] + " " + nextStep[3]).trim(),
-            });
-            i++;
-          } else if (!next) {
-            i++;
-            break;
-          } else {
-            steps[steps.length - 1].content += " " + next;
-            i++;
-          }
-        }
-        blocks.push({ type: "steps", steps });
-        continue;
-      }
-
-      const warningMatch = line.match(
-        /^\*\*(Warning|Important|Note|Disclaimer|Caution)[:\u2013\u2014\-]\s*(.+)/i,
-      );
-      if (warningMatch) {
-        let content = warningMatch[2];
-        const variant = warningMatch[1].toLowerCase() as
-          "warning" | "important" | "note";
-        i++;
-        while (i < lines.length) {
-          const next = lines[i].trim();
-          if (!next) {
-            i++;
-            break;
-          }
-          const nextWarning = next.match(
-            /^\*\*(Warning|Important|Note|Disclaimer|Caution)[:\u2013\u2014\-]/i,
-          );
-          if (nextWarning) break;
-          content += " " + next;
-          i++;
-        }
-        blocks.push({ type: "warning", content, variant });
-        continue;
-      }
-
-      const tableLines: string[] = [];
-      if (line.startsWith("|")) {
-        while (i < lines.length) {
-          const l = lines[i].trim();
-          if (!l.startsWith("|")) break;
-          tableLines.push(l);
-          i++;
-        }
-        if (tableLines.length >= 3) {
-          const noSep = tableLines.filter(
-            (l) => !/^\|[\s\-:]+\|[\s\-:]+\|/.test(l),
-          );
-          if (noSep.length >= 2) {
-            const headers = noSep[0]
-              .split("|")
-              .map((h) => h.trim())
-              .filter(Boolean);
-            const rows = noSep.slice(1).map((r) => {
-              const cells = r.split("|").map((c) => c.trim());
-              while (cells.length > 0 && cells[0] === "") cells.shift();
-              while (cells.length > 0 && cells[cells.length - 1] === "")
-                cells.pop();
-              return cells;
-            });
-            if (rows.length > 0 && rows[0].length > 1) {
-              blocks.push({ type: "table", headers, rows });
-              continue;
-            }
-          }
-        }
-        tableLines.length = 0;
-      }
-
-      const tabLines: string[] = [];
-      if (line.includes("\t")) {
-        while (i < lines.length) {
-          const l = lines[i];
-          if (!l.includes("\t")) break;
-          tabLines.push(l);
-          i++;
-        }
-        if (tabLines.length >= 2) {
-          const headers = tabLines[0]
-            .split("\t")
-            .map((h) => h.trim())
-            .filter(Boolean);
-          const rows = tabLines.slice(1).map((r) =>
-            r
-              .split("\t")
-              .map((c) => c.trim())
-              .filter(Boolean),
-          );
-          if (headers.length >= 2 && rows.length > 0 && rows[0].length >= 2) {
-            blocks.push({ type: "table", headers, rows });
-            continue;
-          }
-        }
-        tabLines.length = 0;
-      }
-
-      // Accept both "**Term: definition**" and "**Term:** definition" so the
-      // comparison definitions always render as definition cards.
-      const defMatch = line.match(
-        /^(?:[-*+]\s+)?\*\*([^*]+?)[:\u2013\u2014\-]\s*\*{0,2}\s*(.+)/,
-      );
-      if (defMatch) {
-        let content = defMatch[2];
-        i++;
-        while (i < lines.length) {
-          const next = lines[i].trim();
-          if (
-            !next ||
-            next.startsWith("**") ||
-            next.startsWith("|") ||
-            next.startsWith("#")
-          ) {
-            break;
-          }
-          content += " " + next;
-          i++;
-        }
-        blocks.push({ type: "definition", term: defMatch[1], content });
-        continue;
-      }
-
-      const summaryMatch = line.match(
-        /^\*{0,2}(Key Takeaways|Summary|To Summarize|In Summary|Conclusion)\*{0,2}\s*[:\u2013\u2014\-]?\s*(.*)/i,
-      );
-      if (summaryMatch) {
-        const points: string[] = [];
-        if (summaryMatch[2]) {
-          const s = summaryMatch[2]
-            .trim()
-            .replace(/^\s*[-*+>]\s*/, "")
-            .trim();
-          if (/[a-zA-Z0-9]/.test(s)) points.push(summaryMatch[2].trim());
-        }
-        i++;
-        while (i < lines.length) {
-          const next = lines[i].trim();
-          if (!next) {
-            i++;
-            continue;
-          }
-          if (/^[*#|]/.test(next)) break;
-          if (/[a-zA-Z0-9]/.test(next.replace(/^\s*[-*+>]\s*/, "")))
-            points.push(next);
-          i++;
-        }
-        if (points.length === 0) {
-          continue;
-        }
-        if (blocks.length > 0 && blocks[blocks.length - 1].type === "summary") {
-          (
-            blocks[blocks.length - 1] as { type: "summary"; content: string[] }
-          ).content.push(...points);
-        } else {
-          blocks.push({ type: "summary", content: points });
-        }
-        continue;
-      }
-
-      let textContent = line;
-      i++;
-      while (i < lines.length) {
-        const next = lines[i];
-        if (
-          !next.trim() ||
-          next.trim().startsWith("**") ||
-          next.trim().startsWith("|")
-        )
-          break;
-        if (/^\d+\.?\s/.test(next.trim())) break;
-        textContent += "\n" + next;
-        i++;
-      }
-      blocks.push({ type: "text", content: textContent });
-    }
-
-    return blocks;
-  }
-
   function renderContentBlocks(blocks: ContentBlockType[]): ReactNode {
     return blocks.map((block, bi) => {
       switch (block.type) {
@@ -1053,7 +832,7 @@ export default function ChatApp({
             >
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
-                  Term
+                  Definition
                 </span>
                 <span className="text-sm font-semibold text-amber-400">
                   {renderBold(block.term)}
@@ -1161,9 +940,17 @@ export default function ChatApp({
                 for (let li = 0; li < lines.length; li++) {
                   const l = lines[li];
                   const headingMatch = l.match(/^#{1,6}\s+(.+)/);
+                  const boldHeadingMatch = l.match(
+                    /^\s*\*\*([^*]{1,80}?):?\*\*\s*$/,
+                  );
                   const bulletMatch = l.match(/^\s*[-*+]\s+(.*)/);
-                  if (headingMatch) {
+                  if (headingMatch || boldHeadingMatch) {
                     flushPara();
+                    const headingText = (
+                      headingMatch?.[1] ??
+                      boldHeadingMatch?.[1] ??
+                      ""
+                    ).trim();
                     elements.push(
                       <p
                         key={"h" + elements.length}
@@ -1173,7 +960,7 @@ export default function ChatApp({
                             : "text-sm font-semibold text-white/90"
                         }
                       >
-                        {renderBold(headingMatch[1])}
+                        {renderBold(headingText)}
                       </p>,
                     );
                   } else if (bulletMatch) {
