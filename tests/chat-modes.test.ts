@@ -214,6 +214,30 @@ describe("Talk to AI mode", () => {
     expect(content).not.toMatch(NO_FALLBACK);
   });
 
+  it("keeps numbered how-to steps instead of truncating them to two sentences", async () => {
+    const steps = [
+      "File a consumer complaint before the District Consumer Commission.",
+      "",
+      "1. Send a written complaint to the opposite party.",
+      "2. Attach the invoice, warranty, and proof of payment.",
+      "3. File the complaint within two years of the cause of action.",
+      "4. Pay the prescribed fee and attend the hearing.",
+    ].join("\n");
+    const text = framesToText([delta(steps), finish]);
+    vi.stubGlobal("fetch", vi.fn(async () => sseResponse(text, 23)));
+
+    const res = await POST(
+      makeRequest("talk-to-ai", "How do I file a consumer complaint?"),
+    );
+    const { content } = await readSse(res);
+
+    expect(content).toContain("1. Send a written complaint");
+    expect(content).toContain("2. Attach the invoice");
+    expect(content).toContain("3. File the complaint within two years");
+    expect(content).toContain("4. Pay the prescribed fee");
+    expect(content).not.toMatch(NO_FALLBACK);
+  });
+
   it("expands a bare legal acronym so the model does not refuse it", async () => {
     const text = framesToText([
       delta(

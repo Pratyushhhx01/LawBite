@@ -264,22 +264,23 @@ NEVER answer questions about:
 
 If the user's message is ONLY a greeting word (hi, hello, hey, namaste) with no legal question, reply ONLY with: Hello! How can I assist you with Indian legal matters today? Nothing else. Otherwise, answer the question directly without any greeting.
 
-RESPONSE SHAPE — MATCH THE QUESTION, DO NOT FORCE EVERY ANSWER INTO TWO SENTENCES:
-1. SIMPLE QUESTION (one concept, one provision, a yes/no, "what is X", "is X legal"): 1-2 short sentences. No headings, no lists, no table.
-2. COMPARISON / MULTI-CONCEPT QUESTION (2-3 things: "difference between X and Y", "compare X, Y and Z", "X vs Y", "how is X different from Y", "what are X and Y", "explain X and Y", "types of X"): use the STRUCTURED COMPARISON format below.
-3. HOW-TO / PROCEDURE (filing, complaint, notice, bail application): one-line answer, then 3-6 numbered steps, then a one-line practical tip.
-4. Otherwise: 1-3 short sentences, or a short bullet list if the answer is naturally a list.
+RESPONSE SHAPE — POINT-TO-POINT, VERY SHORT. THIS IS A HARD LIMIT:
+1. SIMPLE QUESTION (one concept, one provision, a yes/no, "what is X", "is X legal"): 1-2 short sentences. No heading, no list, no table.
+2. HOW-TO / PROCEDURE (filing, complaint, notice, bail application): one-line answer, then 3-5 numbered steps. Each step is ONE short action line — no explanation, no sub-bullets, no closing tip.
+3. COMPARISON / MULTI-CONCEPT (2-3 things): use the compact STRUCTURED COMPARISON FORMAT below.
+4. LIST QUESTION ("what are the types/remedies/documents"): max 5 bullets, one line each.
+HARD CAP: keep the whole answer under ~10 lines of prose, excluding table rows. No background, no history, no restating the question, no extra commentary. If a point needs more explanation, the user can ask a follow-up.
 
-STRUCTURED COMPARISON FORMAT (use when the user asks about 2-3 things):
-- Open with ONE direct sentence naming the core difference.
-- **Definitions** heading: write a standalone **Definitions** line first, then one line per item in this exact form: **Item: a one-sentence plain-English definition and its governing law/section.** Bold the ENTIRE line, including the definition text. Do NOT prefix these lines with a bullet, dash, or number — start each line directly with **.
-- Then a markdown table with an "Aspect" column and one column per item. Use these rows: Meaning, Governing law, Key element, Effect/Punishment, Example.
-- End with **Bottom line:** 1-2 sentences on the practical difference or which applies.
+STRUCTURED COMPARISON FORMAT (compact, for 2-3 things):
+- One-line lead naming the core difference.
+- A **Definitions** block is optional — use it only when a term is unfamiliar. If used, one short line per item: **Item: one-line meaning and governing law.**
+- A compact markdown table with an "Aspect" column and one column per item. Use only the rows that add value: Meaning, Governing law, Key element, Effect/Punishment. Keep every cell to a short phrase (max ~8 words).
+- End with **Bottom line:** one sentence.
 - Every cell must contain item-specific content; never leave a cell blank and never write "same as above", "N/A", "-", or "Nil".
 
 SENTENCE QUALITY RULES — FOLLOW FOR EVERY RESPONSE:
 - Open with a strong, authoritative statement — never start with "According to" or "As per".
-- Lead with the answer, then explain it. Do not bury the conclusion in the middle.
+- Lead with the answer. Add only the one detail needed to make it usable; do not explain further.
 - Use active voice: "The court held..." not "It was held by the court..."
 - Be precise and confident. Say "Section 103 BNS prescribes..." not "Section 103 BNS may deal with..."
 - Put the plain-English meaning beside the legal term: "Cheating (dishonestly inducing delivery of property) ...".
@@ -329,6 +330,22 @@ If the user's message is ONLY a greeting word (hi, hello, hey, namaste) with no 
 
 GENERAL RULE: Whenever a table would make the response clearer (comparisons, differences, multi-category data, timelines, pros/cons, lists of acts with their provisions, etc.), use a markdown table. For any comparison of 2-3 items, ALWAYS give a short **Definitions** block first (one bold line per item), then the markdown table, then a **Bottom line**. Tables help users quickly scan and compare information at a glance. When creating a table, ALWAYS use pipe characters | between columns (example: | Aspect | Hindu Law | Muslim Law |). NEVER use tab characters between columns — tabs break the table rendering.
 
+DEEP ANALYSIS STYLE — DETAILED BUT EASY TO READ:
+- This is a deep analysis, not an essay. Aim for 450-700 words; never exceed 900 words unless the user explicitly asks for an exhaustive treatise.
+- Make the answer scannable and interesting:
+  1. **Short answer** — 2-3 bullets stating the legal position up front.
+  2. **The law** — bold headers and bullets, not paragraphs.
+  3. **How it applies** — one concrete example or scenario (2-3 lines).
+  4. **Practical takeaway** — 2-3 bullets.
+- Keep every paragraph to 1-2 sentences. If a paragraph reaches 3 sentences, convert it to bullets.
+- Use bold lead-ins so the eye can jump: **Who it applies to:**, **What it requires:**, **Punishment:**, **Exception:**, **Deadline:**.
+- Use a table whenever it replaces prose (comparisons, timelines, multi-part tests, punishments).
+- Cut repetition, history, textbook definitions, and filler. Every sentence must add a new fact.
+- One real-world example per answer is enough. Prefer a concrete scenario over an abstract explanation.
+- Make the framing engaging: explain why the rule exists in one line, then show how it works. Do not turn the answer into a statute dump.
+- When a specific format below applies (comparison, procedure, personal-laws overview, warning), use that format — the four-part structure is for general analysis only.
+- The personal-laws overview rule below still takes precedence for that specific question type.
+
 SENTENCE QUALITY RULES — FOLLOW FOR EVERY ANALYSIS RESPONSE:
 - Write like a senior legal advisor presenting a brief — structured, precise, and authoritative.
 - Open each section with a clear, assertive statement of the legal position — not "This section deals with" but "This provision establishes..."
@@ -343,7 +360,7 @@ SENTENCE QUALITY RULES — FOLLOW FOR EVERY ANALYSIS RESPONSE:
 - Use the present tense for existing laws and the past tense only for concluded proceedings.
 - End sections with actionable takeaways, not vague summaries.
 - Conclusions must be crisp — 2-3 sentences maximum, with a clear legal position.
-- NEVER write long paragraphs. Maximum 2-3 sentences per paragraph. Break content into bullet points and numbered lists.
+- NEVER write long paragraphs. Maximum 1-2 sentences per paragraph. Break content into bullet points and numbered lists.
 - Every response must be visually scannable — use bold headers, bullet points, and white space.
 
 CRITICAL FORMAT RULE — OVERVIEWS ACROSS PERSONAL LAWS:
@@ -394,40 +411,38 @@ GLOBAL TABLE CELL RULES (apply to EVERY table you output below):
 
 4. DEFINITIONS — When defining a legal term, bold the ENTIRE line including the content: **Term: definition text here.** Always use double asterisks ** for bold, NEVER single asterisks *. Example: **Marriageable Age: The legal age for marriage is 21 for males and 18 for females.** NOT *Marriageable Age:* or just **Term:** without the content in bold.
 
-5. SUMMARIES / KEY TAKEAWAYS — End complex explanations with **Key Takeaways:** followed by brief points.
+5. SUMMARIES / KEY TAKEAWAYS — End complex explanations with **Practical takeaway:** or **Key Takeaways:** followed by 2-3 brief points.
 
-6. GENERAL ANALYSIS — This is the DEFAULT format for most queries. Use numbered points (1. 2. 3.) with a blank line between each. NEVER write long paragraphs. Break information into digestible chunks. End with a CONCLUSION paragraph and **Key Takeaways:** bullet points.
+6. GENERAL ANALYSIS — This is the DEFAULT format for most queries. Open with a **Short answer** block (2-3 bullets), then bold headers with bullets or numbered points, then one concrete example, then **Practical takeaway** (2-3 bullets). NEVER write long paragraphs. End with **Key Takeaways:** only if it adds new information — never repeat the same points.
 
 CRITICAL FORMATTING RULE — THIS OVERRIDES ALL OTHER FORMAT CHOICES:
 Your response MUST be visually scannable and attractive. Follow these rules STRICTLY:
-- NEVER write walls of text or long paragraphs (max 2-3 sentences per paragraph).
+- NEVER write walls of text or long paragraphs (max 1-2 sentences per paragraph).
 - Use bullet points, numbered lists, and bold headers to break up content.
 - Start each major section with a bold header: **Section Name**.
 - Use bullet points (- or •) for listing items, rights, features, elements, etc.
 - Use numbered lists (1. 2. 3.) for sequential steps or ranked items.
 - Add blank lines between sections for visual breathing room.
-- End with **Key Takeaways:** followed by 3-5 concise bullet points.
+- End with **Practical takeaway:** (2-3 bullets) or **Key Takeaways:** (3-4 bullets) — only if they add new practical value, never to repeat the body.
 - Think of your response as a well-designed document, not an essay.
 - Every answer should look like a structured brief, not a textbook paragraph.
 
 EXAMPLE of GOOD formatting:
 **What is Section 103 BNS?**
-Section 103 of the Bharatiya Nyaya Sanhita (BNS) 2023 defines the offence of murder and prescribes its punishment.
+**Short answer:**
+- Defines murder and prescribes death or life imprisonment, plus fine.
+- Replaces Section 302 IPC.
 
-**Key Elements:**
-- Causes death
-- Such act is done with the intention of causing death
-- Or with the intention of causing such bodily injury as the person accused knew to be likely to cause death
+**Key elements:**
+- Death caused by the accused.
+- Intention to cause death, or knowledge that the injury was likely to cause death.
 
-**Punishment:**
-- Death, or
-- Imprisonment for life, and
-- Fine
+**Why it matters:**
+- The intention/knowledge test separates murder from culpable homicide.
+- Example: a planned killing is murder; a sudden fight may be culpable homicide not amounting to murder.
 
-**Key Takeaways:**
-- Section 103 BNS replaces Section 302 IPC
-- Punishment is death or life imprisonment plus fine
-- Intention or knowledge of likely death is essential ingredient
+**Practical takeaway:**
+- Use Section 103 BNS for current cases; Section 302 IPC only for pre-2024 conduct.
 
 IMPORTANT: Never confuse sections (used in Acts/Codes) with articles (used in the Constitution). The Constitution of India has NOT been replaced — it is the supreme law. BNS 2023 replaced IPC 1860; BNSS 2023 replaced CrPC 1973; BSA 2023 replaced Evidence Act 1872. Articles exist ONLY in the Constitution. Sections exist in Acts/Codes. NEVER state that new criminal laws replaced the Constitution. Never invent section numbers, article numbers, amendments, or case names. Only use facts from the legal knowledge provided.
 
@@ -515,22 +530,23 @@ NEVER answer questions about:
 - Science, technology, geography, or any non-legal topic
 - Sports, entertainment, business (non-legal)
 
-RESPONSE SHAPE — MATCH THE QUESTION, DO NOT FORCE EVERY ANSWER INTO TWO SENTENCES:
-1. SIMPLE QUESTION (one concept, one provision, a yes/no, "what is X", "is X legal"): 1-2 short sentences. No headings, no lists, no table.
-2. COMPARISON / MULTI-CONCEPT QUESTION (2-3 things: "difference between X and Y", "compare X, Y and Z", "X vs Y", "how is X different from Y", "what are X and Y", "explain X and Y", "types of X"): use the STRUCTURED COMPARISON format below.
-3. HOW-TO / PROCEDURE (filing, complaint, notice, bail application): one-line answer, then 3-6 numbered steps, then a one-line practical tip.
-4. Otherwise: 1-3 short sentences, or a short bullet list if the answer is naturally a list.
+RESPONSE SHAPE — POINT-TO-POINT, VERY SHORT. THIS IS A HARD LIMIT:
+1. SIMPLE QUESTION (one concept, one provision, a yes/no, "what is X", "is X legal"): 1-2 short sentences. No heading, no list, no table.
+2. HOW-TO / PROCEDURE (filing, complaint, notice, bail application): one-line answer, then 3-5 numbered steps. Each step is ONE short action line — no explanation, no sub-bullets, no closing tip.
+3. COMPARISON / MULTI-CONCEPT (2-3 things): use the compact STRUCTURED COMPARISON FORMAT below.
+4. LIST QUESTION ("what are the types/remedies/documents"): max 5 bullets, one line each.
+HARD CAP: keep the whole answer under ~10 lines of prose, excluding table rows. No background, no history, no restating the question, no extra commentary. If a point needs more explanation, the user can ask a follow-up.
 
-STRUCTURED COMPARISON FORMAT (use when the user asks about 2-3 things):
-- Open with ONE direct sentence naming the core difference.
-- **Definitions** heading: write a standalone **Definitions** line first, then one line per item in this exact form: **Item: a one-sentence plain-English definition and its governing law/section.** Bold the ENTIRE line, including the definition text. Do NOT prefix these lines with a bullet, dash, or number — start each line directly with **.
-- Then a markdown table with an "Aspect" column and one column per item. Use these rows: Meaning, Governing law, Key element, Effect/Punishment, Example.
-- End with **Bottom line:** 1-2 sentences on the practical difference or which applies.
+STRUCTURED COMPARISON FORMAT (compact, for 2-3 things):
+- One-line lead naming the core difference.
+- A **Definitions** block is optional — use it only when a term is unfamiliar. If used, one short line per item: **Item: one-line meaning and governing law.**
+- A compact markdown table with an "Aspect" column and one column per item. Use only the rows that add value: Meaning, Governing law, Key element, Effect/Punishment. Keep every cell to a short phrase (max ~8 words).
+- End with **Bottom line:** one sentence.
 - Every cell must contain item-specific content; never leave a cell blank and never write "same as above", "N/A", "-", or "Nil".
 
 SENTENCE QUALITY RULES — FOLLOW FOR EVERY RESPONSE:
 - Lead with the legal position, not preamble. "Section 318 BNS penalizes cheating with imprisonment up to 7 years" — not "Cheating is a crime under BNS."
-- Lead with the answer, then explain it. Do not bury the conclusion.
+- Lead with the answer. Add only the one detail needed to make it usable; do not explain further.
 - Use active voice: "The Act mandates..." not "It is mandated by the Act..."
 - Be specific and precise — cite the exact section, act, or article. Vague answers are unacceptable.
 - Put the plain-English meaning beside the legal term: "Cheating (dishonestly inducing delivery of property) ...".
@@ -2770,9 +2786,14 @@ PART 1 — QUICK REFERENCE TABLE (compact, for scanning):
 - Offence cell: short phrase, MAX 6 words. Punishment cell: MAX 8 words (e.g. "Imprisonment up to 7 years + fine").
 - NEVER transpose the table, never add "Aspect" columns or a column per section, never leave any cell blank.
 
-PART 2 — PER-SECTION ANALYSIS (the main substance; one block per section):
+PART 2 — PER-SECTION ANALYSIS (the main substance; one compact block per section):
 - For EACH section, start with a bold header line like **Section 103 — <Offence name>**.
-- Then a short paragraph of 2-4 sentences explaining: what the section defines or prohibits, its key ingredients/elements, and the exact punishment. Use normal prose — never a,b,c sub-lists inside a table cell.
+- Then use these bullet lead-ins, one line each:
+  - **What it covers:** one plain-English line.
+  - **Key ingredients:** max 3 short bullets.
+  - **Punishment:** one line.
+  - **Why it matters:** one practical example or consequence.
+- Keep each section block to about 6-8 lines. Do not write paragraphs.
 
 PART 3 — KEY TAKEAWAYS:
 - End with **Key Takeaways:** followed by 3-4 concise bullet points summarizing the sections together.
@@ -3664,6 +3685,49 @@ Never transpose tables, never leave a table cell blank, never invent section num
       return firstMatch ? firstMatch[0].trim() : "";
     }
 
+    /**
+     * Talk to AI stays point-to-point: keep a short lead-in plus a real
+     * step/bullet list instead of flattening steps into two sentences, but cap
+     * the list so the reply remains brief.
+     */
+    function truncateTalkToAi(text: string): string {
+      const cleaned = text.trim();
+      if (!cleaned) return "";
+      const lines = cleaned.split("\n");
+      const isListItem = (line: string) =>
+        /^\s*(?:\d+[.)]|[-*•])\s+/.test(line) ||
+        /^\s*\*\*step\s*\d+\b/i.test(line);
+      if (!lines.some(isListItem)) return truncateToTwoSentences(cleaned);
+
+      const out: string[] = [];
+      let leadLines = 0;
+      let listItems = 0;
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) {
+          if (out.length > 0 && out[out.length - 1] !== "") out.push("");
+          continue;
+        }
+        if (isListItem(line)) {
+          if (listItems >= 6) break;
+          listItems += 1;
+          out.push(line);
+          continue;
+        }
+        if (listItems === 0 && leadLines < 2) {
+          leadLines += 1;
+          out.push(line);
+          continue;
+        }
+        if (listItems > 0 && /^\*\*(?:bottom line|takeaway|key takeaway):?\*\*/i.test(line)) {
+          out.push(line);
+          break;
+        }
+      }
+      const result = out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      return result || truncateToTwoSentences(cleaned);
+    }
+
     function cleanTalkToAiContent(text: string): string {
       return text
         .replace(/\*{1,2}/g, "")
@@ -4038,7 +4102,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
               // intact instead of truncating it to two sentences.
               truncated = normalizeTableRows(strippedFull);
             } else {
-              truncated = truncateToTwoSentences(strippedFull);
+              truncated = truncateTalkToAi(strippedFull);
             }
             if (truncated && /^\s*\|/.test(truncated)) {
               const requestedRefs = [...refs.sections, ...refs.articles].map(
