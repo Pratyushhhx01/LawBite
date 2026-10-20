@@ -651,23 +651,33 @@ export default function ChatApp({
   }, [analysisAttachOpen]);
 
   function renderBold(text: string): ReactNode {
-    if (text.startsWith("**") && !text.includes("**", 2)) {
+    // An unclosed bold marker should still render as bold, not leak "**".
+    if (text.startsWith("**") && !text.slice(2).includes("**")) {
       return (
         <strong className="font-semibold text-white">{text.slice(2)}</strong>
       );
     }
-    const parts = text.split(/(\*{2}[^*]+\*{2})/g);
+    // Support **bold** and *italic*. Models occasionally use single asterisks
+    // for emphasis even when told not to; render them as italics so raw
+    // asterisks never reach the user.
+    const parts = text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*)/g);
     return parts.map((part, i) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
+      if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
         return (
           <strong key={i} className="font-semibold text-white">
             {part.slice(2, -2)}
           </strong>
         );
       }
-      if (part.endsWith("**") && !part.startsWith("**"))
-        return part.slice(0, -2);
-      return part;
+      if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+        return (
+          <em key={i} className="italic text-white/90">
+            {part.slice(1, -1)}
+          </em>
+        );
+      }
+      // Never leave stray emphasis markers on screen.
+      return part.replace(/\*{1,2}/g, "");
     });
   }
 

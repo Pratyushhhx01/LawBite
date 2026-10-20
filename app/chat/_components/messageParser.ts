@@ -18,18 +18,44 @@ export type ContentBlockType =
   | { type: "summary"; content: string[] };
 
 /**
- * Section titles such as "Short answer", "The law" or "Practical takeaway"
- * are headings, not terms. Detecting them stops the parser from wrapping
- * every bold heading in a definition card.
+ * Labels that introduce a section or an explained point are never glossary
+ * terms. Treating them as terms produced "Definition: Who it applies to" cards
+ * instead of readable headings.
  */
 export function isSectionHeading(term: string): boolean {
   const t = term.trim().toLowerCase();
   if (!t) return true;
   return (
-    /\b(short answer|the law|how it applies|practical takeaway|key takeaways?|key points?|key features?|key provisions?|summary|conclusion|overview|introduction|background|current status|consequences?|abrogation|definitions?|what is|why (it|this) matters|example|note|important|warning|disclaimer|caution)\b/.test(
+    /\b(short answer|the law|how it applies|practical takeaway|key takeaways?|key points?|key features?|key provisions?|summary|conclusion|overview|introduction|background|current status|consequences?|abrogation|definitions?|what is|why (it|this) matters|example|note|important|warning|disclaimer|caution|bottom line|the bottom line|who|what|when|where|why|how|jurisdiction|timing|conditions?|eligibility|scope|applicability|effect|punishment|penalty|governing law|nature|exception|deadline|cost|documents?|process|steps?|remedy|remedies|relief|grounds?|requirements?)\b/.test(
       t,
     ) || /^key\s/.test(t)
   );
+}
+
+type Step = { title: string; content: string };
+
+/**
+ * Match both step styles the model uses:
+ *   **Step 1: Title** extra text
+ *   **Step 1:** action text
+ */
+function matchStepLine(line: string): Step | null {
+  const withTitle = line.match(
+    /^\*\*Step\s+(\d+)\s*[:\u2013\u2014\-]\s*(.+?)\*\*\s*(.*)$/i,
+  );
+  if (withTitle) {
+    return {
+      title: withTitle[1],
+      content: (withTitle[2] + " " + withTitle[3]).trim(),
+    };
+  }
+  const labelOnly = line.match(
+    /^\*\*Step\s+(\d+)\s*[:\u2013\u2014\-]\s*\*\*\s*(.+)$/i,
+  );
+  if (labelOnly) {
+    return { title: labelOnly[1], content: labelOnly[2].trim() };
+  }
+  return null;
 }
 
 export function parseContent(text: string): ContentBlockType[] {
@@ -45,30 +71,28 @@ export function parseContent(text: string): ContentBlockType[] {
       continue;
     }
 
-    const stepMatch = line.match(
-      /^\*\*Step\s+(\d+)[:\u2013\u2014\-]+\s*(.+?)\*\*\s*(.*)/i,
-    );
-    if (stepMatch) {
-      const steps: { title: string; content: string }[] = [];
-      steps.push({
-        title: stepMatch[1],
-        content: (stepMatch[2] + " " + stepMatch[3]).trim(),
-      });
+    const firstStep = matchStepLine(line);
+    if (firstStep) {
+      const steps: Step[] = [firstStep];
       i++;
       while (i < lines.length) {
         const next = lines[i].trim();
-        const nextStep = next.match(
-          /^\*\*Step\s+(\d+)[:\u2013\u2014\-]+\s*(.+?)\*\*\s*(.*)/i,
-        );
-        if (nextStep) {
-          steps.push({
-            title: nextStep[1],
-            content: (nextStep[2] + " " + nextStep[3]).trim(),
-          });
-          i++;
-        } else if (!next) {
+        if (!next) {
+          // Steps are often separated by a blank line. Keep them in one block
+          // when the next non-empty line is another step.
+          let j = i + 1;
+          while (j < lines.length && !lines[j].trim()) j++;
+          if (j < lines.length && matchStepLine(lines[j].trim())) {
+            i = j;
+            continue;
+          }
           i++;
           break;
+        }
+        const nextStep = matchStepLine(next);
+        if (nextStep) {
+          steps.push(nextStep);
+          i++;
         } else {
           steps[steps.length - 1].content += " " + next;
           i++;
@@ -169,7 +193,9 @@ export function parseContent(text: string): ContentBlockType[] {
     // where the meaning is real text on the same line. Section headings such
     // as "**Short answer:**" must render as headings, and bulleted bold
     // lead-ins like "* **Source:** ..." must stay bullets — not become boxes.
-    const defMatch = line.match(/^\*\*([^*]{1,60}?)[:\u2013\u2014-]\s*(.+)$/);
+    const defMatch = line.match(
+      /^\*\*([^*]{1,60}?)(?::\s*|\s+[\u2013\u2014-]\s+)(.+)$/,
+    );
     if (defMatch) {
       const term = defMatch[1].trim();
       const content = defMatch[2]

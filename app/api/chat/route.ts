@@ -334,7 +334,7 @@ GENERAL RULE: Whenever a table would make the response clearer (comparisons, dif
 DEEP ANALYSIS STYLE — DETAILED BUT EASY TO READ:
 - This is a deep analysis, not an essay. Aim for 450-700 words; never exceed 900 words unless the user explicitly asks for an exhaustive treatise.
 - Make the answer scannable and interesting:
-  1. **Short answer** — 2-3 bullets stating the legal position up front.
+  1. **Short answer** — for "What is X?" / "Define X" questions, write one complete definition sentence ("X is ...") first, then 2-3 bullets stating the legal position. Never repeat the user's question as a heading.
   2. **The law** — bold headers and bullets, not paragraphs.
   3. **How it applies** — one concrete example or scenario (2-3 lines).
   4. **Practical takeaway** — 2-3 bullets.
@@ -358,6 +358,8 @@ SENTENCE QUALITY RULES — FOLLOW FOR EVERY ANALYSIS RESPONSE:
 - Use precise verbs — defines, requires, prohibits, punishes, allows — never "deals with", "relates to", or "is about".
 - In comparisons, use parallel wording: start every definition with the item name and keep the same table rows for each item.
 - Vary sentence openings — do not start consecutive sentences the same way.
+- Every bullet and paragraph must be a complete sentence with a subject and a verb. Never write fragments such as "Defines murder..." or "Governed by Section 482..."; write "Section 103 BNS defines murder..." or "Section 482 BNSS governs anticipatory bail...".
+- Never use single asterisks for emphasis — they appear as literal characters. Use double asterisks only for short bold labels, never around a whole sentence.
 - Use the present tense for existing laws and the past tense only for concluded proceedings.
 - End sections with actionable takeaways, not vague summaries.
 - Conclusions must be crisp — 2-3 sentences maximum, with a clear legal position.
@@ -428,11 +430,10 @@ Your response MUST be visually scannable and attractive. Follow these rules STRI
 - Think of your response as a well-designed document, not an essay.
 - Every answer should look like a structured brief, not a textbook paragraph.
 
-EXAMPLE of GOOD formatting:
-**What is Section 103 BNS?**
+EXAMPLE of GOOD formatting (never repeat the user's question as a heading):
 **Short answer:**
-- Defines murder and prescribes death or life imprisonment, plus fine.
-- Replaces Section 302 IPC.
+- Section 103 BNS defines murder and prescribes death or life imprisonment, plus a fine.
+- It replaces Section 302 IPC for offences committed on or after 1 July 2024.
 
 **Key elements:**
 - Death caused by the accused.
@@ -440,7 +441,7 @@ EXAMPLE of GOOD formatting:
 
 **Why it matters:**
 - The intention/knowledge test separates murder from culpable homicide.
-- Example: a planned killing is murder; a sudden fight may be culpable homicide not amounting to murder.
+- A planned killing is murder; a sudden fight may be culpable homicide not amounting to murder.
 
 **Practical takeaway:**
 - Use Section 103 BNS for current cases; Section 302 IPC only for pre-2024 conduct.
@@ -3527,7 +3528,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
                   }
                 }
                 if (analysis) {
-                  enqueueContent(analysis);
+                  enqueueContent(trimAfterBottomLine(analysis));
                 }
               }
             }
@@ -3750,6 +3751,32 @@ Never transpose tables, never leave a table cell blank, never invent section num
     /** Bold the closing label so the client renders it as a heading. */
     function normalizeBottomLine(text: string): string {
       return text.replace(/^(\s*)Bottom line:/gim, "$1**Bottom line:**");
+    }
+
+    /**
+     * A comparison must end at "Bottom line". Models sometimes append a second
+     * conclusion ("Practical takeaway" / "Key Takeaways"), which renders as a
+     * duplicate callout. Drop anything after the Bottom line block.
+     */
+    function trimAfterBottomLine(text: string): string {
+      const lines = text.split("\n");
+      let bottom = -1;
+      for (let i = 0; i < lines.length; i++) {
+        if (
+          /^\s*\*{0,2}Bottom line\*{0,2}\s*[:\u2013\u2014-]/i.test(lines[i])
+        ) {
+          bottom = i;
+        }
+      }
+      if (bottom === -1) return text;
+      for (let i = bottom + 1; i < lines.length; i++) {
+        const l = lines[i].trim();
+        if (!l) continue;
+        if (/^\*\*[^*]{1,80}:?\*\*\s*$/.test(l)) {
+          return lines.slice(0, i).join("\n").trimEnd();
+        }
+      }
+      return text;
     }
 
     function cleanTalkToAiContent(text: string): string {
@@ -4162,7 +4189,9 @@ Never transpose tables, never leave a table cell blank, never invent section num
               }
             }
             if (truncated) {
-              emit(normalizeBottomLine(truncated));
+              emit(
+                trimAfterBottomLine(normalizeBottomLine(truncated)),
+              );
             }
             console.log(
               `[ChatAPI] talk-to-ai: effectiveContent=${effectiveContent.length}chars, strippedFull=${strippedFull.length}chars, truncated=${truncated?.length ?? "null"}chars, emittedAny=${emittedAny}`,
@@ -4221,7 +4250,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
                 );
                 if (retried) analysis = retried;
               }
-              emit(analysis);
+              emit(trimAfterBottomLine(analysis));
             }
           }
 

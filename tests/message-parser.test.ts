@@ -83,6 +83,35 @@ describe("parseContent — real definitions", () => {
     expect((blocks[0] as { content: string }).content).not.toContain("**");
   });
 
+  it("keeps hyphenated terms intact", () => {
+    const blocks = parseContent(
+      "**Non-bailable offence: An offence for which bail is discretionary.**",
+    );
+    expect(blocks[0]).toMatchObject({
+      type: "definition",
+      term: "Non-bailable offence",
+    });
+    expect((blocks[0] as { content: string }).content).toBe(
+      "An offence for which bail is discretionary.",
+    );
+  });
+
+  it("supports an en-dash separator with spaces", () => {
+    const blocks = parseContent("**Bail \u2013 a discretionary court relief.**");
+    expect(blocks[0]).toMatchObject({
+      type: "definition",
+      term: "Bail",
+      content: "a discretionary court relief.",
+    });
+  });
+
+  it("does not turn '**Bottom line:** text' into a definition card", () => {
+    const blocks = parseContent(
+      "**Bottom line:** Bailable offences allow bail as of right.",
+    );
+    expect(blocks.some((b) => b.type === "definition")).toBe(false);
+  });
+
   it("does not turn a bulleted bold lead-in into a card", () => {
     const blocks = parseContent("- **Source:** Constitution of India, Article 370");
     expect(blocks.every((b) => b.type !== "definition")).toBe(true);
@@ -120,6 +149,61 @@ describe("isSectionHeading", () => {
       expect(isSectionHeading(term)).toBe(false);
     },
   );
+});
+
+describe("parseContent — step framing", () => {
+  it("parses '**Step N:** action' as steps, not definition cards", () => {
+    const blocks = parseContent(
+      [
+        "**Step 1:** Register a written complaint at the nearest police station.",
+        "**Step 2:** State the date, time and details of the stolen items.",
+        "**Step 3:** Collect a free copy of the FIR.",
+      ].join("\n"),
+    );
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe("steps");
+    expect(blocks.some((b) => b.type === "definition")).toBe(false);
+    const steps = (
+      blocks[0] as {
+        type: "steps";
+        steps: { title: string; content: string }[];
+      }
+    ).steps;
+    expect(steps.map((s) => s.title)).toEqual(["1", "2", "3"]);
+    expect(steps[0].content).toBe(
+      "Register a written complaint at the nearest police station.",
+    );
+    expect(steps[2].content).toBe("Collect a free copy of the FIR.");
+  });
+
+  it("still supports the '**Step 1: title** rest' form", () => {
+    const blocks = parseContent(
+      "**Step 1: Prepare the complaint** then sign it before the officer.",
+    );
+    expect(blocks[0].type).toBe("steps");
+    const steps = (
+      blocks[0] as {
+        type: "steps";
+        steps: { title: string; content: string }[];
+      }
+    ).steps;
+    expect(steps[0].content).toBe(
+      "Prepare the complaint then sign it before the officer.",
+    );
+  });
+});
+
+describe("parseContent — label lines are not definitions", () => {
+  it.each([
+    "**Who it applies to:** Any person apprehending arrest.",
+    "**Where to file:** The police station with jurisdiction.",
+    "**Timing:** Apply before the arrest occurs.",
+    "**Conditions:** The court may impose conditions.",
+    "**Punishment:** Up to seven years.",
+  ])("does not box %s", (line) => {
+    const blocks = parseContent(line);
+    expect(blocks.some((b) => b.type === "definition")).toBe(false);
+  });
 });
 
 describe("parseContent — tables still work", () => {
