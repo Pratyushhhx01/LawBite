@@ -22,7 +22,38 @@ import {
   type ReasoningEffort,
 } from "@/lib/ai-providers";
 
-const PROVIDER_CONNECT_TIMEOUT_MS = 180_000;
+/**
+ * Hard ceiling for the provider to return response headers. A streaming
+ * provider sends headers as soon as it accepts the request, so a long wait
+ * here means the provider is unreachable — not that it is still thinking.
+ * The old 180s ceiling let one dead candidate hang the whole chat.
+ */
+const PROVIDER_CONNECT_TIMEOUT_MS = (() => {
+  const override = Number(process.env.CHAT_PROVIDER_CONNECT_TIMEOUT_MS);
+  return Number.isFinite(override) && override > 0 ? override : 20_000;
+})();
+
+/**
+ * Short modes must either answer immediately or fail over immediately. A
+ * provider that cannot even send headers within this window is treated as
+ * unavailable, so the next candidate gets a turn while the user is still
+ * waiting rather than after several minutes.
+ */
+const SHORT_MODE_CONNECT_TIMEOUT_MS = (() => {
+  const override = Number(process.env.CHAT_SHORT_CONNECT_TIMEOUT_MS);
+  return Number.isFinite(override) && override > 0 ? override : 8_000;
+})();
+
+/**
+ * Total wall-clock budget for the short-mode candidate walk. Normal Inception
+ * replies start in under 3s; if the whole chain cannot produce a first token
+ * in this window, stop retrying and let the client retry cleanly instead of
+ * keeping the user on a spinner for a minute.
+ */
+const SHORT_MODE_BUDGET_MS = (() => {
+  const override = Number(process.env.CHAT_SHORT_MODE_BUDGET_MS);
+  return Number.isFinite(override) && override > 0 ? override : 25_000;
+})();
 
 /**
  * Vercel caps Hobby-plan functions at 300s. Declaring it explicitly means long
@@ -56,12 +87,10 @@ const KEEPALIVE_INTERVAL_MS = 5_000;
 async function fetchProvider(
   url: string,
   init: RequestInit,
+  timeoutMs: number = PROVIDER_CONNECT_TIMEOUT_MS,
 ): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(
-    () => controller.abort(),
-    PROVIDER_CONNECT_TIMEOUT_MS,
-  );
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
@@ -84,21 +113,26 @@ async function fetchProvider(
 async function callProvider(
   candidate: ModelInfo,
   body: Record<string, unknown>,
+  timeoutMs?: number,
 ): Promise<Response> {
   const provider = PROVIDERS[candidate.provider];
   const key = getProviderApiKey(candidate.provider);
   if (!key) {
     throw new Error(`${provider.id}: ${provider.apiKeyEnv} is not configured`);
   }
-  return fetchProvider(provider.baseUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      Accept: "text/event-stream",
+  return fetchProvider(
+    provider.baseUrl,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    timeoutMs,
+  );
 }
 
 /** Retry helpers re-issue a request against whichever model produced output. */
@@ -148,8 +182,9 @@ async function callProviderWithRetry(
   candidate: ModelInfo,
   body: Record<string, unknown>,
   retries: number,
+  timeoutMs?: number,
 ): Promise<Response> {
-  let res = await callProvider(candidate, body);
+  let res = await callProvider(candidate, body, timeoutMs);
   for (let attempt = 0; res.status === 429 && attempt < retries; attempt++) {
     const wait =
       RATE_LIMIT_BACKOFF_MS[
@@ -159,7 +194,7 @@ async function callProviderWithRetry(
       `Model ${candidate.id} rate-limited (HTTP 429), retry ${attempt + 1}/${retries} in ${wait}ms...`,
     );
     if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
-    res = await callProvider(candidate, body);
+    res = await callProvider(candidate, body, timeoutMs);
   }
   return res;
 }
@@ -3086,14 +3121,17 @@ Never transpose tables, never leave a table cell blank, never invent section num
     const requestedModel = modelsToTry[0];
     // The Inception free tier is frequently at capacity and answers a 429 in a
     // few hundred milliseconds. For short modes, retry the accurate Mercury 2.5
-    // a few times before dropping to NVIDIA, whose first token is several
-    // seconds slower. Mercury 2 is not retried automatically: it is fast but
-    // hallucinated old IPC numbers in accuracy testing.
+    // a couple of times before dropping to NVIDIA, whose first token is several
+    // seconds slower. These repeats are for *fast* refusals only: the loop below
+    // skips them as soon as one attempt stalls, so a silent provider cannot
+    // burn three first-token watchdogs before the fallback is tried.
+    // Mercury 2 is not retried automatically: it is fast but hallucinated old
+    // IPC numbers in accuracy testing.
     const requestChain = (() => {
       if (!isShortMode || needsVision) return modelsToTry;
       const best = modelsToTry[0];
       if (best.id !== "inception:mercury-2.5") return modelsToTry;
-      return [best, best, best, best, ...modelsToTry.slice(1)];
+      return [best, best, best, ...modelsToTry.slice(1)];
     })();
 
     // Reasoning effort is the single biggest latency lever on Mercury. The API
@@ -3158,10 +3196,45 @@ Never transpose tables, never leave a table cell blank, never invent section num
     // don't let a silent model sit for the full 20s watchdog before failover.
     const firstContentTimeoutMs =
       isShortMode && !needsVision
-        ? Math.min(FIRST_CONTENT_TIMEOUT_MS, 10_000)
+        ? Math.min(FIRST_CONTENT_TIMEOUT_MS, 7_000)
         : FIRST_CONTENT_TIMEOUT_MS;
+    const connectTimeoutMs =
+      isShortMode && !needsVision
+        ? Math.min(PROVIDER_CONNECT_TIMEOUT_MS, SHORT_MODE_CONNECT_TIMEOUT_MS)
+        : PROVIDER_CONNECT_TIMEOUT_MS;
+    // Once a Mercury attempt stalls, retrying the same silent model is pure
+    // waiting. Remember that and jump straight to the other provider. A fast
+    // HTTP/SSE refusal does not set this — those are the 429s the repeats exist
+    // for, and they cost only milliseconds.
+    let skipRemainingMercury = false;
     for (const candidate of requestChain) {
       const label = candidate.id;
+      if (skipRemainingMercury && label === "inception:mercury-2.5") {
+        console.warn(
+          `[ChatAPI] skipping repeated ${label} after a stalled attempt`,
+        );
+        continue;
+      }
+      const elapsedMs = Date.now() - modelStart;
+      // Clamp both deadlines to the remaining budget so one slow fallback
+      // cannot overrun the short-mode ceiling by another full watchdog.
+      const remainingBudgetMs =
+        isShortMode && !needsVision
+          ? SHORT_MODE_BUDGET_MS - elapsedMs
+          : Number.POSITIVE_INFINITY;
+      if (remainingBudgetMs <= 0) {
+        lastError = `candidate walk exceeded ${SHORT_MODE_BUDGET_MS}ms budget`;
+        console.warn(`[ChatAPI] ${lastError}, stopping`);
+        break;
+      }
+      const candidateConnectTimeoutMs = Math.min(
+        connectTimeoutMs,
+        remainingBudgetMs,
+      );
+      const candidateFirstContentTimeoutMs = Math.min(
+        firstContentTimeoutMs,
+        remainingBudgetMs,
+      );
       const reqBody = buildProviderPayload(candidate, {
         messages: messagesWithSystem,
         maxTokens: ensureReasoningBudget(candidate, maxTokens),
@@ -3177,6 +3250,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
           candidate,
           reqBody,
           retriesFor(candidate),
+          candidateConnectTimeoutMs,
         );
         if (!res.ok) {
           lastError = `${label}: HTTP ${res.status}`;
@@ -3200,7 +3274,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
           // Streaming modes reach the browser byte-by-byte, so hold each model
           // to a first-visible-token deadline and fail over if it only reasons.
           const requireVisibleContent = !bufferOutput;
-          const peekDeadline = Date.now() + firstContentTimeoutMs;
+          const peekDeadline = Date.now() + candidateFirstContentTimeoutMs;
           // A model that goes completely quiet sends no bytes at all, so the
           // deadline has to race the read instead of being checked after it —
           // otherwise failover stalls until the provider finally gives up.
@@ -3208,7 +3282,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
           const peekExpired = new Promise<null>((resolve) => {
             peekTimer = setTimeout(
               () => resolve(null),
-              firstContentTimeoutMs,
+              candidateFirstContentTimeoutMs,
             );
           });
           try {
@@ -3237,8 +3311,17 @@ Never transpose tables, never leave a table cell blank, never invent section num
             lastError = headError
               ? `${label}: SSE error: ${headError}`
               : stalled
-                ? `${label}: no visible content within ${firstContentTimeoutMs}ms`
+                ? `${label}: no visible content within ${candidateFirstContentTimeoutMs}ms`
                 : `${label}: stream ended without content`;
+            // A silent Mercury attempt means the model itself is unsafe to
+            // wait on again. Move to the fallback provider now instead of
+            // repeating a 7s watchdog three times.
+            if (
+              label === "inception:mercury-2.5" &&
+              (stalled || !hasCompleteDataLine(head))
+            ) {
+              skipRemainingMercury = true;
+            }
             console.warn(
               `Model ${label} unusable (${lastError}), trying next...`,
             );
@@ -3290,6 +3373,12 @@ Never transpose tables, never leave a table cell blank, never invent section num
         break;
       } catch (err) {
         lastError = `${label}: ${(err as Error).message}`;
+        if (
+          label === "inception:mercury-2.5" &&
+          /timed out connecting/i.test((err as Error).message)
+        ) {
+          skipRemainingMercury = true;
+        }
         console.warn(`Model ${label} fetch error:`, (err as Error).message);
         continue;
       }
@@ -3298,13 +3387,16 @@ Never transpose tables, never leave a table cell blank, never invent section num
     if (!streamReader && !responseText) {
       console.error("All models failed:", lastError);
       const fallbackMsg =
-        "I apologize, but I'm experiencing temporary technical difficulties. Please try again in a moment, or rephrase your question about Indian law and I'll do my best to help.";
+        "The legal AI is briefly busy. Please send your question once more — it usually goes through on the next try.";
       const stream = new ReadableStream({
         start(controller) {
           try {
             controller.enqueue(
               encoder.encode(
-                `data: ${JSON.stringify({ content: fallbackMsg })}\n\n`,
+                `data: ${JSON.stringify({
+                  content: fallbackMsg,
+                  retryable: true,
+                })}\n\n`,
               ),
             );
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -4429,14 +4521,17 @@ Never transpose tables, never leave a table cell blank, never invent section num
   } catch (error) {
     console.warn("Chat API error:", (error as Error).message);
     const fallbackMsg =
-      "I apologize, but something went wrong. Please try again or ask a question about Indian law.";
+      "The legal AI is briefly busy. Please send your question once more — it usually goes through on the next try.";
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
         try {
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ content: fallbackMsg })}\n\n`,
+              `data: ${JSON.stringify({
+                content: fallbackMsg,
+                retryable: true,
+              })}\n\n`,
             ),
           );
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));

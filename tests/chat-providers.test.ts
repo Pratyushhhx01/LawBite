@@ -8,6 +8,8 @@ vi.hoisted(() => {
   // Keep 429 retry assertions fast: same policy, zero wait.
   process.env.CHAT_RATE_LIMIT_RETRIES = "3";
   process.env.CHAT_RATE_LIMIT_BACKOFF_MS = "0,0,0";
+  // Exercise the first-token watchdog without waiting the production 20s.
+  process.env.CHAT_FIRST_CONTENT_TIMEOUT_MS = "80";
 });
 
 vi.mock("@/lib/auth", () => ({
@@ -68,6 +70,19 @@ function sseResponse(text: string, splitAt = 11): Response {
       start(controller) {
         for (const piece of pieces) controller.enqueue(encoder.encode(piece));
         controller.close();
+      },
+    }),
+    { status: 200, headers: { "Content-Type": "text/event-stream" } },
+  );
+}
+
+/** A provider that accepted the request, sent SSE comments, then went silent. */
+function stalledResponse(): Response {
+  const encoder = new TextEncoder();
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(": keepalive\n\n"));
       },
     }),
     { status: 200, headers: { "Content-Type": "text/event-stream" } },
@@ -292,6 +307,41 @@ describe("Inception → NVIDIA failover", () => {
     // Mercury 2 is explicit-selection only; accuracy testing showed it
     // inventing old IPC numbers, so it must never answer a default request.
     expect(calls.every((c) => c.body.model !== "mercury-2")).toBe(true);
+  });
+
+  it("skips repeated Inception attempts after a silent stream and fails over fast", async () => {
+    // A provider that accepts the request but never emits a token used to be
+    // retried three more times, each with its own watchdog. That turned one
+    // transient stall into a minute of spinner. One stall must be enough.
+    let inceptionCalls = 0;
+    const { calls } = stubProvider((url) => {
+      if (url.includes("api.inceptionlabs.ai")) {
+        inceptionCalls++;
+        return stalledResponse();
+      }
+      return happy();
+    });
+
+    const started = Date.now();
+    const content = await readSse(await POST(makeRequest("talk-to-ai", QUERY)));
+    const elapsed = Date.now() - started;
+
+    expect(content).toBe(ANSWER);
+    expect(inceptionCalls).toBe(1);
+    expect(elapsed).toBeLessThan(2_000);
+    const last = calls[calls.length - 1];
+    expect(last.url).toContain("integrate.api.nvidia.com");
+  });
+
+  it("marks an all-model outage as retryable instead of a dead-end reply", async () => {
+    stubProvider(() => new Response("upstream down", { status: 503 }));
+
+    const { content, frames } = await readSseFrames(
+      await POST(makeRequest("talk-to-ai", QUERY)),
+    );
+
+    expect(content).toMatch(/briefly busy/i);
+    expect(frames.some((f) => f.retryable === true)).toBe(true);
   });
 
   it("tells the client which model actually answered", async () => {

@@ -701,9 +701,8 @@ describe("total failure fallback", () => {
     const { content, doneCount } = await readSse(res);
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(content).toBe(
-      "I apologize, but I'm experiencing temporary technical difficulties. Please try again in a moment, or rephrase your question about Indian law and I'll do my best to help.",
-    );
+    expect(content).toMatch(/legal AI is briefly busy/i);
+    expect(content).not.toMatch(/technical difficulties/i);
     expect(doneCount).toBe(1);
   });
 });

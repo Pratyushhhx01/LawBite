@@ -1737,6 +1737,10 @@ export default function ChatApp({
 
         const decoder = new TextDecoder();
         let sseBuffer = "";
+        // The server marks a provider-wide failure as retryable instead of
+        // pretending it is an answer. Retry silently rather than showing the
+        // user a dead-end "technical difficulties" bubble.
+        let softRetryable = false;
 
         const consumeLine = (line: string) => {
           if (!line.startsWith("data: ")) return;
@@ -1744,6 +1748,12 @@ export default function ChatApp({
           if (data === "[DONE]" || !data) return;
           try {
             const parsed = JSON.parse(data);
+            if (parsed.retryable === true) {
+              softRetryable = true;
+              // Don't flash a placeholder the user should never read. The
+              // retry below replaces this bubble with the real answer.
+              if (attempt < MAX_CHAT_ATTEMPTS) return;
+            }
             // A repaired talk-to-ai table replaces the streamed one; keep
             // any still-valid prefix so only the corrected tail re-types.
             if (parsed.replace === true && typeof parsed.content === "string") {
@@ -1815,6 +1825,21 @@ export default function ChatApp({
         // Let the reveal finish so the next send can't race this response.
         finishTypewriter();
         await waitForTypewriter();
+
+        // A retryable server frame is a provider failure dressed as content.
+        // Give the request one silent second chance before accepting it.
+        if (softRetryable) {
+          if (attempt < MAX_CHAT_ATTEMPTS) {
+            console.warn(
+              "[Chat] server reported a retryable provider failure, retrying once",
+            );
+            stopTypewriter();
+            await waitBeforeRetry();
+            continue;
+          }
+          stopTypewriter();
+          break;
+        }
 
         if (visibleAssistantText(assistantContent)) break;
 
