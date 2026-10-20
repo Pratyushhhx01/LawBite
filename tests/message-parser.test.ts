@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   isSectionHeading,
   parseContent,
+  sectionVariant,
+  splitTextSegments,
 } from "@/app/chat/_components/messageParser";
 
 /**
@@ -134,5 +136,75 @@ describe("parseContent — tables still work", () => {
       type: "table",
       headers: ["Aspect", "IPC", "BNS"],
     });
+  });
+});
+
+describe("sectionVariant — selective callouts", () => {
+  it("boxes the lead answer only", () => {
+    expect(sectionVariant("Short answer")).toBe("lead");
+    expect(sectionVariant("Short answer:")).toBe("lead");
+    expect(sectionVariant("Answer")).toBe("lead");
+  });
+
+  it("boxes the conclusion / takeaway", () => {
+    expect(sectionVariant("Practical takeaway")).toBe("takeaway");
+    expect(sectionVariant("Bottom line")).toBe("takeaway");
+    expect(sectionVariant("Key Takeaways")).toBe("takeaway");
+    expect(sectionVariant("Summary")).toBe("takeaway");
+  });
+
+  it("boxes warnings", () => {
+    expect(sectionVariant("Warning")).toBe("warning");
+    expect(sectionVariant("Important")).toBe("warning");
+    expect(sectionVariant("Note")).toBe("warning");
+  });
+
+  it("leaves body sections plain so the answer is not all boxes", () => {
+    expect(sectionVariant("The law")).toBe("plain");
+    expect(sectionVariant("How it applies")).toBe("plain");
+    expect(sectionVariant("Constitutional Mechanism")).toBe("plain");
+    expect(sectionVariant("Key elements")).toBe("plain");
+    expect(sectionVariant("Example")).toBe("plain");
+    expect(sectionVariant("Why it matters")).toBe("plain");
+  });
+});
+
+describe("splitTextSegments", () => {
+  it("splits sections at bold headings", () => {
+    const segments = splitTextSegments([
+      "**Short answer:**",
+      "- one",
+      "",
+      "**The law:**",
+      "- two",
+      "**Practical takeaway:**",
+      "- three",
+    ]);
+    expect(segments.map((s) => s.heading)).toEqual([
+      "Short answer",
+      "The law",
+      "Practical takeaway",
+    ]);
+    expect(segments[0].lines).toEqual(["- one", ""]);
+    expect(segments[1].lines).toEqual(["- two"]);
+    expect(segments[2].lines).toEqual(["- three"]);
+  });
+
+  it("keeps a plain preamble before the first heading", () => {
+    const segments = splitTextSegments([
+      "Article 370 was a temporary provision.",
+      "**The law:**",
+      "- Part XXI",
+    ]);
+    expect(segments).toHaveLength(2);
+    expect(segments[0].heading).toBeNull();
+    expect(segments[0].lines).toEqual([
+      "Article 370 was a temporary provision.",
+    ]);
+    expect(segments[1].heading).toBe("The law");
+  });
+
+  it("does not create empty segments for blank lines", () => {
+    expect(splitTextSegments(["", "  ", ""])).toEqual([]);
   });
 });

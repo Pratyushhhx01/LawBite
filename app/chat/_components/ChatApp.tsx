@@ -28,7 +28,10 @@ import { TemplatesModal, FilingModal } from "./ToolsModals";
 import { formatCitation, copyToClipboard } from "@/lib/citations";
 import {
   parseContent,
+  sectionVariant,
+  splitTextSegments,
   type ContentBlockType,
+  type SegmentVariant,
 } from "./messageParser";
 
 type Role = "user" | "assistant";
@@ -668,6 +671,195 @@ export default function ChatApp({
     });
   }
 
+  function renderCallout(
+    title: string,
+    content: ReactNode,
+    variant: Exclude<SegmentVariant, "plain">,
+  ): ReactNode {
+    const theme = {
+      lead: {
+        box: "border-amber-400/20 bg-gradient-to-br from-amber-400/[0.10] via-amber-400/[0.03] to-transparent",
+        icon: "bg-amber-400/15 text-amber-300",
+        label: "text-amber-300/90",
+        glyph: (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="3.5" />
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+          </svg>
+        ),
+      },
+      takeaway: {
+        box: "border-emerald-400/20 bg-gradient-to-br from-emerald-400/[0.10] via-emerald-400/[0.03] to-transparent",
+        icon: "bg-emerald-400/15 text-emerald-300",
+        label: "text-emerald-300/90",
+        glyph: (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
+          </svg>
+        ),
+      },
+      warning: {
+        box: "border-amber-400/25 bg-amber-400/[0.06]",
+        icon: "bg-amber-400/15 text-amber-400",
+        label: "text-amber-400/80",
+        glyph: (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        ),
+      },
+    }[variant];
+
+    return (
+      <div className={`rounded-xl border px-4 py-3.5 ${theme.box}`}>
+        <div className="flex items-center gap-2">
+          <span
+            className={`flex h-6 w-6 items-center justify-center rounded-md ${theme.icon}`}
+          >
+            {theme.glyph}
+          </span>
+          <span
+            className={`text-xs font-semibold uppercase tracking-wider ${theme.label}`}
+          >
+            {title}
+          </span>
+        </div>
+        <div className="mt-2.5">{content}</div>
+      </div>
+    );
+  }
+
+  function renderInlineLines(
+    lines: string[],
+    keyPrefix: string,
+    bulletClass = "bg-white/50",
+  ): ReactNode[] {
+    const elements: ReactNode[] = [];
+    let currentPara: string[] = [];
+    const flushPara = () => {
+      if (currentPara.length > 0) {
+        elements.push(
+          <p
+            key={keyPrefix + "p" + elements.length}
+            className={elements.length > 0 ? "mt-2.5" : ""}
+          >
+            {renderBold(currentPara.join("\n"))}
+          </p>,
+        );
+        currentPara = [];
+      }
+    };
+
+    for (const l of lines) {
+      const bulletMatch = l.match(/^\s*[-*+]\s+(.*)/);
+      const bottomLine = l.match(
+        /^\s*\*\*(Bottom line|The bottom line|In short)[:\u2013\u2014-]\s*(.+)$/i,
+      );
+      if (!l.trim()) {
+        flushPara();
+      } else if (bottomLine) {
+        flushPara();
+        elements.push(
+          <div
+            key={keyPrefix + "bl" + elements.length}
+            className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] px-3.5 py-2.5"
+          >
+            <p className="text-sm leading-relaxed text-white/85">
+              {renderBold(l.trim())}
+            </p>
+          </div>,
+        );
+      } else if (bulletMatch) {
+        flushPara();
+        elements.push(
+          <div
+            key={keyPrefix + "b" + elements.length}
+            className="flex items-start gap-2 py-0.5"
+          >
+            <span
+              className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${bulletClass}`}
+            />
+            <span className="min-w-0 text-sm leading-relaxed text-white/80">
+              {renderBold(bulletMatch[1])}
+            </span>
+          </div>,
+        );
+      } else {
+        currentPara.push(l);
+      }
+    }
+    flushPara();
+    return elements;
+  }
+
+  function renderTextSegments(textContent: string, keyPrefix: string): ReactNode {
+    const segments = splitTextSegments(textContent.split("\n"));
+
+    return (
+      <div className="whitespace-pre-wrap leading-relaxed">
+        {segments.map((seg, si) => {
+          const variant = seg.heading ? sectionVariant(seg.heading) : "plain";
+          if (variant === "plain") {
+            return (
+              <div key={si} className={si > 0 ? "mt-4" : ""}>
+                {seg.heading && (
+                  <p className="flex items-center gap-2 text-sm font-semibold text-white/90">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/70" />
+                    <span>{renderBold(seg.heading)}</span>
+                  </p>
+                )}
+                <div className={seg.heading ? "mt-1.5" : ""}>
+                  {renderInlineLines(seg.lines, `${keyPrefix}-${si}`)}
+                </div>
+              </div>
+            );
+          }
+          const bulletClass =
+            variant === "takeaway" ? "bg-emerald-400/60" : "bg-amber-400/60";
+          return (
+            <div key={si} className={si > 0 ? "mt-4" : ""}>
+              {renderCallout(
+                seg.heading ?? "",
+                renderInlineLines(
+                  seg.lines,
+                  `${keyPrefix}-${si}`,
+                  bulletClass,
+                ),
+                variant,
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   function renderContentBlocks(blocks: ContentBlockType[]): ReactNode {
     return blocks.map((block, bi) => {
       switch (block.type) {
@@ -828,13 +1020,27 @@ export default function ChatApp({
           return (
             <div
               key={bi}
-              className="my-3 rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3"
+              className="my-3 rounded-xl border border-amber-400/20 bg-gradient-to-br from-amber-400/[0.08] via-amber-400/[0.02] to-transparent px-4 py-3.5"
             >
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-400/15 text-amber-300">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                  </svg>
+                </span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-amber-300/90">
                   Definition
                 </span>
-                <span className="text-sm font-semibold text-amber-400">
+                <span className="text-sm font-semibold text-white/90">
                   {renderBold(block.term)}
                 </span>
               </div>
@@ -920,71 +1126,7 @@ export default function ChatApp({
           }
           return (
             <div key={bi} className="whitespace-pre-wrap leading-relaxed">
-              {(() => {
-                const lines = textContent.split("\n");
-                const elements: ReactNode[] = [];
-                let currentPara: string[] = [];
-                const flushPara = () => {
-                  if (currentPara.length > 0) {
-                    elements.push(
-                      <p
-                        key={"p" + elements.length}
-                        className={elements.length > 0 ? "mt-3" : ""}
-                      >
-                        {renderBold(currentPara.join("\n"))}
-                      </p>,
-                    );
-                    currentPara = [];
-                  }
-                };
-                for (let li = 0; li < lines.length; li++) {
-                  const l = lines[li];
-                  const headingMatch = l.match(/^#{1,6}\s+(.+)/);
-                  const boldHeadingMatch = l.match(
-                    /^\s*\*\*([^*]{1,80}?):?\*\*\s*$/,
-                  );
-                  const bulletMatch = l.match(/^\s*[-*+]\s+(.*)/);
-                  if (headingMatch || boldHeadingMatch) {
-                    flushPara();
-                    const headingText = (
-                      headingMatch?.[1] ??
-                      boldHeadingMatch?.[1] ??
-                      ""
-                    ).trim();
-                    elements.push(
-                      <p
-                        key={"h" + elements.length}
-                        className={
-                          elements.length > 0
-                            ? "mt-4 text-sm font-semibold text-white/90"
-                            : "text-sm font-semibold text-white/90"
-                        }
-                      >
-                        {renderBold(headingText)}
-                      </p>,
-                    );
-                  } else if (bulletMatch) {
-                    flushPara();
-                    elements.push(
-                      <div
-                        key={"b" + elements.length}
-                        className="flex items-start gap-2 py-0.5"
-                      >
-                        <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-white/50" />
-                        <span className="min-w-0 text-sm leading-relaxed text-white/80">
-                          {renderBold(bulletMatch[1])}
-                        </span>
-                      </div>,
-                    );
-                  } else if (!l.trim()) {
-                    flushPara();
-                  } else {
-                    currentPara.push(l);
-                  }
-                }
-                flushPara();
-                return elements;
-              })()}
+              {renderTextSegments(textContent, `t${bi}`)}
             </div>
           );
       }

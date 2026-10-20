@@ -240,3 +240,49 @@ export function parseContent(text: string): ContentBlockType[] {
 
   return blocks;
 }
+
+export type SegmentVariant = "lead" | "takeaway" | "warning" | "plain";
+
+export type TextSegment = { heading: string | null; lines: string[] };
+
+/**
+ * Decide how a section heading should be presented.
+ *
+ * Most sections stay plain so a long answer is not a wall of boxes. Only the
+ * lead answer, the conclusion and genuine warnings get a highlighted callout.
+ */
+export function sectionVariant(title: string): SegmentVariant {
+  const t = title.trim().toLowerCase().replace(/[:\s]+$/, "");
+  if (/^(short answer|answer|in short)$/.test(t)) return "lead";
+  if (
+    /^(bottom line|the bottom line|practical takeaway|key takeaways?|takeaways?|summary|conclusion|in summary|to summarize|final word|what this means)$/.test(
+      t,
+    )
+  )
+    return "takeaway";
+  if (/^(warning|important|note|caution|disclaimer)$/.test(t)) return "warning";
+  return "plain";
+}
+
+const BOLD_HEADING = /^\s*\*\*([^*]{1,80}?):?\*\*\s*$/;
+
+export function splitTextSegments(lines: string[]): TextSegment[] {
+  const segments: TextSegment[] = [];
+  let current: TextSegment = { heading: null, lines: [] };
+  const flush = () => {
+    if (current.heading !== null || current.lines.some((l) => l.trim())) {
+      segments.push(current);
+    }
+  };
+  for (const l of lines) {
+    const headingMatch = l.match(/^#{1,6}\s+(.+)/) || l.match(BOLD_HEADING);
+    if (headingMatch) {
+      flush();
+      current = { heading: headingMatch[1].trim(), lines: [] };
+    } else {
+      current.lines.push(l);
+    }
+  }
+  flush();
+  return segments;
+}
