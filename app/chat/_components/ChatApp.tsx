@@ -2249,7 +2249,10 @@ export default function ChatApp({
     syncDeleteServer(removedIds);
   }
 
-  async function createShareLink(conv: Conversation): Promise<string | null> {
+  async function createShareLink(
+    conv: Conversation,
+    messageId?: string,
+  ): Promise<string | null> {
     try {
       // The normal history sync is debounced. Save this conversation first so
       // sharing a brand-new chat cannot race the sync and 404.
@@ -2265,7 +2268,10 @@ export default function ChatApp({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ conversationId: conv.id }),
+        body: JSON.stringify({
+          conversationId: conv.id,
+          ...(messageId ? { messageId } : {}),
+        }),
       });
       if (!res.ok) return null;
       const data = await res.json();
@@ -2283,19 +2289,29 @@ export default function ChatApp({
     }
   }
 
-  async function shareConversation(conv: Conversation, platform?: string) {
+  async function shareConversation(
+    conv: Conversation,
+    platform?: string,
+    messageId?: string,
+  ) {
     if (isResponding) {
       alert("Please wait for the response to finish before sharing.");
       return;
     }
 
-    const shareUrl = await createShareLink(conv);
+    const shareUrl = await createShareLink(conv, messageId);
     if (!shareUrl) {
-      alert("Failed to generate share link.");
+      alert(
+        messageId
+          ? "Failed to generate a share link for this message."
+          : "Failed to generate share link.",
+      );
       return;
     }
 
-    const shareText = `Check out this conversation on Lawbite: ${conv.title}`;
+    const shareText = messageId
+      ? `Check out this message on Lawbite: ${conv.title}`
+      : `Check out this conversation on Lawbite: ${conv.title}`;
 
     if (platform === "more") {
       if (typeof navigator !== "undefined" && navigator.share) {
@@ -3882,6 +3898,42 @@ export default function ChatApp({
                         </div>
                       )}
                     </div>
+                    {message.role === "user" &&
+                      message.id &&
+                      !message.id.startsWith("assistant-") && (
+                        <div className="mt-1 flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (active)
+                                shareConversation(active, "more", message.id);
+                            }}
+                            className="rounded-md p-1 text-white/30 transition-colors hover:text-white/60"
+                            title="Share message"
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <circle cx="18" cy="5" r="3" />
+                              <circle cx="6" cy="12" r="3" />
+                              <circle cx="18" cy="19" r="3" />
+                              <line
+                                x1="8.59"
+                                y1="13.51"
+                                x2="15.42"
+                                y2="17.49"
+                              />
+                              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                     {message.role === "assistant" &&
                       message.id &&
                       !message.id.startsWith("assistant-") && (
@@ -3988,10 +4040,11 @@ export default function ChatApp({
                           <button
                             type="button"
                             onClick={() => {
-                              if (active) shareConversation(active, "more");
+                              if (active)
+                                shareConversation(active, "more", message.id);
                             }}
                             className="rounded-md p-1 text-white/30 transition-colors hover:text-white/60"
-                            title="Share chat"
+                            title="Share message"
                           >
                             <svg
                               viewBox="0 0 24 24"

@@ -27,15 +27,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Optional: share just one message instead of the whole conversation.
+    const messageId =
+      body && typeof body.messageId === "string" && body.messageId.trim()
+        ? body.messageId.trim()
+        : null;
+
     const shared = await createSharedChat({
       userId: session.user.id,
       userName: session.user.name,
       conversationId,
+      messageId,
     });
 
     if (!shared) {
       return NextResponse.json(
-        { error: "Conversation not found or empty" },
+        {
+          error: messageId
+            ? "Message not found or not shareable"
+            : "Conversation not found or empty",
+        },
         { status: 404 },
       );
     }

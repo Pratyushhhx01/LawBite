@@ -4,6 +4,13 @@ import { db } from "@/lib/db";
 
 export type SharedRole = "user" | "assistant";
 
+/**
+ * What a public snapshot contains: the whole conversation, or just one message
+ * that the sender picked from it. A message share deliberately hides the rest
+ * of the conversation, and the recipient continues from that single message.
+ */
+export type ShareScope = "conversation" | "message";
+
 export type SharedMessage = {
   id?: string;
   role: SharedRole;
@@ -19,6 +26,7 @@ export type SharedChat = {
   messages: SharedMessage[];
   sharedBy: string;
   sharedAt: string;
+  scope: ShareScope;
 };
 
 const SHARE_ID_PATTERN =
@@ -164,13 +172,16 @@ function parseStoredMessages(value: unknown): unknown {
 
 /**
  * Create an immutable public snapshot of one of the caller's conversations.
- * Returns null when the conversation is missing, empty, or not owned by the
- * caller so the route can surface a single 404 without leaking existence.
+ * When `messageId` is given the snapshot contains only that one message (a
+ * "message share"); otherwise it contains the whole conversation. Returns null
+ * when the conversation/message is missing, empty, or not owned by the caller
+ * so the route can surface a single 404 without leaking existence.
  */
 export async function createSharedChat(params: {
   userId: string;
   userName?: string | null;
   conversationId: string;
+  messageId?: string | null;
 }): Promise<{ shareId: string; chat: SharedChat } | null> {
   const { userId, userName, conversationId } = params;
   if (!conversationId || conversationId.startsWith("share-")) return null;
@@ -185,8 +196,24 @@ export async function createSharedChat(params: {
 
   if (!conversation) return null;
 
-  const messages = normalizeMessages(conversation.messages);
-  if (messages.length === 0) return null;
+  const allMessages = normalizeMessages(conversation.messages);
+  if (allMessages.length === 0) return null;
+
+  const requestedMessageId =
+    typeof params.messageId === "string" && params.messageId.trim()
+      ? params.messageId.trim()
+      : null;
+
+  let messages = allMessages;
+  let scope: ShareScope = "conversation";
+  if (requestedMessageId) {
+    const target = allMessages.find(
+      (message) => message.id === requestedMessageId,
+    );
+    if (!target) return null;
+    messages = [target];
+    scope = "message";
+  }
 
   const title =
     typeof conversation.title === "string" && conversation.title.trim()
@@ -202,6 +229,7 @@ export async function createSharedChat(params: {
         ? userName.trim().slice(0, 80)
         : "A Lawbite user",
     sharedAt: new Date().toISOString(),
+    scope,
   };
 
   const shareId = randomUUID();
@@ -211,7 +239,8 @@ export async function createSharedChat(params: {
       id: shareRecordId(shareId),
       userId,
       title: `[Shared] ${title}`.slice(0, 200),
-      preview: "Shared conversation",
+      preview:
+        scope === "message" ? "Shared message" : "Shared conversation",
       type: "shared",
       pinned: false,
       folderId: null,
@@ -267,6 +296,7 @@ export async function getSharedChat(
       payload && typeof payload.sharedAt === "string"
         ? payload.sharedAt
         : new Date().toISOString(),
+    scope: payload?.scope === "message" ? "message" : "conversation",
   };
 }
 

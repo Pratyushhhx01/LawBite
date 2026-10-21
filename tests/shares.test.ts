@@ -89,6 +89,7 @@ describeDb("shared conversation persistence", () => {
   const sourceId = `test-share-source-${suffix}`;
   let userId = "";
   let shareId = "";
+  let messageShareId = "";
   let importedId = "";
 
   beforeAll(async () => {
@@ -105,6 +106,7 @@ describeDb("shared conversation persistence", () => {
       sourceId,
       importedId,
       shareId ? shareRecordId(shareId) : "",
+      messageShareId ? shareRecordId(messageShareId) : "",
     ].filter(Boolean);
     if (ids.length > 0) {
       await db.deleteFrom("conversation").where("id", "in", ids).execute();
@@ -152,6 +154,7 @@ describeDb("shared conversation persistence", () => {
     expect(publicChat?.title).toBe("Shared test conversation");
     expect(publicChat?.sharedBy).toBe("Share Test User");
     expect(publicChat?.type).toBe("talk-to-ai");
+    expect(publicChat?.scope).toBe("conversation");
     expect(publicChat?.messages).toHaveLength(2);
     expect(publicChat?.messages[1].content).toContain(
       "Bharatiya Nyaya Sanhita",
@@ -188,5 +191,69 @@ describeDb("shared conversation persistence", () => {
       conversationId: sourceId,
     });
     expect(stranger).toBeNull();
+  });
+
+  it("shares a single message and imports only that message", async () => {
+    if (!userId) return;
+
+    const created = await createSharedChat({
+      userId,
+      userName: "Share Test User",
+      conversationId: sourceId,
+      messageId: "m2",
+    });
+
+    expect(created).not.toBeNull();
+    messageShareId = created!.shareId;
+    expect(created!.chat.scope).toBe("message");
+    expect(created!.chat.messages).toHaveLength(1);
+    expect(created!.chat.messages[0].id).toBe("m2");
+    expect(created!.chat.messages[0].role).toBe("assistant");
+
+    const publicChat = await getSharedChat(messageShareId);
+    expect(publicChat).not.toBeNull();
+    expect(publicChat?.scope).toBe("message");
+    expect(publicChat?.messages).toHaveLength(1);
+    expect(publicChat?.messages[0].content).toContain(
+      "Bharatiya Nyaya Sanhita",
+    );
+
+    const importedMessageId = await claimSharedChat(userId, messageShareId);
+    expect(importedMessageId).toBe(
+      importedConversationId(userId, messageShareId),
+    );
+
+    const imported = await db
+      .selectFrom("conversation")
+      .selectAll()
+      .where("id", "=", importedMessageId ?? "")
+      .executeTakeFirst();
+
+    expect(imported?.userId).toBe(userId);
+    const importedMessages = imported?.messages as unknown[];
+    expect(Array.isArray(importedMessages)).toBe(true);
+    expect(importedMessages).toHaveLength(1);
+
+    // Clean up the imported copy so it does not linger in this user's history.
+    if (importedMessageId) {
+      await db
+        .deleteFrom("conversation")
+        .where("id", "=", importedMessageId)
+        .where("userId", "=", userId)
+        .execute();
+    }
+  });
+
+  it("refuses to share a message id that is not in the conversation", async () => {
+    if (!userId) return;
+
+    const created = await createSharedChat({
+      userId,
+      userName: "Share Test User",
+      conversationId: sourceId,
+      messageId: "does-not-exist",
+    });
+
+    expect(created).toBeNull();
   });
 });

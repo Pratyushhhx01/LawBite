@@ -67,6 +67,7 @@ export default async function SharedPage({
 
   const sharedDate = formatSharedDate(data.sharedAt);
   const continueHref = `/chat?shareId=${encodeURIComponent(id)}`;
+  const isMessageShare = data.scope === "message";
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -92,13 +93,15 @@ export default async function SharedPage({
       <div className="mx-auto max-w-4xl px-5 py-10 sm:px-6">
         <div className="mb-8">
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-white/40">
-            Read-only shared chat
+            {isMessageShare ? "Read-only shared message" : "Read-only shared chat"}
           </div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
             {data.title || "Shared conversation"}
           </h1>
           <p className="mt-2 text-sm text-white/40">
-            Shared by {data.sharedBy}
+            {isMessageShare
+              ? `A single message shared by ${data.sharedBy}`
+              : `Shared by ${data.sharedBy}`}
             {sharedDate ? ` on ${sharedDate}` : ""}
           </p>
         </div>
@@ -136,8 +139,9 @@ export default async function SharedPage({
             Want to continue this conversation?
           </h2>
           <p className="mt-2 text-sm text-white/50">
-            Sign in to add this chat to your history and pick up where it left
-            off.
+            {isMessageShare
+              ? "Sign in to add this message to your history and continue the conversation from here."
+              : "Sign in to add this chat to your history and pick up where it left off."}
           </p>
           <Link
             href={continueHref}
@@ -148,8 +152,9 @@ export default async function SharedPage({
         </div>
 
         <p className="mt-6 text-center text-xs text-white/25">
-          This is a read-only snapshot. The original conversation is not changed
-          when someone continues it.
+          {isMessageShare
+            ? "This is a read-only snapshot of a single message. The rest of the original conversation is not included."
+            : "This is a read-only snapshot. The original conversation is not changed when someone continues it."}
         </p>
       </div>
     </div>
