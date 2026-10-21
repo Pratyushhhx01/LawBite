@@ -256,6 +256,7 @@ export default function ChatApp({
   // finished. `isThinking` is only the "waiting for the first word" indicator.
   const [isResponding, setIsResponding] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<"all" | ConversationType>("all");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -2917,6 +2918,37 @@ export default function ChatApp({
     return () => clearTimeout(id);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (sidebarCloseTimer.current) clearTimeout(sidebarCloseTimer.current);
+    };
+  }, []);
+
+  /**
+   * The sidebar is a hover drawer. Moving the pointer off it closes it after a
+   * short grace period, so crossing a child element or the edge strip does not
+   * make it flicker. Touch devices keep the drawer open until the backdrop or
+   * the close button is used.
+   */
+  function cancelSidebarClose() {
+    if (sidebarCloseTimer.current) {
+      clearTimeout(sidebarCloseTimer.current);
+      sidebarCloseTimer.current = null;
+    }
+  }
+
+  function scheduleSidebarClose(delay = 160) {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      return;
+    }
+    cancelSidebarClose();
+    sidebarCloseTimer.current = setTimeout(() => {
+      setSidebarOpen(false);
+      sidebarCloseTimer.current = null;
+    }, delay);
+  }
+
   // While a reply is streaming, the send button becomes a stop button so the
   // user can interrupt it (like ChatGPT). Clicking it aborts the request and
   // keeps any text that has already arrived.
@@ -2958,7 +2990,22 @@ export default function ChatApp({
   }
 
   return (
-    <div className="relative flex h-screen w-full overflow-hidden bg-black text-white">
+    <div
+      className="relative flex h-screen w-full overflow-hidden bg-black text-white"
+      onMouseMove={(event) => {
+        // Hovering the left edge reveals the drawer. A short grace close keeps
+        // it from staying open if the pointer never reaches the panel (for
+        // example when a modal is covering it). The top strip is left to the
+        // hamburger button so the two entry points do not fight each other.
+        if (sidebarOpen || event.clientX > 16 || event.clientY < 72) return;
+        if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+          return;
+        }
+        cancelSidebarClose();
+        setSidebarOpen(true);
+        scheduleSidebarClose(1200);
+      }}
+    >
       <div
         aria-hidden
         className={`fixed inset-0 z-30 bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
@@ -2968,8 +3015,13 @@ export default function ChatApp({
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/10 bg-black transition-transform duration-300 md:static md:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        id="chat-sidebar"
+        aria-hidden={!sidebarOpen}
+        inert={!sidebarOpen}
+        onMouseEnter={cancelSidebarClose}
+        onMouseLeave={() => scheduleSidebarClose()}
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/10 bg-black shadow-2xl transition-transform duration-300 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
@@ -2984,7 +3036,7 @@ export default function ChatApp({
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="rounded-full p-1.5 text-white/60 transition-colors hover:bg-white/5 hover:text-white md:hidden"
+            className="rounded-full p-1.5 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
             aria-label="Close sidebar"
           >
             <svg
@@ -3005,7 +3057,10 @@ export default function ChatApp({
         <div className="px-4 pt-4 space-y-2">
           <button
             type="button"
-            onClick={startNewChat}
+            onClick={() => {
+              setSidebarOpen(false);
+              startNewChat();
+            }}
             className="group flex w-full items-center gap-2 rounded-full border border-white/15 bg-white px-4 py-2 text-sm font-medium text-black transition-transform duration-300 hover:scale-[1.01]"
           >
             <svg
@@ -3024,7 +3079,10 @@ export default function ChatApp({
           </button>
           <button
             type="button"
-            onClick={() => setMyCasesOpen(true)}
+            onClick={() => {
+              setSidebarOpen(false);
+              setMyCasesOpen(true);
+            }}
             className="flex w-full items-center gap-2 rounded-full border border-white/15 bg-white px-4 py-2 text-sm font-medium text-black transition-transform duration-300 hover:scale-[1.01]"
           >
             <svg
@@ -3048,7 +3106,10 @@ export default function ChatApp({
         <div className="px-4 space-y-1">
           <button
             type="button"
-            onClick={() => setHistoryOpen(true)}
+            onClick={() => {
+              setSidebarOpen(false);
+              setHistoryOpen(true);
+            }}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium tracking-wide text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
           >
             <svg
@@ -3068,7 +3129,10 @@ export default function ChatApp({
           </button>
           <button
             type="button"
-            onClick={() => setCalculatorOpen(true)}
+            onClick={() => {
+              setSidebarOpen(false);
+              setCalculatorOpen(true);
+            }}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium tracking-wide text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
           >
             <svg
@@ -3093,7 +3157,10 @@ export default function ChatApp({
           </button>
           <button
             type="button"
-            onClick={() => setRemindersOpen(true)}
+            onClick={() => {
+              setSidebarOpen(false);
+              setRemindersOpen(true);
+            }}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium tracking-wide text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
           >
             <svg
@@ -3137,7 +3204,10 @@ export default function ChatApp({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setSettingsOpen(true)}
+                onClick={() => {
+                  setSidebarOpen(false);
+                  setSettingsOpen(true);
+                }}
                 className="shrink-0 rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/5 hover:text-white"
                 aria-label="Settings"
               >
@@ -3156,7 +3226,10 @@ export default function ChatApp({
               </button>
               <button
                 type="button"
-                onClick={handleSignOut}
+                onClick={() => {
+                  setSidebarOpen(false);
+                  handleSignOut();
+                }}
                 className="shrink-0 rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/5 hover:text-white"
                 aria-label="Sign out"
               >
@@ -3209,9 +3282,14 @@ export default function ChatApp({
             )}
             <button
               type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/5 hover:text-white md:hidden"
+              onClick={() => {
+                cancelSidebarClose();
+                setSidebarOpen(true);
+              }}
+              className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/5 hover:text-white"
               aria-label="Open sidebar"
+              aria-expanded={sidebarOpen}
+              aria-controls="chat-sidebar"
             >
               <svg
                 aria-hidden
