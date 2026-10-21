@@ -6,6 +6,8 @@ import Reveal from "./Reveal";
 type Stat = {
   value: number;
   suffix?: string;
+  /** Animated number rendered after the slash (e.g. the 7 in 24/7). */
+  suffixValue?: number;
   label: string;
   decimals?: number;
   /** Render the suffix at the number's size (e.g. "24/7"). */
@@ -17,7 +19,7 @@ const stats: Stat[] = [
   { value: 5, suffix: "", label: "AI conversation modes" },
   {
     value: 24,
-    suffix: "/7",
+    suffixValue: 7,
     label: "Legal assistance, anytime",
     suffixSameSize: true,
   },
@@ -64,7 +66,17 @@ function useCountUp(target: number, durationMs = 1600, decimals = 0) {
 
 function StatItem({ stat, index }: { stat: Stat; index: number }) {
   const decimals = stat.decimals ?? 0;
-  const { value, ref } = useCountUp(stat.value, 1600 + index * 150, decimals);
+  const duration = 1600 + index * 150;
+  const { value, ref } = useCountUp(stat.value, duration, decimals);
+  // The 7 in 24/7 gets its own count-up so both halves animate together.
+  const { value: suffixValue, ref: suffixRef } = useCountUp(
+    stat.suffixValue ?? 0,
+    duration,
+    0,
+  );
+  const suffixClass = stat.suffixSameSize
+    ? "text-5xl font-semibold tracking-tight text-white sm:text-6xl"
+    : "text-2xl font-medium text-white/70 sm:text-3xl";
 
   return (
     <Reveal delay={((index % 3) + 1) as 1 | 2 | 3} className="h-full">
@@ -89,17 +101,13 @@ function StatItem({ stat, index }: { stat: Stat; index: number }) {
             >
               {value.toFixed(decimals)}
             </span>
-            {stat.suffix && (
-              <span
-                className={
-                  stat.suffixSameSize
-                    ? "text-5xl font-semibold tracking-tight text-white sm:text-6xl"
-                    : "text-2xl font-medium text-white/70 sm:text-3xl"
-                }
-              >
-                {stat.suffix}
+            {stat.suffixValue !== undefined ? (
+              <span ref={suffixRef} className={suffixClass}>
+                /{suffixValue.toFixed(0)}
               </span>
-            )}
+            ) : stat.suffix ? (
+              <span className={suffixClass}>{stat.suffix}</span>
+            ) : null}
           </div>
           <p className="mt-3 text-sm leading-relaxed text-white/55">
             {stat.label}
