@@ -71,7 +71,6 @@ export default function Hero() {
 
         <Reveal delay={4} className="w-full">
           <div className="relative mt-20 w-full">
-            <div className="absolute inset-x-10 -top-2 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
             <div className="grid grid-cols-2 items-center gap-6 sm:grid-cols-4">
               {["IPC / BNS", "CrPC / BNSS", "Constitution", "157+ Acts"].map(
                 (name, i) => (
@@ -85,7 +84,6 @@ export default function Hero() {
                 ),
               )}
             </div>
-            <div className="absolute inset-x-10 -bottom-2 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           </div>
         </Reveal>
       </div>

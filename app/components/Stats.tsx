@@ -8,12 +8,14 @@ type Stat = {
   suffix?: string;
   label: string;
   decimals?: number;
+  /** Static text shown instead of the animated number (e.g. "24/7"). */
+  display?: string;
 };
 
 const stats: Stat[] = [
   { value: 157, suffix: "+", label: "Indian bare acts covered" },
   { value: 5, suffix: "", label: "AI conversation modes" },
-  { value: 1, suffix: "", label: "Relevant question at a time in AI Lawyer" },
+  { value: 0, label: "Legal assistance, anytime", display: "24/7" },
   { value: 0, suffix: "", label: "Cost to get started", decimals: 0 },
 ];
 
@@ -72,16 +74,24 @@ function StatItem({ stat, index }: { stat: Stat; index: number }) {
         </div>
         <div className="mt-10">
           <div className="flex items-baseline gap-1">
-            <span
-              ref={ref}
-              className="text-5xl font-semibold tracking-tight text-white sm:text-6xl"
-            >
-              {value.toFixed(decimals)}
-            </span>
-            {stat.suffix && (
-              <span className="text-2xl font-medium text-white/70 sm:text-3xl">
-                {stat.suffix}
+            {stat.display ? (
+              <span className="text-5xl font-semibold tracking-tight text-white sm:text-6xl">
+                {stat.display}
               </span>
+            ) : (
+              <>
+                <span
+                  ref={ref}
+                  className="text-5xl font-semibold tracking-tight text-white sm:text-6xl"
+                >
+                  {value.toFixed(decimals)}
+                </span>
+                {stat.suffix && (
+                  <span className="text-2xl font-medium text-white/70 sm:text-3xl">
+                    {stat.suffix}
+                  </span>
+                )}
+              </>
             )}
           </div>
           <p className="mt-3 text-sm leading-relaxed text-white/55">
