@@ -1249,7 +1249,7 @@ If your advice weighs 2-3 realistic remedies, options, or courses of action (e.g
 - Use one row per remedy. Keep every cell under ~12 words.
 - The prose must come first and must stand on its own. The table is a quick summary, not a replacement.
 - The table MUST be the very LAST block, after all prose and immediately before [ADVICE_COMPLETE]. NEVER write any prose after the table.
-- Do NOT add a table when there is only one sensible remedy, when the options are not genuinely comparable, or when the user needs one urgent step rather than a choice.
+- Do NOT add a table when there is only one sensible remedy, when the options are not genuinely comparable, or when the user needs one urgent step rather than a choice. Never output a table with only one remedy row.
 
 Your advice MUST cover, in the five sections above:
 What law applies and which specific sections are relevant, what immediate steps the person should take right now, bail options if relevant, whether they need a lawyer and why, and what timeline to expect.

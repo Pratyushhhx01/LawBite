@@ -569,6 +569,7 @@ describe("AI Lawyer (grill) mode", () => {
     expect(systemPrompt).toContain("**Timeline and cost**");
     expect(systemPrompt).toMatch(/very LAST block/i);
     expect(systemPrompt).toMatch(/Never write prose after the table/i);
+    expect(systemPrompt).toMatch(/Never output a table with only one remedy row/i);
     // Markdown is permitted only on the advice turn.
     expect(systemPrompt).toMatch(/Markdown is allowed ONLY in the final advice/i);
 
