@@ -35,6 +35,11 @@ import {
   type SegmentVariant,
 } from "./messageParser";
 import { isRetryableChatFailure, takeSseLines } from "./chatTransport";
+import {
+  fallbackConversationTitle,
+  isMeaningfulTitleMessage,
+  isPlaceholderConversationTitle,
+} from "@/lib/conversation-title";
 
 type Role = "user" | "assistant";
 
@@ -335,6 +340,9 @@ export default function ChatApp({
   // stopped reply keeps its partial text instead of showing an error.
   const stopRequestedRef = useRef(false);
   const conversationsRef = useRef<Conversation[]>([]);
+  // Conversations that have already asked the server for a title. Prevents a
+  // second message (or a re-render) from firing a duplicate generation call.
+  const titleRequestedRef = useRef<Set<string>>(new Set());
   const escCountRef = useRef(0);
   const escTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Reveals assistant text word by word, whether the server streams it in many
@@ -1159,18 +1167,53 @@ export default function ChatApp({
     });
   }
 
-  function extractTopic(text: string): string {
-    const cleaned = text
-      .replace(/[?.,!;:]+$/g, "")
-      .replace(
-        /^(can you|could you|please|i want to|i need to|tell me about|explain|what are|what is|what does|how do|how does|how can|how to|why do|why does|is there|are there|do you|does the|define|describe|give me|info on|details about|regarding|concerning)\s*/i,
-        "",
-      )
-      .trim();
-    const words = cleaned.split(/\s+/).filter(Boolean);
-    const title = words.slice(0, 6).join(" ");
-    if (title.length === 0) return cleaned.slice(0, 40) || "New conversation";
-    return title.charAt(0).toUpperCase() + title.slice(1);
+  /**
+   * Ask the server for an AI title once per conversation. The deterministic
+   * fallback is already on screen, so this is fire-and-forget: a failure just
+   * leaves the fallback in place.
+   */
+  function requestConversationTitle(params: {
+    conversationId: string;
+    message: string;
+    conversationType: ConversationType;
+    attachmentName?: string | null;
+    fallbackTitle: string;
+  }) {
+    const { conversationId, fallbackTitle } = params;
+    if (titleRequestedRef.current.has(conversationId)) return;
+    titleRequestedRef.current.add(conversationId);
+
+    void fetch("/api/conversations/title", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        conversationId,
+        message: params.message,
+        conversationType: params.conversationType,
+        attachmentName: params.attachmentName ?? null,
+        allowTitleReplacement: true,
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        const title =
+          typeof data?.title === "string" ? data.title.trim() : "";
+        if (!title) return;
+        setConversations((prev) =>
+          prev.map((c) =>
+            // Only replace the optimistic fallback. A manual rename made while
+            // the request was in flight must always win.
+            c.id === conversationId && c.title === fallbackTitle
+              ? { ...c, title }
+              : c,
+          ),
+        );
+      })
+      .catch(() => {
+        /* keep the fallback title */
+      });
   }
 
   function selectConversation(id: string) {
@@ -1621,17 +1664,29 @@ export default function ChatApp({
     };
     const assistantId = newId("a");
 
+    const attachmentLabel = attachment?.fileName ?? documentName ?? null;
+    const titleConversation = conversationsRef.current.find(
+      (c) => c.id === activeId,
+    );
+    // Name the thread from the first meaningful message, but never overwrite a
+    // real title (drafter template, AI title, or a manual rename).
+    const shouldGenerateTitle =
+      (!titleConversation ||
+        isPlaceholderConversationTitle(titleConversation.title)) &&
+      isMeaningfulTitleMessage(trimmed, attachmentLabel);
+    const fallbackTitle = shouldGenerateTitle
+      ? fallbackConversationTitle(trimmed, {
+          conversationType: mode,
+          attachmentName: attachmentLabel,
+        })
+      : "";
+
     setConversations((prev) => {
       const updated = prev.map((c) =>
         c.id === activeId
           ? {
               ...c,
-              title:
-                c.messages.length === 0
-                  ? attachment?.fileName
-                    ? attachment.fileName.replace(/\.[^.]+$/, "")
-                    : extractTopic(trimmed)
-                  : c.title,
+              title: shouldGenerateTitle ? fallbackTitle : c.title,
               preview: attachment?.fileName
                 ? draft.trim() || `Review: ${attachment.fileName}`
                 : trimmed,
@@ -1658,6 +1713,16 @@ export default function ChatApp({
     setThinkingStage(0);
     setShowThinking(false);
     startTypewriter(activeId, assistantId);
+
+    if (shouldGenerateTitle) {
+      requestConversationTitle({
+        conversationId: activeId,
+        message: trimmed,
+        conversationType: mode,
+        attachmentName: attachmentLabel,
+        fallbackTitle,
+      });
+    }
 
     const currentConversations = conversationsRef.current;
     const activeConversation = currentConversations.find(
@@ -1967,7 +2032,11 @@ export default function ChatApp({
           const newCase: SavedCase = {
             id: newId("sc"),
             title:
-              conv.title === "New case" ? extractTopic(problem) : conv.title,
+              conv.title === "New case"
+                ? fallbackConversationTitle(problem, {
+                    conversationType: "grill",
+                  })
+                : conv.title,
             summary,
             problem,
             state,
