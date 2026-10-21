@@ -9,6 +9,10 @@ import {
 } from "@/lib/legal-terminology";
 import { SECTION_MAPPINGS, mappingPromptBlock } from "@/lib/section-mapping";
 import {
+  isTrustedLegalSource,
+  TAVILY_EXCLUDED_DOMAINS,
+} from "@/lib/legal-sources";
+import {
   buildCandidateChain,
   buildProviderPayload,
   ensureReasoningBudget,
@@ -1334,6 +1338,12 @@ function getSystemPrompt(conversationType?: string) {
   }
 }
 
+const SOURCE_QUALITY_RULES = `SOURCE QUALITY RULES — FOLLOW STRICTLY:
+- Cite only official Indian government sources (domains ending in gov.in or nic.in), Indian courts, Indian Kanoon, established legal databases, or established legal newsrooms.
+- NEVER cite or rely on social media, user-generated content, blogs, wikis or content farms: Instagram, Facebook, X/Twitter, YouTube, Reddit, Quora, LinkedIn, TikTok, Pinterest, WhatsApp, Telegram, Wikipedia, Medium, or similar sites.
+- Use only the verified sources supplied in this prompt. If a point is not supported by those sources, state the law from the Legal Knowledge Base without attaching a web citation.
+- Never invent a source, URL, case name, section number or article number.`;
+
 const NON_LEGAL_TOPIC_PATTERNS: RegExp[] = [
   /\b(who is|who was|who's)\s+(?!the\s*(?:chief justice|president|prime minister|pm|governor|cji|cm|chief minister|speaker|chairman|chairperson|justice|minister|court|commissioner))/i,
   /\b(cricket|football|soccer|tennis|basketball|baseball|golf|formula\s*1|f1\s*racing|olympics|world\s*cup|ipl|premier\s*league|champions\s*league|bcci|icc)\b/i,
@@ -1567,22 +1577,31 @@ async function webSearch(
   }
   try {
     const response = await tvly.search(query, {
-      search_depth: "basic",
-      max_results: 5,
-      include_answer: true,
+      searchDepth: "basic",
+      maxResults: 8,
+      // The answer is generated from all candidates, including ones we may
+      // reject below. Keep it off and build the context only from verified
+      // source snippets so a social-media result cannot leak into the reply.
+      includeAnswer: false,
+      excludeDomains: TAVILY_EXCLUDED_DOMAINS,
     });
 
-    const answer = response.answer || "";
-    const results =
-      response.results
-        ?.map(
-          (r: { title: string; content: string }) => `${r.title}: ${r.content}`,
-        )
-        .join("\n") || "";
+    const trustedResults = (response.results ?? []).filter(
+      (result: { url?: string }) => isTrustedLegalSource(result.url),
+    );
 
-    const citations: Citation[] = (response.results ?? [])
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((r: any) => r.url)
+    if (trustedResults.length === 0) {
+      return { context: "", citations: [] };
+    }
+
+    const results = trustedResults
+      .map(
+        (result: { title: string; content: string }) =>
+          `${result.title}: ${result.content}`,
+      )
+      .join("\n");
+
+    const citations: Citation[] = trustedResults
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((r: any): Citation => ({
         type: "web",
@@ -1593,7 +1612,7 @@ async function webSearch(
       .slice(0, 4);
 
     return {
-      context: `Web Search Results:\n${answer}\n\nSources:\n${results}`,
+      context: `VERIFIED INDIAN LEGAL WEB SOURCES. Use only these sources; do not cite any other website:\n${results}`,
       citations,
     };
   } catch (error) {
@@ -3007,7 +3026,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
       return true;
     });
 
-    let finalSystemPrompt = systemPrompt;
+    let finalSystemPrompt = `${systemPrompt}\n\n${SOURCE_QUALITY_RULES}`;
     const contextParts: string[] = [];
     const acronymContext = legalAcronymContext(`${userQuery}\n${contextQuery}`);
     if (acronymContext) contextParts.push(acronymContext);
@@ -3024,7 +3043,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
       );
     }
     if (contextParts.length > 0) {
-      finalSystemPrompt = `${systemPrompt}\n\nIMPORTANT: Use the following information to answer the user's question. Incorporate this into your response:\n\n${contextParts.join("\n\n")}`;
+      finalSystemPrompt = `${finalSystemPrompt}\n\nIMPORTANT: Use the following information to answer the user's question. Incorporate this into your response:\n\n${contextParts.join("\n\n")}`;
     }
 
     // AI Lawyer must end with advice, not an endless interview. Once the user

@@ -26,6 +26,7 @@ import {
 import { RemindersModal } from "./RemindersModal";
 import { TemplatesModal, FilingModal } from "./ToolsModals";
 import { formatCitation, copyToClipboard } from "@/lib/citations";
+import { isTrustedLegalSource } from "@/lib/legal-sources";
 import {
   parseContent,
   sectionVariant,
@@ -43,6 +44,19 @@ type Citation = {
   snippet: string;
   url?: string;
 };
+
+/**
+ * Older saved replies may still contain social-media citations from before the
+ * web-search source gate existed. Hide those at render time as well, so the
+ * "Sources" strip never shows Instagram/Facebook/YouTube links.
+ */
+function visibleCitations(citations: Citation[] | undefined): Citation[] {
+  if (!citations) return [];
+  return citations.filter(
+    (citation) =>
+      citation.type === "act" || isTrustedLegalSource(citation.url),
+  );
+}
 
 type Message = {
   id: string;
@@ -3690,13 +3704,14 @@ export default function ChatApp({
                             }
                             return renderContentBlocks(blocks);
                           })()}
-                          {message.citations &&
-                            message.citations.length > 0 && (
+                          {visibleCitations(message.citations).length > 0 && (
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <span className="text-[11px] font-semibold uppercase tracking-wider text-white/35">
                                   Sources
                                 </span>
-                                {message.citations.slice(0, 2).map((cit, i) => (
+                                {visibleCitations(message.citations)
+                                  .slice(0, 2)
+                                  .map((cit, i) => (
                                   <div
                                     key={i}
                                     className="inline-flex max-w-full items-center gap-1 rounded-full border border-white/15 bg-white/[0.05] py-1 pl-2.5 pr-1 text-[11px] font-medium text-white/75 transition-colors hover:border-white/30 hover:text-white"

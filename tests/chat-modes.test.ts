@@ -326,6 +326,56 @@ describe("Talk to AI mode", () => {
     ]);
   });
 
+  it("drops social-media results from citations and model context", async () => {
+    searchMock.mockResolvedValue({
+      answer: "Instagram says bail is automatic.",
+      results: [
+        {
+          title: "Bail explained on Instagram",
+          content: "Instagram reel claims every accused gets automatic bail.",
+          url: "https://www.instagram.com/reel/abc123",
+        },
+        {
+          title: "BNSS bail provisions",
+          content: "Sections 480 to 483 BNSS govern bail.",
+          url: "https://example.gov.in/bail",
+        },
+      ],
+    });
+    const text = framesToText([
+      delta("Bail is governed by sections 480 to 483 BNSS."),
+      finish,
+    ]);
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () => sseResponse(text));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      makeRequest("talk-to-ai", "What is the current bail law in India?"),
+    );
+    const { citations } = await readSse(res);
+
+    expect(citations.length).toBe(1);
+    expect(citations[0]).toEqual([
+      {
+        type: "web",
+        label: "BNSS bail provisions",
+        snippet: "Sections 480 to 483 BNSS govern bail.",
+        url: "https://example.gov.in/bail",
+      },
+    ]);
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    ) as { messages: { role: string; content: unknown }[] };
+    const serialized = JSON.stringify(body.messages);
+    expect(serialized).not.toContain("instagram.com");
+    expect(serialized).not.toContain("Instagram reel");
+    expect(serialized).toContain("VERIFIED INDIAN LEGAL WEB SOURCES");
+    expect(serialized).toContain("SOURCE QUALITY RULES");
+  });
+
   it("streams a multi-section table reply, repairs blank cells, and replaces it once", async () => {
     const badTable = [
       "| Section | Offence | Punishment |",
