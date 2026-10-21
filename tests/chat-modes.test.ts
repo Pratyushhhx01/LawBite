@@ -560,6 +560,24 @@ describe("AI Lawyer (grill) mode", () => {
     expect(systemPrompt).toMatch(/FINAL ADVICE OUTPUT FORMAT/i);
     expect(systemPrompt).toMatch(/exactly ONCE/i);
 
+    // The advice turn must be structured and scannable, never one dense block.
+    expect(systemPrompt).toContain("**Bottom line**");
+    expect(systemPrompt).toContain("**The law**");
+    expect(systemPrompt).toContain("**What to do now**");
+    expect(systemPrompt).toContain("**Step 1: Send a written demand**");
+    expect(systemPrompt).toContain("**Next steps if refused**");
+    expect(systemPrompt).toContain("**Timeline and cost**");
+    expect(systemPrompt).toMatch(/very LAST block/i);
+    expect(systemPrompt).toMatch(/Never write prose after the table/i);
+    // Markdown is permitted only on the advice turn.
+    expect(systemPrompt).toMatch(/Markdown is allowed ONLY in the final advice/i);
+
+    // Landlord deposit advice is civil, not a consumer complaint, and uses the
+    // three-year limitation rather than the two-year consumer window.
+    expect(systemPrompt).toMatch(/Do NOT send a tenant to a consumer commission/i);
+    expect(systemPrompt).toMatch(/THREE years, not two/i);
+    expect(systemPrompt).toMatch(/civil suit for recovery/i);
+
     // Common remedy advice is grounded in current law.
     expect(systemPrompt).toMatch(/four Labour Codes took effect on 21 November 2025/i);
     expect(systemPrompt).toMatch(/Insurance Ombudsman/i);
@@ -618,6 +636,8 @@ describe("AI Lawyer (grill) mode", () => {
     expect(lastUser.content).toContain("Do NOT ask any question");
     expect(lastUser.content).toContain("2-3 remedies or options");
     expect(lastUser.content).toContain("one compact comparison table");
+    expect(lastUser.content).toContain("**Bottom line**");
+    expect(lastUser.content).toContain("**Step 1:**");
     expect(lastUser.content).toContain("[ADVICE_COMPLETE]");
   });
 });
