@@ -18,6 +18,7 @@ import {
   cleanGeneratedTitle,
   type ConversationTitleInput,
 } from "@/lib/conversation-title";
+import { stripThinkingTokens } from "@/lib/utils";
 
 const TITLE_PROVIDER_TIMEOUT_MS = (() => {
   const override = Number(process.env.CONVERSATION_TITLE_TIMEOUT_MS);
@@ -141,7 +142,7 @@ export async function generateConversationTitle(
       messages,
       Math.min(TITLE_PROVIDER_TIMEOUT_MS, remaining),
     );
-    const title = cleanGeneratedTitle(raw);
+    const title = cleanGeneratedTitle(stripThinkingTokens(raw ?? ""));
     if (title) return title;
   }
 
