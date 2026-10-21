@@ -78,7 +78,11 @@ function StatItem({ stat, index }: { stat: Stat; index: number }) {
           {String(index + 1).padStart(2, "0")}
         </div>
         <div className="mt-10">
-          <div className="flex items-baseline gap-1">
+          <div
+            className={`flex items-baseline ${
+              stat.suffixSameSize ? "gap-0" : "gap-1"
+            }`}
+          >
             <span
               ref={ref}
               className="text-5xl font-semibold tracking-tight text-white sm:text-6xl"
