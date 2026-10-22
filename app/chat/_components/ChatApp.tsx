@@ -2132,6 +2132,32 @@ export default function ChatApp({
     }).catch(() => {});
   }
 
+  // Clear All History must wipe the whole account's chat history even if the
+  // local list is stale. The server deletes every non-shared conversation for
+  // this user instead of trusting the ids this tab happens to have loaded.
+  function syncClearAllServer() {
+    fetch("/api/conversations", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ all: true }),
+    }).catch(() => {});
+  }
+
+  // AI Lawyer cases are kept in localStorage and point at a grill
+  // conversation. Whenever those conversations disappear, drop the matching
+  // cases too so they cannot be restored from the AI Lawyer section.
+  function pruneSavedCases(conversationIds: string[]) {
+    if (conversationIds.length === 0) return;
+    const removed = new Set(conversationIds);
+    setSavedCases((prev) => {
+      const updated = prev.filter((c) => !removed.has(c.conversationId));
+      if (updated.length === prev.length) return prev;
+      saveSavedCases(updated);
+      return updated;
+    });
+  }
+
   function deleteConversation(id: string) {
     setConversations((prev) => {
       const deleted = prev.find((c) => c.id === id);
@@ -2144,6 +2170,7 @@ export default function ChatApp({
       return next;
     });
     syncDeleteServer([id]);
+    pruneSavedCases([id]);
   }
 
   function togglePin(id: string) {
@@ -2175,7 +2202,6 @@ export default function ChatApp({
 
   function clearHistory(section?: ConversationType) {
     if (section === undefined) {
-      const removedIds = conversations.map((c) => c.id);
       const types: ConversationType[] = [
         "talk-to-ai",
         "analysis",
@@ -2205,7 +2231,22 @@ export default function ChatApp({
       setActiveId(freshConversations[0].id);
       setMode("talk-to-ai");
       setContextMenuId(null);
-      syncDeleteServer(removedIds);
+      titleRequestedRef.current.clear();
+
+      // AI Lawyer saved cases live in localStorage, not in the conversation
+      // list, so "Clear All History" has to wipe them explicitly. Notification
+      // dismissals are local history too.
+      setSavedCases([]);
+      saveSavedCases([]);
+      setDismissedNotifications([]);
+      setUpcomingReminders([]);
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(CONVERSATIONS_KEY);
+        window.localStorage.removeItem("lawbite-dismissed-notifications");
+      } catch {}
+
+      syncClearAllServer();
       return;
     }
     const clearType = section ?? active?.type ?? "talk-to-ai";
@@ -2247,6 +2288,7 @@ export default function ChatApp({
     setActiveId(fresh.id);
     setContextMenuId(null);
     syncDeleteServer(removedIds);
+    pruneSavedCases(removedIds);
   }
 
   async function createShareLink(

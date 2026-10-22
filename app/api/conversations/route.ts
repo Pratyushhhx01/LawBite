@@ -168,18 +168,29 @@ export async function DELETE(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
+    const deleteAll = body?.all === true;
     const ids = Array.isArray(body?.ids)
       ? body.ids.filter((i: unknown) => typeof i === "string" && i.length > 0)
       : [];
-    if (ids.length === 0) {
+    if (!deleteAll && ids.length === 0) {
       return NextResponse.json({ error: "Invalid body" }, { status: 400 });
     }
 
-    await db
-      .deleteFrom("conversation")
-      .where("id", "in", ids)
-      .where("userId", "=", user.id)
-      .execute();
+    if (deleteAll) {
+      // Wipe the whole account's chat history. Public share snapshots stay in
+      // place so links that were already sent keep working.
+      await db
+        .deleteFrom("conversation")
+        .where("userId", "=", user.id)
+        .where("type", "!=", "shared")
+        .execute();
+    } else {
+      await db
+        .deleteFrom("conversation")
+        .where("id", "in", ids)
+        .where("userId", "=", user.id)
+        .execute();
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
