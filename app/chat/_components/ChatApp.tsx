@@ -10,7 +10,12 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { FormEvent, KeyboardEvent, ReactNode } from "react";
+import type {
+  FormEvent,
+  KeyboardEvent,
+  ReactNode,
+  RefObject,
+} from "react";
 import { signOut } from "@/lib/auth-client";
 import {
   clearDisclaimerAcceptance,
@@ -164,6 +169,247 @@ function visibleAssistantText(content: string): string {
   return stripThinkingTokens(content)
     .replace(/\[ADVICE_COMPLETE\]/g, "")
     .trim();
+}
+
+type ModeAccent = "neutral" | "amber" | "blue" | "emerald";
+
+type ModeOption = {
+  mode: ConversationType;
+  label: string;
+  description: string;
+  accent: ModeAccent;
+};
+
+const MODE_OPTIONS: ModeOption[] = [
+  {
+    mode: "talk-to-ai",
+    label: "Talk to AI",
+    description: "General legal chat",
+    accent: "neutral",
+  },
+  {
+    mode: "analysis",
+    label: "Deep Analysis",
+    description: "Deep dive into legal cases",
+    accent: "amber",
+  },
+  {
+    mode: "draft",
+    label: "Document Drafter",
+    description: "Generate legal documents",
+    accent: "blue",
+  },
+  {
+    mode: "review",
+    label: "Document Reviewer",
+    description: "Review contracts & clauses",
+    accent: "emerald",
+  },
+];
+
+// Full class strings (not interpolated fragments) so Tailwind can see them.
+const MODE_ACCENT_CLASSES: Record<
+  ModeAccent,
+  { button: string; iconWrap: string; icon: string; label: string }
+> = {
+  neutral: {
+    button: "border-white/10 hover:border-white/30 hover:bg-white/[0.06]",
+    iconWrap: "bg-white/[0.08] group-hover:bg-white/[0.15]",
+    icon: "text-white/70",
+    label: "group-hover:text-white",
+  },
+  amber: {
+    button:
+      "border-amber-400/10 hover:border-amber-400/30 hover:bg-amber-400/[0.06] hover:shadow-[0_0_16px_rgba(251,191,36,0.08)]",
+    iconWrap: "bg-amber-400/[0.08] group-hover:bg-amber-400/[0.15]",
+    icon: "text-amber-400/80",
+    label: "group-hover:text-amber-400/90",
+  },
+  blue: {
+    button:
+      "border-blue-400/10 hover:border-blue-400/30 hover:bg-blue-400/[0.06] hover:shadow-[0_0_16px_rgba(96,165,250,0.08)]",
+    iconWrap: "bg-blue-400/[0.08] group-hover:bg-blue-400/[0.15]",
+    icon: "text-blue-400/80",
+    label: "group-hover:text-blue-400/90",
+  },
+  emerald: {
+    button:
+      "border-emerald-400/10 hover:border-emerald-400/30 hover:bg-emerald-400/[0.06] hover:shadow-[0_0_16px_rgba(52,211,153,0.08)]",
+    iconWrap: "bg-emerald-400/[0.08] group-hover:bg-emerald-400/[0.15]",
+    icon: "text-emerald-400/80",
+    label: "group-hover:text-emerald-400/90",
+  },
+};
+
+function ModeOptionIcon({
+  accent,
+  className,
+}: {
+  accent: ModeAccent;
+  className: string;
+}) {
+  if (accent === "amber") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </svg>
+    );
+  }
+  if (accent === "blue") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+      </svg>
+    );
+  }
+  if (accent === "emerald") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <path d="M9 15l2 2 4-4" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function ModeOptionButton({
+  option,
+  onSelect,
+}: {
+  option: ModeOption;
+  onSelect: () => void;
+}) {
+  const accent = MODE_ACCENT_CLASSES[option.accent];
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`group flex w-full items-center gap-3 rounded-xl border bg-black/60 px-3 py-3 text-left backdrop-blur-xl transition-all duration-300 sm:py-2.5 ${accent.button}`}
+    >
+      <div
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-300 sm:h-8 sm:w-8 ${accent.iconWrap}`}
+      >
+        <ModeOptionIcon
+          accent={option.accent}
+          className={`h-3.5 w-3.5 ${accent.icon}`}
+        />
+      </div>
+      <div className="min-w-0">
+        <div
+          className={`text-sm font-medium text-white/80 transition-colors sm:text-xs ${accent.label}`}
+        >
+          {option.label}
+        </div>
+        <div className="text-[11px] text-white/30 transition-colors group-hover:text-white/45 sm:text-[10px]">
+          {option.description}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/**
+ * Phone-only mode picker. The desktop popovers are anchored to the left of the
+ * plus button (`right-full`), which is off-screen when the composer sits at the
+ * left edge of a narrow viewport. On phones we use a thumb-friendly bottom
+ * sheet instead, so every option is always fully visible.
+ */
+function MobileModeSheet({
+  open,
+  mode,
+  onSelect,
+  onClose,
+  sheetRef,
+}: {
+  open: boolean;
+  mode: ConversationType;
+  onSelect: (mode: ConversationType) => void;
+  onClose: () => void;
+  sheetRef: RefObject<HTMLDivElement | null>;
+}) {
+  const normalized = mode === "chat" ? "talk-to-ai" : mode;
+  const options = MODE_OPTIONS.filter((option) => option.mode !== normalized);
+
+  return (
+    <div
+      className={`fixed inset-0 z-[60] sm:hidden ${
+        open ? "visible" : "invisible pointer-events-none"
+      }`}
+      aria-hidden={!open}
+    >
+      <div
+        className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ${
+          open ? "opacity-100" : "opacity-0"
+        }`}
+        onClick={onClose}
+      />
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Switch AI mode"
+        className={`absolute inset-x-0 bottom-0 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-white/10 bg-[#0a0a0a] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl transition-transform duration-300 ease-out ${
+          open ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
+        <p className="pb-2 text-[11px] font-medium uppercase tracking-wider text-white/35">
+          Switch mode
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {options.map((option) => (
+            <ModeOptionButton
+              key={option.mode}
+              option={option}
+              onSelect={() => onSelect(option.mode)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const emptySubscribe = () => () => {};
@@ -330,6 +576,7 @@ export default function ChatApp({
   const [mode, setMode] = useState<ConversationType>("chat");
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const plusMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileModeSheetRef = useRef<HTMLDivElement | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -570,10 +817,10 @@ export default function ChatApp({
   useEffect(() => {
     if (!plusMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (
-        plusMenuRef.current &&
-        !plusMenuRef.current.contains(e.target as Node)
-      ) {
+      const target = e.target as Node;
+      const insidePlus = plusMenuRef.current?.contains(target) ?? false;
+      const insideSheet = mobileModeSheetRef.current?.contains(target) ?? false;
+      if (!insidePlus && !insideSheet) {
         setPlusMenuOpen(false);
       }
     };
@@ -4476,7 +4723,7 @@ export default function ChatApp({
                             <line x1="5" y1="12" x2="19" y2="12" />
                           </svg>
                         </button>
-                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-4 z-50">
+                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-4 z-50 hidden sm:block">
                           <div
                             className="w-56 flex flex-col gap-1.5"
                             style={{
@@ -4822,7 +5069,7 @@ export default function ChatApp({
                             <line x1="5" y1="12" x2="19" y2="12" />
                           </svg>
                         </button>
-                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-4 z-50">
+                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-4 z-50 hidden sm:block">
                           <div
                             className="w-56 flex flex-col gap-1.5"
                             style={{
@@ -6372,7 +6619,7 @@ export default function ChatApp({
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
                 </button>
-                <div className="absolute bottom-full right-full mb-9 -translate-x-2 z-50">
+                <div className="absolute bottom-full right-full mb-9 -translate-x-2 z-50 hidden sm:block">
                   <div
                     className="w-56 flex flex-col gap-1.5"
                     style={{
@@ -6837,6 +7084,17 @@ export default function ChatApp({
           </div>
         )}
       </main>
+
+      <MobileModeSheet
+        open={plusMenuOpen}
+        mode={mode}
+        onSelect={(nextMode) => {
+          switchMode(nextMode);
+          setPlusMenuOpen(false);
+        }}
+        onClose={() => setPlusMenuOpen(false)}
+        sheetRef={mobileModeSheetRef}
+      />
 
       {confirmAction && (
         <div
