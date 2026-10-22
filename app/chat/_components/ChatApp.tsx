@@ -4982,6 +4982,10 @@ export default function ChatApp({
                               </svg>
                               PDF Document
                             </button>
+                            <div
+                              className="mx-3 my-1 h-px bg-white/10"
+                              aria-hidden="true"
+                            />
                             <button
                               type="button"
                               onClick={() => {
@@ -5327,6 +5331,10 @@ export default function ChatApp({
                               </svg>
                               PDF Document
                             </button>
+                            <div
+                              className="mx-3 my-1 h-px bg-white/10"
+                              aria-hidden="true"
+                            />
                             <button
                               type="button"
                               onClick={() => {
@@ -7000,6 +7008,10 @@ export default function ChatApp({
                           </svg>
                           PDF Document
                         </button>
+                        <div
+                          className="mx-3 my-1 h-px bg-white/10"
+                          aria-hidden="true"
+                        />
                         <button
                           type="button"
                           onClick={() => {
@@ -7102,6 +7114,10 @@ export default function ChatApp({
                           </svg>
                           PDF Document
                         </button>
+                        <div
+                          className="mx-3 my-1 h-px bg-white/10"
+                          aria-hidden="true"
+                        />
                         <button
                           type="button"
                           onClick={() => {
