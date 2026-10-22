@@ -4038,13 +4038,6 @@ export default function ChatApp({
                 </div>
               )}
             </div>
-            <div
-              aria-hidden
-              className="hidden h-2 w-2 rounded-full bg-emerald-400 sm:block"
-            />
-            <span className="hidden text-xs text-white/50 sm:inline">
-              Online
-            </span>
           </div>
         </header>
 
@@ -5072,21 +5065,6 @@ export default function ChatApp({
                       />
                       {renderSendOrStop()}
                     </form>
-                    <p className="mx-auto mt-2 text-[11px] text-white/35">
-                      Press{" "}
-                      <kbd className="rounded border border-white/15 px-1">
-                        Enter
-                      </kbd>{" "}
-                      to send,{" "}
-                      <kbd className="rounded border border-white/15 px-1">
-                        Shift
-                      </kbd>
-                      +
-                      <kbd className="rounded border border-white/15 px-1">
-                        Enter
-                      </kbd>{" "}
-                      for a new line.
-                    </p>
                   </div>
                 </div>
               ) : mode === "talk-to-ai" || mode === "chat" ? (
@@ -5379,21 +5357,6 @@ export default function ChatApp({
                       />
                       {renderSendOrStop()}
                     </form>
-                    <p className="mx-auto mt-2 text-[11px] text-white/35">
-                      Press{" "}
-                      <kbd className="rounded border border-white/15 px-1">
-                        Enter
-                      </kbd>{" "}
-                      to send,{" "}
-                      <kbd className="rounded border border-white/15 px-1">
-                        Shift
-                      </kbd>
-                      +
-                      <kbd className="rounded border border-white/15 px-1">
-                        Enter
-                      </kbd>{" "}
-                      for a new line.
-                    </p>
                   </div>
                 </div>
               ) : mode === "grill" ? (
@@ -5446,21 +5409,6 @@ export default function ChatApp({
                       />
                       {renderSendOrStop()}
                     </form>
-                    <p className="mx-auto mt-2 text-[11px] text-white/35">
-                      Press{" "}
-                      <kbd className="rounded border border-white/15 px-1">
-                        Enter
-                      </kbd>{" "}
-                      to send,{" "}
-                      <kbd className="rounded border border-white/15 px-1">
-                        Shift
-                      </kbd>
-                      +
-                      <kbd className="rounded border border-white/15 px-1">
-                        Enter
-                      </kbd>{" "}
-                      for a new line.
-                    </p>
                   </div>
                 </>
               ) : mode === "draft" ? (
@@ -7079,14 +7027,6 @@ export default function ChatApp({
               />
               {renderSendOrStop()}
             </form>
-            <p className="mx-auto mt-2 max-w-3xl text-[11px] text-white/35">
-              Press{" "}
-              <kbd className="rounded border border-white/15 px-1">Enter</kbd>{" "}
-              to send,{" "}
-              <kbd className="rounded border border-white/15 px-1">Shift</kbd>+
-              <kbd className="rounded border border-white/15 px-1">Enter</kbd>{" "}
-              for a new line.
-            </p>
           </div>
         )}
       </main>
