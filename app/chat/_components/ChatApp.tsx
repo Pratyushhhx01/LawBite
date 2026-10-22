@@ -382,7 +382,7 @@ function AttachmentOptionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex items-center gap-2.5 rounded-lg border bg-[#0a0a0a] px-3 py-2 text-left transition-all duration-300 ${accent.button}`}
+      className={`group inline-flex w-[152px] items-center gap-2.5 rounded-lg border bg-[#0a0a0a] px-3 py-2 text-left transition-all duration-300 ${accent.button}`}
     >
       <div
         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-all duration-300 ${accent.iconWrap}`}
