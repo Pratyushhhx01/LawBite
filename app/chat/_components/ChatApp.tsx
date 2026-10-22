@@ -13,6 +13,7 @@ import {
 import type {
   FormEvent,
   KeyboardEvent,
+  PointerEvent as ReactPointerEvent,
   ReactNode,
   RefObject,
 } from "react";
@@ -372,10 +373,52 @@ function MobileModeSheet({
   const normalized = mode === "chat" ? "talk-to-ai" : mode;
   const options = MODE_OPTIONS.filter((option) => option.mode !== normalized);
 
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartYRef = useRef<number | null>(null);
+  const dragPointerIdRef = useRef<number | null>(null);
+
+  const closeSheet = () => {
+    setDragY(0);
+    setDragging(false);
+    onClose();
+  };
+
+  const onDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    setDragY(0);
+    dragStartYRef.current = event.clientY;
+    dragPointerIdRef.current = event.pointerId;
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onDragMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragging || dragPointerIdRef.current !== event.pointerId) return;
+    const startY = dragStartYRef.current;
+    if (startY === null) return;
+    setDragY(Math.max(0, event.clientY - startY));
+  };
+
+  const onDragEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragPointerIdRef.current !== event.pointerId) return;
+    const startY = dragStartYRef.current;
+    const distance = startY === null ? 0 : Math.max(0, event.clientY - startY);
+    dragStartYRef.current = null;
+    dragPointerIdRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setDragging(false);
+    setDragY(0);
+    // Pull down far enough to count as a dismiss; otherwise snap back up.
+    if (distance > 72) closeSheet();
+  };
+
   return (
     <div
       className={`fixed inset-0 z-[60] sm:hidden ${
-        open ? "visible" : "invisible pointer-events-none"
+        open ? "" : "pointer-events-none"
       }`}
       aria-hidden={!open}
     >
@@ -383,27 +426,67 @@ function MobileModeSheet({
         className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ${
           open ? "opacity-100" : "opacity-0"
         }`}
-        onClick={onClose}
+        onClick={closeSheet}
       />
       <div
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label="Switch AI mode"
-        className={`absolute inset-x-0 bottom-0 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-white/10 bg-[#0a0a0a] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl transition-transform duration-300 ease-out ${
-          open ? "translate-y-0" : "translate-y-full"
-        }`}
+        className="absolute inset-x-0 bottom-0 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-white/10 bg-[#0a0a0a] shadow-2xl"
+        style={{
+          visibility: open ? "visible" : "hidden",
+          transform: open ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: dragging
+            ? "none"
+            : open
+              ? "transform 300ms cubic-bezier(0.16, 1, 0.3, 1)"
+              : "transform 300ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 300ms",
+        }}
       >
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
-        <p className="pb-2 text-[11px] font-medium uppercase tracking-wider text-white/35">
-          Switch mode
-        </p>
-        <div className="flex flex-col gap-1.5">
+        <div
+          className="touch-none cursor-grab select-none px-4 pt-3 active:cursor-grabbing"
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+        >
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
+          <div className="flex items-center justify-between pb-2">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-white/35">
+              Switch mode
+            </p>
+            <button
+              type="button"
+              // Keep the drag capture off this button so its click still fires.
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={closeSheet}
+              aria-label="Close mode menu"
+              className="rounded-md p-1 text-white/35 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {options.map((option) => (
             <ModeOptionButton
               key={option.mode}
               option={option}
-              onSelect={() => onSelect(option.mode)}
+              onSelect={() => {
+                setDragY(0);
+                onSelect(option.mode);
+              }}
             />
           ))}
         </div>
