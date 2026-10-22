@@ -370,12 +370,10 @@ function ModeOptionButton({
 function AttachmentOptionButton({
   kind,
   label,
-  description,
   onClick,
 }: {
   kind: "pdf" | "image";
   label: string;
-  description: string;
   onClick: () => void;
 }) {
   const isPdf = kind === "pdf";
@@ -384,10 +382,10 @@ function AttachmentOptionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`group flex w-full items-center gap-3 rounded-xl border bg-[#0a0a0a] px-3 py-3 text-left backdrop-blur-xl transition-all duration-300 sm:py-2.5 ${accent.button}`}
+      className={`group inline-flex items-center gap-2.5 rounded-lg border bg-[#0a0a0a] px-3 py-2 text-left transition-all duration-300 ${accent.button}`}
     >
       <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-300 sm:h-8 sm:w-8 ${accent.iconWrap}`}
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-all duration-300 ${accent.iconWrap}`}
       >
         {isPdf ? (
           <svg
@@ -420,16 +418,11 @@ function AttachmentOptionButton({
           </svg>
         )}
       </div>
-      <div className="min-w-0">
-        <div
-          className={`text-sm font-medium text-white/80 transition-colors sm:text-xs ${accent.label}`}
-        >
-          {label}
-        </div>
-        <div className="text-[11px] text-white/30 transition-colors group-hover:text-white/45 sm:text-[10px]">
-          {description}
-        </div>
-      </div>
+      <span
+        className={`whitespace-nowrap text-xs font-medium text-white/80 transition-colors ${accent.label}`}
+      >
+        {label}
+      </span>
     </button>
   );
 }
@@ -5037,11 +5030,10 @@ export default function ChatApp({
                           )}
                         </button>
                         {analysisAttachOpen && !fileUploading && (
-                          <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex w-56 flex-col gap-1.5">
+                          <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex flex-col items-start gap-1.5">
                             <AttachmentOptionButton
                               kind="pdf"
                               label="PDF Document"
-                              description="Upload a PDF file"
                               onClick={() => {
                                 if (analysisFileInputRef.current) {
                                   analysisFileInputRef.current.accept = ".pdf";
@@ -5053,7 +5045,6 @@ export default function ChatApp({
                             <AttachmentOptionButton
                               kind="image"
                               label="Image"
-                              description="Upload an image"
                               onClick={() => {
                                 if (analysisFileInputRef.current) {
                                   analysisFileInputRef.current.accept =
@@ -5346,11 +5337,10 @@ export default function ChatApp({
                           )}
                         </button>
                         {chatAttachOpen && !fileUploading && (
-                          <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex w-56 flex-col gap-1.5">
+                          <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex flex-col items-start gap-1.5">
                             <AttachmentOptionButton
                               kind="pdf"
                               label="PDF Document"
-                              description="Upload a PDF file"
                               onClick={() => {
                                 if (chatFileInputRef.current) {
                                   chatFileInputRef.current.accept = ".pdf";
@@ -5362,7 +5352,6 @@ export default function ChatApp({
                             <AttachmentOptionButton
                               kind="image"
                               label="Image"
-                              description="Upload an image"
                               onClick={() => {
                                 if (chatFileInputRef.current) {
                                   chatFileInputRef.current.accept =
@@ -6983,11 +6972,10 @@ export default function ChatApp({
                       )}
                     </button>
                     {chatAttachOpen && !fileUploading && (
-                      <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex w-56 flex-col gap-1.5">
+                      <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex flex-col items-start gap-1.5">
                         <AttachmentOptionButton
                           kind="pdf"
                           label="PDF Document"
-                          description="Upload a PDF file"
                           onClick={() => {
                             if (chatFileInputRef.current) {
                               chatFileInputRef.current.accept = ".pdf";
@@ -6999,7 +6987,6 @@ export default function ChatApp({
                         <AttachmentOptionButton
                           kind="image"
                           label="Image"
-                          description="Upload an image"
                           onClick={() => {
                             if (chatFileInputRef.current) {
                               chatFileInputRef.current.accept =
@@ -7048,11 +7035,10 @@ export default function ChatApp({
                       )}
                     </button>
                     {reviewAttachOpen && !reviewFileUploading && (
-                      <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex w-56 flex-col gap-1.5">
+                      <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex flex-col items-start gap-1.5">
                         <AttachmentOptionButton
                           kind="pdf"
                           label="PDF Document"
-                          description="Upload a PDF file"
                           onClick={() => {
                             if (reviewFileInputRef.current) {
                               reviewFileInputRef.current.accept = ".pdf";
@@ -7064,7 +7050,6 @@ export default function ChatApp({
                         <AttachmentOptionButton
                           kind="image"
                           label="Image"
-                          description="Upload an image"
                           onClick={() => {
                             if (reviewFileInputRef.current) {
                               reviewFileInputRef.current.accept =
