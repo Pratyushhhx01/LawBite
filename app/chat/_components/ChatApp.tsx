@@ -242,6 +242,22 @@ const MODE_ACCENT_CLASSES: Record<
   },
 };
 
+// Full class strings (not interpolated fragments) so Tailwind can see them.
+const ATTACHMENT_ACCENT_CLASSES = {
+  pdf: {
+    button:
+      "border-red-400/10 hover:border-red-400/30 hover:bg-red-400/[0.06] hover:shadow-[0_0_16px_rgba(248,113,113,0.08)]",
+    iconWrap: "bg-red-400/[0.08] group-hover:bg-red-400/[0.15]",
+    label: "group-hover:text-red-400/90",
+  },
+  image: {
+    button:
+      "border-blue-400/10 hover:border-blue-400/30 hover:bg-blue-400/[0.06] hover:shadow-[0_0_16px_rgba(96,165,250,0.08)]",
+    iconWrap: "bg-blue-400/[0.08] group-hover:bg-blue-400/[0.15]",
+    label: "group-hover:text-blue-400/90",
+  },
+} as const;
+
 function ModeOptionIcon({
   accent,
   className,
@@ -345,6 +361,73 @@ function ModeOptionButton({
         </div>
         <div className="text-[11px] text-white/30 transition-colors group-hover:text-white/45 sm:text-[10px]">
           {option.description}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function AttachmentOptionButton({
+  kind,
+  label,
+  description,
+  onClick,
+}: {
+  kind: "pdf" | "image";
+  label: string;
+  description: string;
+  onClick: () => void;
+}) {
+  const isPdf = kind === "pdf";
+  const accent = ATTACHMENT_ACCENT_CLASSES[kind];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group flex w-full items-center gap-3 rounded-xl border bg-[#0a0a0a] px-3 py-3 text-left backdrop-blur-xl transition-all duration-300 sm:py-2.5 ${accent.button}`}
+    >
+      <div
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-300 sm:h-8 sm:w-8 ${accent.iconWrap}`}
+      >
+        {isPdf ? (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5 text-red-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5 text-blue-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+        )}
+      </div>
+      <div className="min-w-0">
+        <div
+          className={`text-sm font-medium text-white/80 transition-colors sm:text-xs ${accent.label}`}
+        >
+          {label}
+        </div>
+        <div className="text-[11px] text-white/30 transition-colors group-hover:text-white/45 sm:text-[10px]">
+          {description}
         </div>
       </div>
     </button>
@@ -4954,9 +5037,11 @@ export default function ChatApp({
                           )}
                         </button>
                         {analysisAttachOpen && !fileUploading && (
-                          <div className="animate-dropdown-up absolute bottom-full -left-12 mb-6 w-44 overflow-hidden rounded-lg border border-amber-400/10 bg-black/80 backdrop-blur-xl shadow-xl z-50">
-                            <button
-                              type="button"
+                          <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex w-56 flex-col gap-1.5">
+                            <AttachmentOptionButton
+                              kind="pdf"
+                              label="PDF Document"
+                              description="Upload a PDF file"
                               onClick={() => {
                                 if (analysisFileInputRef.current) {
                                   analysisFileInputRef.current.accept = ".pdf";
@@ -4964,30 +5049,11 @@ export default function ChatApp({
                                 }
                                 setAnalysisAttachOpen(false);
                               }}
-                              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:bg-amber-400/[0.06] transition-colors"
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                className="h-4 w-4 text-red-400"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                <polyline points="14 2 14 8 20 8" />
-                                <line x1="16" y1="13" x2="8" y2="13" />
-                                <line x1="16" y1="17" x2="8" y2="17" />
-                              </svg>
-                              PDF Document
-                            </button>
-                            <div
-                              className="mx-3 my-1 h-px bg-white/10"
-                              aria-hidden="true"
                             />
-                            <button
-                              type="button"
+                            <AttachmentOptionButton
+                              kind="image"
+                              label="Image"
+                              description="Upload an image"
                               onClick={() => {
                                 if (analysisFileInputRef.current) {
                                   analysisFileInputRef.current.accept =
@@ -4996,30 +5062,7 @@ export default function ChatApp({
                                 }
                                 setAnalysisAttachOpen(false);
                               }}
-                              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:bg-amber-400/[0.06] transition-colors"
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                className="h-4 w-4 text-blue-400"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <rect
-                                  x="3"
-                                  y="3"
-                                  width="18"
-                                  height="18"
-                                  rx="2"
-                                  ry="2"
-                                />
-                                <circle cx="8.5" cy="8.5" r="1.5" />
-                                <polyline points="21 15 16 10 5 21" />
-                              </svg>
-                              Image
-                            </button>
+                            />
                           </div>
                         )}
                       </div>
@@ -5303,9 +5346,11 @@ export default function ChatApp({
                           )}
                         </button>
                         {chatAttachOpen && !fileUploading && (
-                          <div className="animate-dropdown-up absolute bottom-full -left-12 mb-6 w-44 overflow-hidden rounded-lg border border-white/10 bg-black/80 backdrop-blur-xl shadow-xl z-50">
-                            <button
-                              type="button"
+                          <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex w-56 flex-col gap-1.5">
+                            <AttachmentOptionButton
+                              kind="pdf"
+                              label="PDF Document"
+                              description="Upload a PDF file"
                               onClick={() => {
                                 if (chatFileInputRef.current) {
                                   chatFileInputRef.current.accept = ".pdf";
@@ -5313,30 +5358,11 @@ export default function ChatApp({
                                 }
                                 setChatAttachOpen(false);
                               }}
-                              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.06] transition-colors"
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                className="h-4 w-4 text-red-400"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                <polyline points="14 2 14 8 20 8" />
-                                <line x1="16" y1="13" x2="8" y2="13" />
-                                <line x1="16" y1="17" x2="8" y2="17" />
-                              </svg>
-                              PDF Document
-                            </button>
-                            <div
-                              className="mx-3 my-1 h-px bg-white/10"
-                              aria-hidden="true"
                             />
-                            <button
-                              type="button"
+                            <AttachmentOptionButton
+                              kind="image"
+                              label="Image"
+                              description="Upload an image"
                               onClick={() => {
                                 if (chatFileInputRef.current) {
                                   chatFileInputRef.current.accept =
@@ -5345,30 +5371,7 @@ export default function ChatApp({
                                 }
                                 setChatAttachOpen(false);
                               }}
-                              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.06] transition-colors"
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                className="h-4 w-4 text-blue-400"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <rect
-                                  x="3"
-                                  y="3"
-                                  width="18"
-                                  height="18"
-                                  rx="2"
-                                  ry="2"
-                                />
-                                <circle cx="8.5" cy="8.5" r="1.5" />
-                                <polyline points="21 15 16 10 5 21" />
-                              </svg>
-                              Image
-                            </button>
+                            />
                           </div>
                         )}
                       </div>
@@ -6980,9 +6983,11 @@ export default function ChatApp({
                       )}
                     </button>
                     {chatAttachOpen && !fileUploading && (
-                      <div className="animate-dropdown-up absolute bottom-full -left-12 mb-6 w-44 overflow-hidden rounded-lg border border-white/10 bg-black/80 backdrop-blur-xl shadow-xl z-50">
-                        <button
-                          type="button"
+                      <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex w-56 flex-col gap-1.5">
+                        <AttachmentOptionButton
+                          kind="pdf"
+                          label="PDF Document"
+                          description="Upload a PDF file"
                           onClick={() => {
                             if (chatFileInputRef.current) {
                               chatFileInputRef.current.accept = ".pdf";
@@ -6990,30 +6995,11 @@ export default function ChatApp({
                             }
                             setChatAttachOpen(false);
                           }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.06] transition-colors"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4 text-red-400"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            <line x1="16" y1="13" x2="8" y2="13" />
-                            <line x1="16" y1="17" x2="8" y2="17" />
-                          </svg>
-                          PDF Document
-                        </button>
-                        <div
-                          className="mx-3 my-1 h-px bg-white/10"
-                          aria-hidden="true"
                         />
-                        <button
-                          type="button"
+                        <AttachmentOptionButton
+                          kind="image"
+                          label="Image"
+                          description="Upload an image"
                           onClick={() => {
                             if (chatFileInputRef.current) {
                               chatFileInputRef.current.accept =
@@ -7022,30 +7008,7 @@ export default function ChatApp({
                             }
                             setChatAttachOpen(false);
                           }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.06] transition-colors"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4 text-blue-400"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <rect
-                              x="3"
-                              y="3"
-                              width="18"
-                              height="18"
-                              rx="2"
-                              ry="2"
-                            />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <polyline points="21 15 16 10 5 21" />
-                          </svg>
-                          Image
-                        </button>
+                        />
                       </div>
                     )}
                   </div>
@@ -7085,9 +7048,11 @@ export default function ChatApp({
                       )}
                     </button>
                     {reviewAttachOpen && !reviewFileUploading && (
-                      <div className="animate-dropdown-up absolute bottom-full -left-12 mb-6 w-44 overflow-hidden rounded-lg border border-white/10 bg-black/80 backdrop-blur-xl shadow-xl z-50">
-                        <button
-                          type="button"
+                      <div className="animate-dropdown-up absolute bottom-full -left-12 z-50 mb-6 flex w-56 flex-col gap-1.5">
+                        <AttachmentOptionButton
+                          kind="pdf"
+                          label="PDF Document"
+                          description="Upload a PDF file"
                           onClick={() => {
                             if (reviewFileInputRef.current) {
                               reviewFileInputRef.current.accept = ".pdf";
@@ -7095,31 +7060,11 @@ export default function ChatApp({
                             }
                             setReviewAttachOpen(false);
                           }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.06] transition-colors"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4 text-red-400"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            <line x1="16" y1="13" x2="8" y2="13" />
-                            <line x1="16" y1="17" x2="8" y2="17" />
-                            <polyline points="10 9 9 9 8 9" />
-                          </svg>
-                          PDF Document
-                        </button>
-                        <div
-                          className="mx-3 my-1 h-px bg-white/10"
-                          aria-hidden="true"
                         />
-                        <button
-                          type="button"
+                        <AttachmentOptionButton
+                          kind="image"
+                          label="Image"
+                          description="Upload an image"
                           onClick={() => {
                             if (reviewFileInputRef.current) {
                               reviewFileInputRef.current.accept =
@@ -7128,30 +7073,7 @@ export default function ChatApp({
                             }
                             setReviewAttachOpen(false);
                           }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.06] transition-colors"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4 text-blue-400"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <rect
-                              x="3"
-                              y="3"
-                              width="18"
-                              height="18"
-                              rx="2"
-                              ry="2"
-                            />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <polyline points="21 15 16 10 5 21" />
-                          </svg>
-                          Image
-                        </button>
+                        />
                       </div>
                     )}
                   </div>
