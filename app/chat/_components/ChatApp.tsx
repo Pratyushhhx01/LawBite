@@ -8468,14 +8468,13 @@ export default function ChatApp({
                   className="h-4 w-4"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2.5"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="M21 21l-4.35-4.35" />
-                  <path d="M11 8v6M8 11h6" />
-                  <path d="M9 2L7 5l2 3M15 2l2 3-2 3" />
+                  <rect x="3" y="7" width="18" height="13" rx="2" />
+                  <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <path d="M12 11.5v5M9.5 14h5" />
                 </svg>
                 Start New Case
               </button>
