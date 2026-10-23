@@ -2539,8 +2539,8 @@ export default function ChatApp({
   }
 
   // Clear All History must wipe the whole account's chat history even if the
-  // local list is stale. The server deletes every non-shared conversation for
-  // this user instead of trusting the ids this tab happens to have loaded.
+  // local list is stale. The server deletes every non-shared, unpinned
+  // conversation for this user instead of trusting the ids this tab has loaded.
   function syncClearAllServer() {
     // Wipe the server-side history too: case folders first (so pinned
     // conversations are detached from them), then the unpinned conversations.
@@ -2678,11 +2678,14 @@ export default function ChatApp({
       return;
     }
     const clearType = section ?? active?.type ?? "talk-to-ai";
+    // Pinned conversations are protected from bulk clears. They only go away
+    // when the user unpins them first or deletes them individually.
     const removedIds = conversations
       .filter(
         (c) =>
-          c.type === clearType ||
-          (clearType === "talk-to-ai" && c.type === "chat"),
+          !c.pinned &&
+          (c.type === clearType ||
+            (clearType === "talk-to-ai" && c.type === "chat")),
       )
       .map((c) => c.id);
     const prefix =
@@ -2709,8 +2712,9 @@ export default function ChatApp({
       fresh,
       ...prev.filter(
         (c) =>
-          c.type !== clearType &&
-          !(clearType === "talk-to-ai" && c.type === "chat"),
+          c.pinned ||
+          (c.type !== clearType &&
+            !(clearType === "talk-to-ai" && c.type === "chat")),
       ),
     ]);
     setActiveId(fresh.id);
@@ -7092,7 +7096,7 @@ export default function ChatApp({
             <p className="mt-2 text-sm text-white/55">
               {confirmAction.type === "clearHistory"
                 ? confirmAction.section
-                  ? `This will permanently delete all ${{ "talk-to-ai": "Talk to AI", chat: "Chat", analysis: "Deep Analysis", grill: "AI Lawyer", draft: "Document Drafter", review: "Document Reviewer" }[confirmAction.section]} history. This action cannot be undone.`
+                  ? `This will permanently delete all ${{ "talk-to-ai": "Talk to AI", chat: "Chat", analysis: "Deep Analysis", grill: "AI Lawyer", draft: "Document Drafter", review: "Document Reviewer" }[confirmAction.section]} history, except pinned chats. This action cannot be undone.`
                   : "This will permanently delete all chat history and case folders of this account. Pinned chats will be kept. This action cannot be undone."
                 : "This will permanently delete this conversation. This action cannot be undone."}
             </p>
