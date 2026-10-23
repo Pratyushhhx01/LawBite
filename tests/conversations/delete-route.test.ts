@@ -5,6 +5,7 @@ type DeleteCall = {
   userId?: string;
   ids?: string[];
   notType?: string;
+  pinned?: boolean;
 };
 
 const calls: DeleteCall[] = [];
@@ -24,10 +25,12 @@ vi.mock("@/lib/db", () => {
       userId: undefined as string | undefined,
       ids: undefined as string[] | undefined,
       notType: undefined as string | undefined,
+      pinned: undefined as boolean | undefined,
       where(column: string, _op: string, value: unknown) {
         if (column === "userId") chain.userId = value as string;
         if (column === "id") chain.ids = value as string[];
         if (column === "type") chain.notType = value as string;
+        if (column === "pinned") chain.pinned = value as boolean;
         return chain;
       },
       async execute() {
@@ -35,6 +38,7 @@ vi.mock("@/lib/db", () => {
           userId: chain.userId,
           ids: chain.ids,
           notType: chain.notType,
+          pinned: chain.pinned,
         });
         return [];
       },
@@ -69,12 +73,17 @@ describe("DELETE /api/conversations", () => {
     vi.clearAllMocks();
   });
 
-  it("deletes every non-shared conversation for the signed-in user", async () => {
+  it("deletes every non-shared, unpinned conversation for the signed-in user", async () => {
     const res = await DELETE(makeRequest({ all: true }));
 
     expect(res.status).toBe(200);
     expect(calls).toEqual([
-      { userId: "delete-user", ids: undefined, notType: "shared" },
+      {
+        userId: "delete-user",
+        ids: undefined,
+        notType: "shared",
+        pinned: false,
+      },
     ]);
   });
 
@@ -83,7 +92,12 @@ describe("DELETE /api/conversations", () => {
 
     expect(res.status).toBe(200);
     expect(calls).toEqual([
-      { userId: "delete-user", ids: ["a", "b"], notType: undefined },
+      {
+        userId: "delete-user",
+        ids: ["a", "b"],
+        notType: undefined,
+        pinned: undefined,
+      },
     ]);
   });
 
