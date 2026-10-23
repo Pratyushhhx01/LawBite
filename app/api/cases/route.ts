@@ -266,32 +266,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
-    const deleteAll = body?.all === true;
     const id = typeof body?.id === "string" ? body.id : "";
-    if (!deleteAll && !id) {
+    if (!id) {
       return NextResponse.json({ error: "Missing folder id" }, { status: 400 });
-    }
-
-    if (deleteAll) {
-      // "Clear All History" also wipes every case folder and its documents.
-      // Pinned conversations stay, so detach them from the folders first.
-      await db.transaction().execute(async (trx) => {
-        await trx
-          .updateTable("conversation")
-          .set({ folderId: null })
-          .where("userId", "=", user.id)
-          .execute();
-        await trx
-          .deleteFrom("case_document")
-          .where("userId", "=", user.id)
-          .execute();
-        await trx
-          .deleteFrom("case_folder")
-          .where("userId", "=", user.id)
-          .execute();
-      });
-
-      return NextResponse.json({ ok: true });
     }
 
     await db.transaction().execute(async (trx) => {

@@ -2542,22 +2542,12 @@ export default function ChatApp({
   // local list is stale. The server deletes every non-shared conversation for
   // this user instead of trusting the ids this tab happens to have loaded.
   function syncClearAllServer() {
-    // Wipe the server-side history too: case folders first (so pinned
-    // conversations are detached from them), then the unpinned conversations.
-    void (async () => {
-      await fetch("/api/cases", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ all: true }),
-      }).catch(() => {});
-      await fetch("/api/conversations", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ all: true }),
-      }).catch(() => {});
-    })();
+    fetch("/api/conversations", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ all: true }),
+    }).catch(() => {});
   }
 
   // AI Lawyer cases are kept in localStorage and point at a grill
@@ -2643,23 +2633,11 @@ export default function ChatApp({
         createdAt: Date.now(),
         messages: [],
       }));
-      // Pinned conversations survive "Clear All History". Detach them from
-      // folders because every folder is deleted below.
-      const pinnedConversations = conversations
-        .filter((c) => c.pinned)
-        .map((c) => ({ ...c, folderId: null }));
-
-      setConversations([...pinnedConversations, ...freshConversations]);
+      setConversations(freshConversations);
       setActiveId(freshConversations[0].id);
       setMode("talk-to-ai");
       setContextMenuId(null);
       titleRequestedRef.current.clear();
-
-      // Case folders live outside the conversation list, so "Clear All
-      // History" has to wipe them explicitly.
-      setCaseFolders([]);
-      setCaseFoldersOpen(false);
-      setNewFolderName("");
 
       // AI Lawyer saved cases live in localStorage, not in the conversation
       // list, so "Clear All History" has to wipe them explicitly. Notification
@@ -7093,7 +7071,7 @@ export default function ChatApp({
               {confirmAction.type === "clearHistory"
                 ? confirmAction.section
                   ? `This will permanently delete all ${{ "talk-to-ai": "Talk to AI", chat: "Chat", analysis: "Deep Analysis", grill: "AI Lawyer", draft: "Document Drafter", review: "Document Reviewer" }[confirmAction.section]} history. This action cannot be undone.`
-                  : "This will permanently delete all chat history and case folders of this account. Pinned chats will be kept. This action cannot be undone."
+                  : "This will permanently delete all history of this account. This action cannot be undone."
                 : "This will permanently delete this conversation. This action cannot be undone."}
             </p>
             <div className="mt-5 flex justify-end gap-2">

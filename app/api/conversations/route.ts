@@ -177,14 +177,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (deleteAll) {
-      // Wipe the account's chat history, but keep pinned conversations.
-      // Public share snapshots stay in place so links that were already sent
-      // keep working.
+      // Wipe the whole account's chat history. Public share snapshots stay in
+      // place so links that were already sent keep working.
       await db
         .deleteFrom("conversation")
         .where("userId", "=", user.id)
         .where("type", "!=", "shared")
-        .where("pinned", "=", false)
         .execute();
     } else {
       await db
