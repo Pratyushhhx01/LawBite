@@ -18,6 +18,22 @@ jobs:
     name: Typecheck, lint and tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Tests mock the database and S3. These values only need to be present so
+      # config and provider-chain assertions can run; no external request is
+      # made. Live database integration tests are skipped in CI.
+      CI_SKIP_DB_TESTS: "1"
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/lawbite
+      BETTER_AUTH_SECRET: ci-only-better-auth-secret-32-characters
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      GOOGLE_CLIENT_ID: ci-google-client-id
+      GOOGLE_CLIENT_SECRET: ci-google-client-secret
+      GITHUB_CLIENT_ID: ci-github-client-id
+      GITHUB_CLIENT_SECRET: ci-github-client-secret
+      TAVILY_API_KEY: ci-tavily-api-key
+      INCEPTION_API_KEY: ci-inception-api-key
+      NVIDIA_API_KEY: ci-nvidia-api-key
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -58,6 +74,7 @@ jobs:
       GITHUB_CLIENT_SECRET: ci-github-client-secret
       TAVILY_API_KEY: ci-tavily-api-key
       INCEPTION_API_KEY: ci-inception-api-key
+      NVIDIA_API_KEY: ci-nvidia-api-key
       AWS_REGION: ap-south-1
       AWS_ACCESS_KEY_ID: ci-aws-access-key
       AWS_SECRET_ACCESS_KEY: ci-aws-secret-key

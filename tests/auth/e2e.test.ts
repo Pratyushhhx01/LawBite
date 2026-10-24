@@ -88,7 +88,10 @@ describe("Auth E2E — Integration", () => {
     });
   });
 
-  describe("Database integration", () => {
+  const describeDatabase =
+    process.env.CI_SKIP_DB_TESTS === "1" ? describe.skip : describe;
+
+  describeDatabase("Database integration", () => {
     it("should be connected to Neon", async () => {
       const res = await pool.query("SELECT current_database() as db");
       expect(res.rows[0].db).toBe("neondb");
