@@ -8363,40 +8363,20 @@ export default function ChatApp({
       )}
 
       {disclaimerOpen && (
-        <div
-          className="animate-overlay-in fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => {
-            setShowDisclaimer(false);
-          }}
-        >
+        <div className="animate-overlay-in fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="disclaimer-title"
             className="animate-modal-in w-full max-w-md rounded-2xl border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold tracking-tight">
+            <div className="mb-5">
+              <h2
+                id="disclaimer-title"
+                className="text-lg font-semibold tracking-tight"
+              >
                 About Lawbite
               </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDisclaimer(false);
-                }}
-                className="rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/5 hover:text-white"
-                aria-label="Close"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
             </div>
 
             <div className="space-y-4 text-sm leading-relaxed text-white/60">
