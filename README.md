@@ -30,7 +30,31 @@ npm run build        # Production build
 npm run lint         # ESLint (flat config, eslint-config-next)
 npm run test         # Vitest single run
 npm run test:watch   # Vitest in watch mode
+npm run eval:legal   # Legal accuracy benchmark (needs a running app)
 ```
+
+## Legal accuracy benchmark
+
+`npm run eval` measures readability. `npm run eval:legal` measures legal
+correctness: it sends a seeded set of Indian-law questions to the real chat
+endpoint, then checks every cited section against the S3 bare acts through
+`/api/citations/verify`.
+
+```bash
+npm run eval:legal
+npm run eval:legal -- --limit 10
+npm run eval:legal -- --reviewed-only
+npm run eval:legal -- --base https://law-bite.vercel.app
+```
+
+The runner reports section recall, citation precision, hallucination rate,
+refusal accuracy, and p95 latency, and writes a markdown + JSON report under
+`test-results/`.
+
+The current 50-question seed set is **draft and not advocate-reviewed**. Do not
+publish its score as a legal-accuracy claim until the review status is updated.
+See [`docs/benchmark.md`](docs/benchmark.md) for the dataset schema, metrics,
+and review process.
 
 ## AI providers and models
 

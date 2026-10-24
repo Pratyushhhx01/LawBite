@@ -4,7 +4,7 @@ import {
   mentionsForeignJurisdiction,
   classifyQuery,
   legalAcronymContext,
-} from "@/app/api/chat/route";
+} from "@/lib/chat-filters";
 
 // ─── isNonLegalQuery ────────────────────────────────────────────────
 

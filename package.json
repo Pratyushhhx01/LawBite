@@ -10,6 +10,8 @@
     "prettier": "prettier --check .",
     "prettier:write": "prettier --write .",
     "eval": "node scripts/chat-eval.mjs",
+    "eval:legal": "node scripts/legal-eval.mjs",
+    "eval:legal:reviewed": "node scripts/legal-eval.mjs --reviewed-only",
     "test": "vitest run",
     "test:watch": "vitest"
   },
