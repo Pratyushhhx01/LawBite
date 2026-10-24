@@ -66,6 +66,12 @@ const REVIEWED_ONLY = Boolean(
 const FAIL_UNDER =
   args["fail-under"] === undefined ? null : Number(args["fail-under"]);
 const MODE_OVERRIDE = typeof args.mode === "string" ? args.mode : null;
+const ID_FILTER = args.id
+  ? String(args.id)
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+  : null;
 const DELAY_MS = args.delay === undefined ? 350 : Number(args.delay);
 const REQUEST_TIMEOUT_MS = 120_000;
 
@@ -203,6 +209,10 @@ function loadDataset() {
   let selected = REVIEWED_ONLY
     ? rows.filter((row) => row.review_status === "reviewed")
     : rows;
+
+  if (ID_FILTER) {
+    selected = selected.filter((row) => ID_FILTER.includes(row.id));
+  }
 
   if (Number.isFinite(LIMIT) && LIMIT > 0) {
     selected = selected.slice(0, LIMIT);

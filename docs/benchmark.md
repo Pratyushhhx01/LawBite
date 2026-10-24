@@ -35,6 +35,7 @@ Useful variants:
 
 ```bash
 npm run eval:legal -- --limit 10
+npm run eval:legal -- --id bns-103-murder,trap-const-302
 npm run eval:legal -- --reviewed-only
 npm run eval:legal -- --base https://law-bite.vercel.app
 npm run eval:legal -- --fail-under 80

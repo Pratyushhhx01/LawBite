@@ -826,15 +826,6 @@ async function verifyCandidate(
     };
   }
 
-  if (availability.get(candidate.actKey) === false) {
-    return {
-      ...candidate,
-      verified: false,
-      reason: "lookup_error",
-      error: `Bare-act index unavailable for ${candidate.actKey}`,
-    };
-  }
-
   try {
     for (const variant of sectionVariants(candidate.section)) {
       const section = await lookup.getSection(candidate.actKey, variant);
@@ -855,6 +846,15 @@ async function verifyCandidate(
       verified: false,
       reason: "lookup_error",
       error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  if (availability.get(candidate.actKey) === false) {
+    return {
+      ...candidate,
+      verified: false,
+      reason: "lookup_error",
+      error: `Bare-act index unavailable for ${candidate.actKey}`,
     };
   }
 

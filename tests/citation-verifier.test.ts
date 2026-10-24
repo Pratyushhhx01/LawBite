@@ -295,7 +295,7 @@ describe("citation verifier — verification", () => {
   it("distinguishes an unavailable index from a hallucinated section", async () => {
     const unavailableLookup: SectionLookup = {
       async getSection() {
-        throw new Error("getSection should not be called");
+        throw new Error("simulated S3 outage");
       },
       async getSectionList() {
         return null;
@@ -315,6 +315,28 @@ describe("citation verifier — verification", () => {
     expect(summary.verifiableSectionTotal).toBe(0);
     expect(summary.precision).toBeNull();
     expect(summary.hallucinationRate).toBeNull();
+  });
+
+  it("verifies a direct section even when the section index is unavailable", async () => {
+    const partialLookup: SectionLookup = {
+      async getSection(actKey, section) {
+        return actKey === "bharatiya-nyaya-sanhita" && section === "103"
+          ? fakeSections["bharatiya-nyaya-sanhita"]["103"]
+          : null;
+      },
+      async getSectionList() {
+        return null;
+      },
+    };
+
+    const { results } = await verifyCitations(
+      { text: "Section 103 of the BNS" },
+      partialLookup,
+    );
+    expect(results[0]).toMatchObject({
+      verified: true,
+      reason: "verified",
+    });
   });
 
   it("returns a null precision when there are no section citations", async () => {
