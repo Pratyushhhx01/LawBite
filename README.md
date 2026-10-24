@@ -35,6 +35,7 @@ npm run audit          # Fail on high/critical dependency advisories
 npm run test           # Vitest single run
 npm run test:watch     # Vitest in watch mode
 npm run test:coverage  # Vitest with V8 coverage + thresholds
+npm run check:s3       # Diagnose S3 credentials, bucket, region, and read access
 npm run eval:legal     # Legal accuracy benchmark (needs a running app)
 ```
 
@@ -78,6 +79,16 @@ The current 50-question seed set is **draft and not advocate-reviewed**. Do not
 publish its score as a legal-accuracy claim until the review status is updated.
 See [`docs/benchmark.md`](docs/benchmark.md) for the dataset schema, metrics,
 and review process.
+
+### S3 knowledge-base check
+
+`npm run check:s3` reads the BNS full text object with the same credentials and
+region the app uses. It prints the bucket, key, credential shape (never the
+secret), and an actionable hint for `InvalidAccessKeyId`, `SignatureDoesNotMatch`,
+`AccessDenied`, wrong region, and timeout failures. Run it locally before a
+benchmark and after rotating production credentials. See
+[`docs/runbook-s3.md`](docs/runbook-s3.md) for the full rotation and verification
+procedure.
 
 ## Security
 

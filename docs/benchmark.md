@@ -14,6 +14,9 @@ knowledge base.
   rather than the bare-act knowledge base. Until the credentials are rotated,
   citation verification correctly reports `lookup_error` and the benchmark
   reports precision/hallucination as `n/a`, not 0%.
+- **Diagnose first:** run `npm run check:s3`. It reads the BNS full text with the
+  same credentials and region as the app and prints an actionable hint for bad
+  keys, a bad secret, missing `s3:GetObject`, a wrong region, or a timeout.
 - **Seed set:** 50 questions in [`benchmarks/legal-qa.jsonl`](../benchmarks/legal-qa.jsonl).
 - **Review status:** all questions are marked `draft`. They have **not** been
   reviewed by an advocate yet.
