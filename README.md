@@ -27,12 +27,14 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 ## Scripts
 
 ```bash
-npm run dev          # Start dev server (localhost:3000)
-npm run build        # Production build
-npm run lint         # ESLint (flat config, eslint-config-next)
-npm run test         # Vitest single run
-npm run test:watch   # Vitest in watch mode
-npm run eval:legal   # Legal accuracy benchmark (needs a running app)
+npm run dev            # Start dev server (localhost:3000)
+npm run build          # Production build
+npm run typecheck      # tsc --noEmit
+npm run lint           # ESLint (flat config, eslint-config-next)
+npm run test           # Vitest single run
+npm run test:watch     # Vitest in watch mode
+npm run test:coverage  # Vitest with V8 coverage + thresholds
+npm run eval:legal     # Legal accuracy benchmark (needs a running app)
 ```
 
 ## CI
@@ -73,6 +75,15 @@ The current 50-question seed set is **draft and not advocate-reviewed**. Do not
 publish its score as a legal-accuracy claim until the review status is updated.
 See [`docs/benchmark.md`](docs/benchmark.md) for the dataset schema, metrics,
 and review process.
+
+## Architecture
+
+The chat route is an orchestration layer: classification, S3 retrieval, optional
+web search, prompt selection, provider failover, and SSE transport. Prompts,
+act-key mappings, pure query filters, the provider registry, and citation
+verification live in separate modules with their own tests. See
+[`docs/architecture.md`](docs/architecture.md) for the request flow, module
+boundaries, and the next client-side refactor target.
 
 ## AI providers and models
 
