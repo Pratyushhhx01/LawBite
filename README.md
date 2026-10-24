@@ -46,6 +46,11 @@ the HTML report is uploaded as a workflow artifact.
 The legal accuracy benchmark is run manually because it needs a deployed app, a
 real database, and working S3 credentials. See [`docs/benchmark.md`](docs/benchmark.md).
 
+A separate **Deployed smoke** workflow runs `tests/deployed` against a live URL
+on demand. It signs up a throwaway account and exercises the real streaming
+`/api/chat` path, so it catches deployment, auth, and SSE regressions that unit
+tests cannot.
+
 ## Legal accuracy benchmark
 
 `npm run eval` measures readability. `npm run eval:legal` measures legal

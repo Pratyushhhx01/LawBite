@@ -1,0 +1,39 @@
+name: Deployed smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Deployed base URL to test
+        required: true
+        default: https://law-bite.vercel.app
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployed-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Live /api/chat smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEPLOYED_BASE_URL: ${{ inputs.base_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run deployed smoke tests
+        run: npx vitest run tests/deployed
