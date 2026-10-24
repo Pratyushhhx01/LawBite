@@ -7,6 +7,13 @@ knowledge base.
 
 ## Current status
 
+- **Production blocker (2026-10-24):** a smoke run returned
+  `InvalidAccessKeyId (HTTP 403)` from S3 for
+  `bare-acts/bharatiya-nyaya-sanhita/full.txt`. The AWS credentials configured
+  in Vercel are invalid, so the app is currently answering from model knowledge
+  rather than the bare-act knowledge base. Until the credentials are rotated,
+  citation verification correctly reports `lookup_error` and the benchmark
+  reports precision/hallucination as `n/a`, not 0%.
 - **Seed set:** 50 questions in [`benchmarks/legal-qa.jsonl`](../benchmarks/legal-qa.jsonl).
 - **Review status:** all questions are marked `draft`. They have **not** been
   reviewed by an advocate yet.
