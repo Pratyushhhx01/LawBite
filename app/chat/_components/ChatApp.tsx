@@ -4960,14 +4960,14 @@ export default function ChatApp({
                     analyzed. I will provide a thorough analysis including
                     relevant laws, precedents, risks, and recommendations.
                   </p>
-                  <div className="mt-8 flex w-full flex-col items-center gap-2 md:flex-row md:flex-wrap md:items-center md:justify-center md:gap-3">
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/50">
+                  <div className="mt-8 flex w-full flex-wrap items-center justify-center gap-2 md:gap-3">
+                    <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/50 sm:px-4 sm:py-2 sm:text-xs">
                       Risk assessment
                     </span>
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/50">
+                    <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/50 sm:px-4 sm:py-2 sm:text-xs">
                       Legal research
                     </span>
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/50">
+                    <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/50 sm:px-4 sm:py-2 sm:text-xs">
                       Precedent review
                     </span>
                   </div>
