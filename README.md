@@ -6,6 +6,9 @@ An AI legal assistant for Indian law. Ask questions in plain language and get
 answers grounded in 157+ Indian bare acts (BNS/IPC, BNSS/CrPC, the Constitution
 and more), with optional real-time web search and document drafting/review.
 
+For a reviewer-facing summary of what is tested, what is still blocked, and how
+to reproduce each claim, see [`docs/evidence.md`](docs/evidence.md).
+
 ## Requirements
 
 - Node.js 20 or newer
