@@ -68,3 +68,13 @@ tests/
 - **Schema changes (CREATE TABLE, ALTER TABLE, etc.)** — use the Neon tools (`neon_prepare_database_migration`, `neon_run_sql`, etc.) directly. Do not write raw migration files or run SQL through the app's Kysely connection.
 - **Destructive operations (DROP TABLE, DROP COLUMN, TRUNCATE, etc.)** — always confirm with the user before executing. State what will be deleted and ask for explicit approval.
 - **App code uses Kysely** (`lib/db.ts`) for queries at runtime. Schema management is separate from app code.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
