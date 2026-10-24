@@ -72,6 +72,19 @@ async function readLocalFile(key: string): Promise<string | null> {
   }
 }
 
+/**
+ * Log only the AWS error class and HTTP status. Error messages from the SDK can
+ * include credential identifiers, so they are deliberately not logged.
+ */
+function logS3Failure(key: string, error: unknown): void {
+  const name = error instanceof Error ? error.name : "UnknownError";
+  const status = (error as { $metadata?: { httpStatusCode?: number } })
+    ?.$metadata?.httpStatusCode;
+  console.warn(
+    `[s3] ${key} unavailable: ${name}${status ? ` (HTTP ${status})` : ""}`,
+  );
+}
+
 async function getJson<T>(key: string): Promise<T | null> {
   const cached = cacheGet<T>(key);
   if (cached !== null) return cached;
@@ -83,13 +96,14 @@ async function getJson<T>(key: string): Promise<T | null> {
     const parsed = body ? (JSON.parse(body) as T) : null;
     if (parsed !== null) cacheSet(key, parsed);
     return parsed;
-  } catch {
+  } catch (error) {
     const local = await readLocalFile(key);
     if (local) {
       const parsed = JSON.parse(local) as T;
       cacheSet(key, parsed);
       return parsed;
     }
+    logS3Failure(key, error);
     return null;
   }
 }
@@ -108,9 +122,10 @@ async function getText(key: string): Promise<string | null> {
     const text = (await res.Body?.transformToString()) || null;
     if (text !== null) cacheSet(key, text);
     return text;
-  } catch {
+  } catch (error) {
     const local = await readLocalFile(key);
     if (local !== null) cacheSet(key, local);
+    if (local === null) logS3Failure(key, error);
     return local;
   }
 }
