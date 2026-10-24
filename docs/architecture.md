@@ -58,10 +58,11 @@ desktop popover and mobile bottom-sheet behavior covered by tests.
 
 ## Guardrails
 
+- `npm run audit` (fails on high or critical advisories)
 - `npm run typecheck`
 - `npm run lint`
 - `npm run test`
-- `npm run test:coverage` (thresholds in `vitest.config.ts`)
+- `npm run test:coverage` (thresholds in `vitest.config.mts`)
 - `npm run build`
 - Manual deployed smoke: `tests/deployed` against a live URL
 - Manual legal benchmark: `npm run eval:legal`

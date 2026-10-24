@@ -31,6 +31,7 @@ npm run dev            # Start dev server (localhost:3000)
 npm run build          # Production build
 npm run typecheck      # tsc --noEmit
 npm run lint           # ESLint (flat config, eslint-config-next)
+npm run audit          # Fail on high/critical dependency advisories
 npm run test           # Vitest single run
 npm run test:watch     # Vitest in watch mode
 npm run test:coverage  # Vitest with V8 coverage + thresholds
@@ -39,11 +40,13 @@ npm run eval:legal     # Legal accuracy benchmark (needs a running app)
 
 ## CI
 
-GitHub Actions runs typecheck, lint, tests with coverage, and a production build
-on every push to `main` and every pull request. The workflow uses build-time
-placeholder environment variables and does not connect to the database, AI
-providers, or S3. Coverage thresholds are enforced for `lib/` and API routes, and
-the HTML report is uploaded as a workflow artifact.
+GitHub Actions runs a dependency audit, typecheck, lint, tests with coverage, and
+a production build on every push to `main` and every pull request. The workflow
+uses build-time placeholder environment variables and does not connect to the
+database, AI providers, or S3. Coverage thresholds are enforced for `lib/` and
+API routes, and the HTML report is uploaded as a workflow artifact. The audit
+step fails on high or critical advisories; the lockfile currently resolves with
+zero known vulnerabilities.
 
 The legal accuracy benchmark is run manually because it needs a deployed app, a
 real database, and working S3 credentials. See [`docs/benchmark.md`](docs/benchmark.md).
@@ -75,6 +78,16 @@ The current 50-question seed set is **draft and not advocate-reviewed**. Do not
 publish its score as a legal-accuracy claim until the review status is updated.
 See [`docs/benchmark.md`](docs/benchmark.md) for the dataset schema, metrics,
 and review process.
+
+## Security
+
+`npm run audit` fails on high or critical dependency advisories and runs in CI.
+The lockfile currently resolves with zero known vulnerabilities. Better Auth is
+pinned to `1.6.33`; upgrading to 1.7 requires an `account.issuer` schema
+migration and a reviewed backfill, so it is treated as a planned migration rather
+than a routine bump. See [`docs/security.md`](docs/security.md) for auth
+boundaries, request limits, secret handling, and the in-memory rate-limit
+limitation.
 
 ## Architecture
 

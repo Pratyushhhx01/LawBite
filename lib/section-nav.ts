@@ -17,6 +17,10 @@ export function handleSectionAnchor(event: ClickEventLike, href: string): void {
 
   if (window.location.pathname !== "/") {
     event.preventDefault();
+    // This helper is called from static links and has no router instance. A
+    // full navigation is required to leave the current route and land on the
+    // section hash, so the Next.js client-router rule does not apply here.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(`/${href}`);
     return;
   }

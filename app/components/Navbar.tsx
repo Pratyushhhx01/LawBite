@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { clearDisclaimerAcceptance } from "@/lib/disclaimer";
@@ -21,6 +22,7 @@ const links = [
 ];
 
 export default function Navbar() {
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -49,7 +51,8 @@ export default function Navbar() {
   async function handleSignOut() {
     clearDisclaimerAcceptance();
     await signOut();
-    window.location.href = "/";
+    router.replace("/");
+    router.refresh();
   }
 
   return (

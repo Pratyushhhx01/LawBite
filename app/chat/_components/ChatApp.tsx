@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   Fragment,
   useEffect,
@@ -755,6 +756,7 @@ export default function ChatApp({
   initialTool = null,
   initialItem = null,
 }: ChatAppProps) {
+  const router = useRouter();
   const [user, setUser] = useState<ChatUser>(initialUser);
   const [conversations, setConversations] = useState<Conversation[]>(() => [
     freshConversation,
@@ -2684,7 +2686,8 @@ export default function ChatApp({
   async function handleSignOut() {
     clearDisclaimerAcceptance();
     await signOut();
-    window.location.href = "/signin";
+    router.replace("/signin");
+    router.refresh();
   }
 
   function syncDeleteServer(ids: string[]) {
