@@ -1,3 +1,4 @@
+import LogoIcon from "./LogoIcon";
 import Reveal from "./Reveal";
 
 const leftFeatures = [
@@ -115,21 +116,7 @@ export default function Showcase() {
                 {/* Sidebar */}
                 <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-white/10 bg-black p-3 md:flex">
                   <div className="flex items-center gap-2 border-b border-white/10 pb-3">
-                    <span className="inline-flex h-6 w-6 items-center justify-center">
-                      <svg
-                        viewBox="0 0 64 64"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-full w-full text-white"
-                      >
-                        <path d="M32 4 L60 32 L32 60 L4 32 Z" />
-                        <ellipse cx="32" cy="24" rx="12" ry="14" />
-                        <ellipse cx="32" cy="40" rx="12" ry="14" />
-                      </svg>
-                    </span>
+                    <LogoIcon className="h-6 w-6" />
                     <span className="text-sm font-semibold text-white">
                       Lawbite
                     </span>
