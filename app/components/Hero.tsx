@@ -28,7 +28,7 @@ export default function Hero() {
             width={1361}
             height={373}
             priority
-            className="-mt-12 w-[min(92vw,44rem)] mix-blend-screen"
+            className="-mt-12 w-[min(94vw,60rem)] mix-blend-screen"
           />
         </Reveal>
 
