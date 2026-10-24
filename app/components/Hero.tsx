@@ -6,7 +6,7 @@ export default function Hero() {
   return (
     <section
       id="hero"
-      className="relative isolate flex min-h-[100svh] items-center overflow-hidden pt-32 pb-24"
+      className="relative isolate flex min-h-[100svh] items-center overflow-hidden pt-40 pb-20"
     >
       <div className="absolute inset-0 -z-10">
         <GridBackground />
