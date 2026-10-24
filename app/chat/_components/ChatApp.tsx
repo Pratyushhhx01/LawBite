@@ -4960,7 +4960,7 @@ export default function ChatApp({
                     analyzed. I will provide a thorough analysis including
                     relevant laws, precedents, risks, and recommendations.
                   </p>
-                  <div className="mt-8 flex w-full flex-col items-end gap-2 md:flex-row md:flex-wrap md:items-center md:justify-center md:gap-3 md:pl-12">
+                  <div className="mt-8 flex w-full flex-col items-center gap-2 md:flex-row md:flex-wrap md:items-center md:justify-center md:gap-3">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/50">
                       Risk assessment
                     </span>
