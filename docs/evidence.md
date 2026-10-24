@@ -11,8 +11,8 @@ unavailable.
 | --- | --- | --- |
 | Type safety | TypeScript strict mode passes | `npm run typecheck` |
 | Lint | ESLint flat config passes with no warnings | `npm run lint` |
-| Unit and integration tests | 515 passed, 44 skipped across 26 files | `npm run test` |
-| Coverage | Local run: 50.8% statements, 46.5% branches, 60.7% functions, 51.4% lines. CI enforces floors of 46/40/55/47. | `npm run test:coverage` |
+| Unit and integration tests | 523 passed, 44 skipped across 26 files | `npm run test` |
+| Coverage | Local run: 51.5% statements, 46.8% branches, 61.5% functions, 52.0% lines. CI enforces floors of 46/40/55/47. | `npm run test:coverage` |
 | Production build | Next.js 16.4.3 build succeeds | `npm run build` |
 | Dependency audit | 0 known vulnerabilities; CI fails on high or critical advisories | `npm run audit` |
 | Browser hardening | HSTS, `nosniff`, frame denial, referrer policy, permissions policy, and COOP on every route | `tests/security-headers.test.ts` |
@@ -20,6 +20,7 @@ unavailable.
 | Deployed smoke | Manual workflow signs up a throwaway user and drives the live SSE chat path | `.github/workflows/deployed-smoke.yml` |
 | Legal benchmark harness | 50 seeded questions, citation verifier, recall/precision/refusal/latency report | `npm run eval:legal` |
 | S3 diagnosis | Credential, bucket, region, and read-access check with actionable errors | `npm run check:s3` |
+| Scope guard | Model-identity, prompt-injection, and off-topic questions are refused before the provider call; legal questions that use the word "model" still pass | `tests/chat-filters.test.ts`, `tests/chat-modes.test.ts` |
 
 The 44 skipped tests are live-database and live-deployment suites. CI sets
 `CI_SKIP_DB_TESTS=1` so it never pretends to have a database it does not have.
@@ -30,6 +31,9 @@ The deployed smoke workflow is the separate opt-in path for a real environment.
 - `app/api/chat/route.ts` is the orchestration layer. Prompts and act mappings
   were extracted to `lib/chat-prompts.ts` and `lib/act-map.ts`.
 - Pure query classification lives in `lib/chat-filters.ts` and has its own tests.
+  Assistant-meta questions are refused before any provider call, and the shared
+  `SCOPE_RULES` prompt tells the model to answer only the latest message and
+  never reveal its model or provider.
 - Provider selection and failover live in `lib/ai-providers.ts`.
 - Citation parsing and S3 verification live in `lib/citation-verifier.ts` and are
   tested with an injected lookup, so unit tests never need real S3.

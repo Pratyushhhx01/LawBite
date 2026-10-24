@@ -12,11 +12,13 @@ import { ACT_MAP } from "@/lib/act-map";
 import {
   DRAFT_DISCLAIMER,
   getSystemPrompt,
+  SCOPE_RULES,
   SOURCE_QUALITY_RULES,
 } from "@/lib/chat-prompts";
 import {
   classifyQuery,
   hasIndianContext,
+  isAssistantMetaQuery,
   isNonLegalQuery,
   legalAcronymContext,
   mentionsForeignJurisdiction,
@@ -38,6 +40,34 @@ import {
   type ModelInfo,
   type ReasoningEffort,
 } from "@/lib/ai-providers";
+
+const SCOPE_REFUSAL =
+  "I can only provide information related to Indian law. Please ask a legal question concerning India.";
+
+/**
+ * Refusals are emitted as the same SSE frame shape the client already parses,
+ * so the UI shows a normal assistant message and never calls the provider.
+ */
+function refusalStreamResponse(message = SCOPE_REFUSAL): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(`data: ${JSON.stringify({ content: message })}\n\n`),
+      );
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
 
 /**
  * Hard ceiling for the provider to return response headers. A streaming
@@ -1147,6 +1177,13 @@ Never transpose tables, never leave a table cell blank, never invent section num
       });
     }
 
+    // Identity, model, prompt-injection and product questions are out of scope
+    // in every mode. Check before the mode-specific branches so draft, review
+    // and grill cannot be used to extract the underlying model.
+    if (userQuery && isAssistantMetaQuery(userQuery)) {
+      return refusalStreamResponse();
+    }
+
     if (
       userQuery &&
       isNonLegalQuery(userQuery) &&
@@ -1154,26 +1191,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
       conversationType !== "draft" &&
       conversationType !== "review"
     ) {
-      const refusal =
-        "I can only provide information related to Indian law. Please ask a legal question concerning India.";
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ content: refusal })}\n\n`),
-          );
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
-        },
-      });
-      return new Response(stream, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache, no-transform",
-          Connection: "keep-alive",
-          "X-Accel-Buffering": "no",
-        },
-      });
+      return refusalStreamResponse();
     }
 
     if (
@@ -1184,26 +1202,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
       conversationType !== "draft" &&
       conversationType !== "review"
     ) {
-      const refusal =
-        "I can only provide information related to Indian law. Please ask a legal question concerning India.";
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ content: refusal })}\n\n`),
-          );
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
-        },
-      });
-      return new Response(stream, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache, no-transform",
-          Connection: "keep-alive",
-          "X-Accel-Buffering": "no",
-        },
-      });
+      return refusalStreamResponse();
     }
 
     const isTalkToAi = conversationType === "talk-to-ai";
@@ -1267,7 +1266,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
       return true;
     });
 
-    let finalSystemPrompt = `${systemPrompt}\n\n${SOURCE_QUALITY_RULES}`;
+    let finalSystemPrompt = `${systemPrompt}\n\n${SOURCE_QUALITY_RULES}\n\n${SCOPE_RULES}`;
     const contextParts: string[] = [];
     const acronymContext = legalAcronymContext(`${userQuery}\n${contextQuery}`);
     if (acronymContext) contextParts.push(acronymContext);
