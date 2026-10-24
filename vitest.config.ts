@@ -13,6 +13,19 @@ export default defineConfig({
         inline: ["@better-auth"],
       },
     },
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary", "html"],
+      reportsDirectory: "coverage",
+      include: ["lib/**/*.ts", "app/api/**/route.ts"],
+      exclude: ["**/*.d.ts"],
+      thresholds: {
+        statements: 48,
+        branches: 44,
+        functions: 58,
+        lines: 49,
+      },
+    },
   },
   resolve: {
     alias: {

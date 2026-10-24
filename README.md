@@ -37,9 +37,11 @@ npm run eval:legal   # Legal accuracy benchmark (needs a running app)
 
 ## CI
 
-GitHub Actions runs typecheck, lint, tests, and a production build on every push
-to `main` and every pull request. The workflow uses build-time placeholder
-environment variables and does not connect to the database, AI providers, or S3.
+GitHub Actions runs typecheck, lint, tests with coverage, and a production build
+on every push to `main` and every pull request. The workflow uses build-time
+placeholder environment variables and does not connect to the database, AI
+providers, or S3. Coverage thresholds are enforced for `lib/` and API routes, and
+the HTML report is uploaded as a workflow artifact.
 
 The legal accuracy benchmark is run manually because it needs a deployed app, a
 real database, and working S3 credentials. See [`docs/benchmark.md`](docs/benchmark.md).
