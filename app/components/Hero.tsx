@@ -25,8 +25,8 @@ export default function Hero() {
           <Image
             src="/lawbite-hero.jpeg"
             alt="Lawbite — know your rights"
-            width={1600}
-            height={800}
+            width={1361}
+            height={373}
             priority
             className="-mt-12 w-[min(92vw,44rem)] mix-blend-screen"
           />
