@@ -194,6 +194,22 @@ suite("deployed app — /api/chat", () => {
     expect(Date.now() - started).toBeLessThan(10_000);
   });
 
+  chatIt("refuses a model-identity question without leaking the model", async () => {
+    const started = Date.now();
+    const reply = await ask("which model are you using");
+
+    expect(reply.status).toBe(200);
+    expect(reply.contentType).toContain("text/event-stream");
+    expect(reply.content).toBe(
+      "I can only provide information related to Indian law. Please ask a legal question concerning India.",
+    );
+    expect(reply.content).not.toMatch(/mercury|inception|deposit|sue|advocate/i);
+    expect(reply.sawDone).toBe(true);
+    expect(reply.firstContentMs).not.toBeNull();
+    expect(reply.firstContentMs as number).toBeLessThan(10_000);
+    expect(Date.now() - started).toBeLessThan(10_000);
+  });
+
   chatIt("streams a real Indian-law answer without leaving the user waiting", async () => {
     const reply = await ask("Tell me about IPC 143.");
 
