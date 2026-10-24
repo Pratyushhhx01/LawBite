@@ -20,6 +20,22 @@ treated as a migration rather than a drive-by version bump. In particular:
 - **Vitest and the V8 coverage provider stay on the same version.** Mismatched
   peer versions caused coverage resolution failures during upgrades.
 
+## Browser hardening headers
+
+Every route is served with:
+
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+- `Cross-Origin-Opener-Policy: same-origin`
+
+These are set in `next.config.ts` and covered by
+`tests/security-headers.test.ts`. A strict CSP is not enabled yet because the app
+uses inline Next.js bootstrap scripts and third-party document tooling; adding one
+needs a nonce/hash rollout and a report-only phase.
+
 ## Authentication
 
 - Auth is handled by Better Auth with Google and GitHub OAuth plus email/password.

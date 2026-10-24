@@ -11,10 +11,11 @@ unavailable.
 | --- | --- | --- |
 | Type safety | TypeScript strict mode passes | `npm run typecheck` |
 | Lint | ESLint flat config passes with no warnings | `npm run lint` |
-| Unit and integration tests | 514 passed, 44 skipped across 25 files | `npm run test` |
+| Unit and integration tests | 515 passed, 44 skipped across 26 files | `npm run test` |
 | Coverage | Local run: 50.8% statements, 46.5% branches, 60.7% functions, 51.4% lines. CI enforces floors of 46/40/55/47. | `npm run test:coverage` |
 | Production build | Next.js 16.4.3 build succeeds | `npm run build` |
 | Dependency audit | 0 known vulnerabilities; CI fails on high or critical advisories | `npm run audit` |
+| Browser hardening | HSTS, `nosniff`, frame denial, referrer policy, permissions policy, and COOP on every route | `tests/security-headers.test.ts` |
 | CI | Audit, typecheck, lint, coverage, and build on pushes and PRs | `.github/workflows/ci.yml` |
 | Deployed smoke | Manual workflow signs up a throwaway user and drives the live SSE chat path | `.github/workflows/deployed-smoke.yml` |
 | Legal benchmark harness | 50 seeded questions, citation verifier, recall/precision/refusal/latency report | `npm run eval:legal` |
