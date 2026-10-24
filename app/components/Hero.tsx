@@ -70,7 +70,7 @@ export default function Hero() {
         </Reveal>
 
         <Reveal delay={4} className="w-full">
-          <div className="relative mt-20 w-full">
+          <div className="relative mt-28 w-full">
             <div className="grid grid-cols-2 items-center gap-6 sm:grid-cols-4">
               {["IPC / BNS", "CrPC / BNSS", "Constitution", "157+ Acts"].map(
                 (name, i) => (
