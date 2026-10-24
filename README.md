@@ -1,5 +1,7 @@
 # LawBite
 
+[![CI](https://github.com/Pratyushhhx01/LawBite/actions/workflows/ci.yml/badge.svg)](https://github.com/Pratyushhhx01/LawBite/actions/workflows/ci.yml)
+
 An AI legal assistant for Indian law. Ask questions in plain language and get
 answers grounded in 157+ Indian bare acts (BNS/IPC, BNSS/CrPC, the Constitution
 and more), with optional real-time web search and document drafting/review.
@@ -32,6 +34,15 @@ npm run test         # Vitest single run
 npm run test:watch   # Vitest in watch mode
 npm run eval:legal   # Legal accuracy benchmark (needs a running app)
 ```
+
+## CI
+
+GitHub Actions runs typecheck, lint, tests, and a production build on every push
+to `main` and every pull request. The workflow uses build-time placeholder
+environment variables and does not connect to the database, AI providers, or S3.
+
+The legal accuracy benchmark is run manually because it needs a deployed app, a
+real database, and working S3 credentials. See [`docs/benchmark.md`](docs/benchmark.md).
 
 ## Legal accuracy benchmark
 
