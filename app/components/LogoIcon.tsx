@@ -9,8 +9,8 @@ export default function LogoIcon({
     <Image
       src="/lawbite-logo.jpeg"
       alt=""
-      width={1254}
-      height={1254}
+      width={1024}
+      height={1024}
       aria-hidden
       className={`${className} shrink-0 mix-blend-screen`}
     />
