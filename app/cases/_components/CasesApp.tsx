@@ -45,11 +45,42 @@ const STATUS_COLORS: Record<string, string> = {
   closed: "bg-white/5 text-white/40 shadow-[0_0_8px_rgba(255,255,255,0.05)]",
 };
 
+function MobileBackButton({
+  onClick,
+  className = "",
+}: {
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 text-sm text-white/50 transition-colors hover:text-white md:hidden ${className}`}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+      All cases
+    </button>
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function CasesApp(_props: CasesAppProps) {
   const [cases, setCases] = useState<CaseFolder[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<CaseDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -121,6 +152,8 @@ export default function CasesApp(_props: CasesAppProps) {
       } catch {
         const local = casesRef.current.find((c) => c.id === selectedId);
         if (local) setDetail({ ...local, documents: [], conversations: [] });
+      } finally {
+        if (!cancelled) setDetailLoading(false);
       }
     })();
     return () => {
@@ -191,6 +224,8 @@ export default function CasesApp(_props: CasesAppProps) {
         setCases((prev) => [created, ...prev]);
         setShowCreate(false);
         resetForm();
+        setDetail(null);
+        setDetailLoading(true);
         setSelectedId(created.id);
         if (pendingFiles.length > 0) {
           await uploadPendingFiles(created.id);
@@ -245,6 +280,7 @@ export default function CasesApp(_props: CasesAppProps) {
       if (selectedId === id) {
         setSelectedId(null);
         setDetail(null);
+        setDetailLoading(false);
       }
     }
   };
@@ -345,14 +381,29 @@ export default function CasesApp(_props: CasesAppProps) {
     });
 
   const selectedCase = cases.find((c) => c.id === selectedId);
+  // Mobile uses a single pane: the case list, then the selected case/form.
+  const showListOnMobile = !selectedId && !showCreate && !editMode;
+
+  const backToList = () => {
+    setSelectedId(null);
+    setDetail(null);
+    setDetailLoading(false);
+    setShowCreate(false);
+    setEditMode(false);
+    resetForm();
+    setPendingFiles([]);
+  };
 
   return (
-    <div className="flex h-screen bg-black text-white">
-      <aside className="flex w-80 flex-col border-r border-white/10 bg-black/50">
+    <div className="flex h-screen bg-black text-white supports-[height:100dvh]:h-dvh">
+      <aside
+        className={`${showListOnMobile ? "flex" : "hidden"} w-full flex-col border-r border-white/10 bg-black/50 md:flex md:w-80`}
+      >
         <div className="border-b border-white/10 p-4">
           <div className="mb-3 flex items-center gap-3">
             <button
               onClick={() => window.history.back()}
+              aria-label="Go back"
               className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white/40 transition-all duration-200 hover:bg-white/10 hover:text-white/70"
             >
               <svg
@@ -389,7 +440,7 @@ export default function CasesApp(_props: CasesAppProps) {
             New Case
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
             <div className="p-4 text-sm text-white/40">Loading cases...</div>
           ) : cases.length === 0 ? (
@@ -419,7 +470,11 @@ export default function CasesApp(_props: CasesAppProps) {
               <button
                 key={c.id}
                 onClick={() => {
-                  setSelectedId(c.id);
+                  if (c.id !== selectedId) {
+                    setDetail(null);
+                    setDetailLoading(true);
+                    setSelectedId(c.id);
+                  }
                   setEditMode(false);
                   setShowCreate(false);
                 }}
@@ -452,7 +507,21 @@ export default function CasesApp(_props: CasesAppProps) {
         </div>
       </aside>
 
-      <main className="flex flex-1 flex-col overflow-hidden">
+      <main
+        className={`${showListOnMobile ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex`}
+      >
+        {!showListOnMobile && (
+          <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3 md:hidden">
+            <MobileBackButton onClick={backToList} />
+            <span className="ml-auto max-w-[55%] truncate text-xs font-medium text-white/50">
+              {showCreate
+                ? "New Case"
+                : editMode
+                  ? "Edit Case"
+                  : detail?.name || "Case"}
+            </span>
+          </div>
+        )}
         {!selectedId && !showCreate && !editMode ? (
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
@@ -481,7 +550,7 @@ export default function CasesApp(_props: CasesAppProps) {
             </div>
           </div>
         ) : showCreate || editMode ? (
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
             <div className="mx-auto max-w-2xl">
               <h2 className="mb-6 text-lg font-semibold">
                 {editMode ? "Edit Case" : "New Case"}
@@ -512,7 +581,7 @@ export default function CasesApp(_props: CasesAppProps) {
                     placeholder="Brief description of the case..."
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-xs font-medium text-white/50">
                       Status
@@ -682,12 +751,17 @@ export default function CasesApp(_props: CasesAppProps) {
               </div>
             </div>
           </div>
+        ) : detailLoading ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+            <p className="text-sm text-white/40">Loading case...</p>
+          </div>
         ) : detail ? (
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
             <div className="mx-auto max-w-3xl">
-              <div className="mb-6 flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-3">
+              <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-3">
                     <h2 className="text-xl font-semibold">{detail.name}</h2>
                     <span
                       className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase ${STATUS_COLORS[detail.status] || STATUS_COLORS.active}`}
@@ -704,7 +778,7 @@ export default function CasesApp(_props: CasesAppProps) {
                     </p>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex shrink-0 gap-2">
                   <button
                     onClick={() => startEdit(selectedCase)}
                     className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-white/50 transition-colors hover:text-white/70"
@@ -720,7 +794,7 @@ export default function CasesApp(_props: CasesAppProps) {
                 </div>
               </div>
 
-              <div className="mb-6 grid grid-cols-3 gap-4">
+              <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                   <div className="text-xs font-medium text-white/40">
                     Parties
@@ -872,7 +946,7 @@ export default function CasesApp(_props: CasesAppProps) {
                         </a>
                         <button
                           onClick={() => handleDeleteDoc(doc.id)}
-                          className="ml-1 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-white/30 opacity-0 transition-all duration-200 hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                          className="ml-1 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-white/30 opacity-100 transition-all duration-200 hover:bg-red-500/10 hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100"
                         >
                           Delete
                         </button>
@@ -924,11 +998,18 @@ export default function CasesApp(_props: CasesAppProps) {
               </div>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+            <p className="text-sm text-white/50">Case not found.</p>
+            <p className="text-xs text-white/30">
+              It may have been deleted or you may no longer have access.
+            </p>
+          </div>
+        )}
       </main>
 
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
             <h3 className="text-lg font-semibold text-white">Delete Case</h3>
             <p className="mt-2 text-sm text-white/50">
