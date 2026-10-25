@@ -11,6 +11,7 @@ import { SECTION_MAPPINGS, mappingPromptBlock } from "@/lib/section-mapping";
 import { ACT_MAP } from "@/lib/act-map";
 import {
   DRAFT_DISCLAIMER,
+  DRAFT_SCOPE_REFUSAL,
   getSystemPrompt,
   SCOPE_RULES,
   SOURCE_QUALITY_RULES,
@@ -19,6 +20,7 @@ import {
   classifyQuery,
   hasIndianContext,
   isAssistantMetaQuery,
+  isDocumentDraftingQuery,
   isNonLegalQuery,
   legalAcronymContext,
   mentionsForeignJurisdiction,
@@ -1088,6 +1090,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Document Drafter is intentionally narrower than the general legal chat.
+    // Track whether a draft is already underway so short factual answers
+    // ("No", "Rs 50,000", "Delhi") are not mistaken for off-topic questions.
+    const hasDraftContext =
+      conversationType === "draft" &&
+      messages.slice(0, -1).some((m) => {
+        if (m.role === "user") {
+          return isDocumentDraftingQuery(extractTextFromContent(m.content));
+        }
+        if (m.role === "assistant") {
+          const text = extractTextFromContent(m.content);
+          return (
+            text.includes(DRAFT_DISCLAIMER) ||
+            /\b(?:LEGAL NOTICE|FIRST INFORMATION REPORT|AFFIDAVIT|CONSUMER COMPLAINT|RTI APPLICATION|WILL|PETITION|CONTRACT|AGREEMENT)\b/i.test(
+              text,
+            )
+          );
+        }
+        return false;
+      });
+    const lastAssistant = messages
+      .filter((m) => m.role === "assistant")
+      .pop();
+    const awaitingDraftAnswer =
+      !!lastAssistant &&
+      /\?\s*$/.test(extractTextFromContent(lastAssistant.content).trim());
+
     // AI Lawyer (grill) intake: the questions are answered in short fragments,
     // so the final advice should be grounded in the whole case the user has
     // described, not just the last word ("Yes", "Maharashtra"). Bounded so the
@@ -1154,7 +1183,9 @@ Never transpose tables, never leave a table cell blank, never invent section num
       conversationType !== "grill"
     ) {
       const greeting =
-        "Hello! How can I assist you with Indian legal matters today?";
+        conversationType === "draft"
+          ? "Hello! How can I assist you with drafting an Indian legal document today?"
+          : "Hello! How can I assist you with Indian legal matters today?";
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start(controller) {
@@ -1182,6 +1213,21 @@ Never transpose tables, never leave a table cell blank, never invent section num
     // and grill cannot be used to extract the underlying model.
     if (userQuery && isAssistantMetaQuery(userQuery)) {
       return refusalStreamResponse();
+    }
+
+    // The Document Drafter must not become a second general legal chat. Refuse
+    // free-standing legal questions (Article 370, Section 144, bail, etc.)
+    // before any S3 or provider work, while still allowing follow-ups in an
+    // active draft.
+    if (
+      conversationType === "draft" &&
+      userQuery &&
+      !isDocumentDraftingQuery(userQuery, {
+        hasDraftContext,
+        awaitingDraftAnswer,
+      })
+    ) {
+      return refusalStreamResponse(DRAFT_SCOPE_REFUSAL);
     }
 
     if (

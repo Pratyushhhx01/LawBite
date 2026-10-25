@@ -5582,8 +5582,11 @@ export default function ChatApp({
                       </h2>
                       <p className="mt-3 max-w-md text-center text-sm leading-relaxed text-white/55">
                         Select a document type to start drafting with a
-                        structured form, or switch to chat mode to describe your
-                        situation.
+                        structured form, or ask a drafting question in chat.
+                      </p>
+                      <p className="mt-2 max-w-md text-center text-xs leading-relaxed text-blue-400/60">
+                        Only questions about drafting or completing Indian
+                        legal documents are supported in this mode.
                       </p>
                       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                         <button
@@ -7153,7 +7156,9 @@ export default function ChatApp({
                 placeholder={
                   pendingAttachment
                     ? "Ask about this document, or send to review as-is…"
-                    : "Message Lawbite…"
+                    : mode === "draft"
+                      ? "Ask about drafting an Indian legal document…"
+                      : "Message Lawbite…"
                 }
                 rows={1}
                 className="min-h-[40px] max-h-40 w-full resize-none bg-transparent px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 focus:outline-none"

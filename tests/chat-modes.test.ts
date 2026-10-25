@@ -41,6 +41,7 @@ vi.mock("@tavily/core", () => ({
 }));
 
 import { POST } from "@/app/api/chat/route";
+import { DRAFT_SCOPE_REFUSAL } from "@/lib/chat-prompts";
 
 type Frame = Record<string, unknown>;
 
@@ -832,6 +833,100 @@ describe("Document Drafter mode", () => {
     expect(content).toBe(`${document}\n\n${DRAFT_DISCLAIMER}`);
     expect(content).not.toMatch(NO_FALLBACK);
     expect(doneCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("refuses a general legal question without calling the provider", async () => {
+    const fetchMock = vi.fn(async () =>
+      sseResponse(framesToText([delta("Article 370 was repealed."), finish])),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(makeRequest("draft", "What is Article 370?"));
+    const { content, doneCount } = await readSse(res);
+
+    expect(content).toBe(DRAFT_SCOPE_REFUSAL);
+    expect(content).not.toContain("Article 370 was repealed");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(doneCount).toBe(1);
+  });
+
+  it("refuses Section 144 in draft mode", async () => {
+    const fetchMock = vi.fn(async () =>
+      sseResponse(framesToText([delta("Section 144 is a prohibitory order."), finish])),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(makeRequest("draft", "What is Section 144?"));
+    const { content } = await readSse(res);
+
+    expect(content).toBe(DRAFT_SCOPE_REFUSAL);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("still refuses a general legal question during an active draft", async () => {
+    const fetchMock = vi.fn(async () =>
+      sseResponse(framesToText([delta("Article 370 was repealed."), finish])),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationType: "draft",
+          messages: [
+            {
+              role: "user",
+              content: "Please draft a legal notice for cheque dishonour.",
+            },
+            {
+              role: "assistant",
+              content: "What is the cheque return date?",
+            },
+            { role: "user", content: "What is Article 370?" },
+          ],
+        }),
+      }) as unknown as NextRequest,
+    );
+    const { content } = await readSse(res);
+
+    expect(content).toBe(DRAFT_SCOPE_REFUSAL);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a short factual answer during an active draft", async () => {
+    const document =
+      "LEGAL NOTICE\n\nDate: 1 January 2026\n\nFrom: [sender name]\n\nTo: [recipient name]\n\nSubject: [subject]\n\nSir/Madam,\n\n1. This notice is issued under the applicable law.\n\nYours faithfully,\n[sender name]";
+    const fetchMock = vi.fn(async () =>
+      sseResponse(framesToText([delta(document), finish])),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationType: "draft",
+          messages: [
+            {
+              role: "user",
+              content: "Please draft a legal notice for cheque dishonour.",
+            },
+            {
+              role: "assistant",
+              content: "What is the cheque return date?",
+            },
+            { role: "user", content: "10 March 2026" },
+          ],
+        }),
+      }) as unknown as NextRequest,
+    );
+    const { content } = await readSse(res);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(content).toBe(`${document}\n\n${DRAFT_DISCLAIMER}`);
   });
 });
 

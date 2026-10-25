@@ -121,6 +121,198 @@ export function isNonLegalQuery(query: string): boolean {
   return NON_LEGAL_TOPIC_PATTERNS.some((re) => re.test(lower));
 }
 
+/**
+ * Document Drafter scope.
+ *
+ * The drafter is a focused tool, not a general legal chat. A query is in scope
+ * when it names an Indian legal document, asks how to draft/format/edit one, or
+ * is a short factual answer in an active drafting conversation. Free-standing
+ * questions such as "What is Article 370?" or "What is Section 144?" are not.
+ */
+const DRAFT_DOCUMENT_TERM_PATTERN = new RegExp(
+  [
+    "\\blegal\\s+notice\\b",
+    "\\bdemand\\s+notice\\b",
+    "\\beviction\\s+notice\\b",
+    "\\bshow\\s+cause\\s+notice\\b",
+    "\\bnotice\\s+to\\s+quit\\b",
+    "\\bnotice\\s+(?:of|for)\\s+(?:termination|dishonou?r|recovery|payment|demand|eviction|breach)\\b",
+    "\\bcheque\\s+(?:bounce|dishonou?r)\\s+notice\\b",
+    "\\b(?:draft|prepare|write|create|make|format|template|send|reply|mention|include|cite)\\b[^.!?]{0,50}\\bnotice\\b",
+    "\\bfir\\b",
+    "\\bfirst\\s+information\\s+report\\b",
+    "\\b(?:consumer|police|criminal|written)\\s+complaint\\b",
+    "\\brti\\s+(?:application|request|draft|reply)\\b",
+    "\\bright\\s+to\\s+information\\b",
+    "\\b(?:last\\s+will|will\\s+and\\s+testament|codicil)\\b",
+    "\\b(?:a|the|my|his|her)\\s+will\\b",
+    "\\b(?:draft|prepare|create|write|make|format|template)\\s+(?:a|an|my|the)\\s+will\\b",
+    "\\bwill\\s+(?:draft|format|template|registration|probate|executor|attestation)\\b",
+    "\\baffidavit\\b",
+    "\\b(?:writ|divorce|maintenance|probate|succession|bail|anticipatory\\s+bail)\\s+petition\\b",
+    "\\bpetition\\b",
+    "\\bplaint\\b",
+    "\\bwritten\\s+statement\\b",
+    "\\b(?:legal|commercial|employment|service|vendor|consultancy|loan|rent|rental|lease|partnership|joint\\s+venture|shareholders|franchise|non-?disclosure|nda|settlement|arbitration)\\s+(?:agreement|contract|deed)\\b",
+    "\\b(?:agreement|contract)\\b",
+    "\\b(?:sale|gift|lease|mortgage|partnership|trust|relinquishment|settlement|exchange)\\s+deed\\b",
+    "\\bdeed\\b",
+    "\\bpower\\s+of\\s+attorney\\b",
+    "\\b(?:non-?disclosure\\s+agreement|nda)\\b",
+    "\\b(?:indemnity|performance|surety|bank)\\s+bond\\b",
+    "\\bpromissory\\s+note\\b",
+    "\\b(?:legal|court|official)\\s+document\\b",
+    "\\b(?:bail|anticipatory\\s+bail|writ|consumer|maintenance|divorce|probate|succession|rti)\\s+application\\b",
+    "\\bmemorandum\\s+of\\s+appeal\\b",
+    "\\blegal\\s+draft\\b",
+    "\\b(?:draft|prepare|create|write|make|format|template)\\s+(?:a|an|my|the)\\s+(?:legal\\s+)?(?:document|notice|complaint|petition|application|agreement|contract|deed|affidavit|will)\\b",
+  ].join("|"),
+  "i",
+);
+
+/**
+ * Statute names can contain document nouns ("Indian Contract Act"). They are
+ * general legal questions, not drafting requests, unless the user also asks to
+ * draft or edit a document.
+ */
+const DRAFT_STATUTE_NAME_PATTERN =
+  /\b(?:indian\s+)?contract\s+act\b|\bcontract\s+(?:labour|law|code)\b|\blaw\s+of\s+contracts?\b|\b(?:indian\s+)?partnership\s+act\b|\b(?:sale\s+of\s+goods|transfer\s+of\s+property|specific\s+relief|arbitration\s+and\s+conciliation|companies|negotiable\s+instruments|limitation|(?:indian\s+)?evidence)\s+act\b/i;
+
+const DRAFT_ACTION_PATTERN =
+  /\b(?:draft|drafting|prepare|preparing|create|creating|write|writing|make|making|fill|filling|complete|completing)\b/i;
+
+const DRAFT_MECHANICS_PATTERN =
+  /\b(?:format|formatting|template|sample|specimen|stamp\s+paper|stamp\s+duty|notar(?:y|ize|ise|ization|isation)|register|registering|registration|attest|attesting|attestation|execute|executing|execution|sign|signing|signature|witness|witnesses|annexure|annexures|schedule|schedules)\b/i;
+
+const DRAFT_CLAUSE_PATTERN =
+  /\b(?:clause|clauses|wording|recital|recitals|confidentiality\s+clause|indemnity\s+clause|termination\s+clause|jurisdiction\s+clause|governing\s+law\s+clause|dispute\s+resolution\s+clause|force\s+majeure\s+clause|severability\s+clause|waiver\s+clause|entire\s+agreement\s+clause|non-?compete\s+clause|non-?solicit\s+clause|liability\s+clause|warranty\s+clause|representations?\s+clause|covenants?)\b/i;
+
+const DRAFT_LEGAL_CONTEXT_PATTERN = new RegExp(
+  `${LEGAL_SIGNAL_PATTERN.source}|\\b(?:case|matter|client|party|parties|document|confidentiality|indemnity|termination|jurisdiction|governing\\s+law|dispute\\s+resolution|consideration|force\\s+majeure|severability|waiver|liability|warranty|representations?|covenants?|stamp\\s+paper|stamp\\s+duty|notar(?:y|ization|isation)|registration)\\b`,
+  "i",
+);
+
+const DRAFT_MECHANICS_OBJECT_PATTERN =
+  /\b(?:stamp\s+paper|document|paper|letter|affidavit|agreement|contract|deed|will|petition|notice|fir|complaint|application|bond|note)\b/i;
+
+const DRAFT_CLARIFICATION_PATTERN =
+  /\b(?:what|which|how\s+many|how\s+much|do\s+you\s+need|do\s+i\s+need|should\s+i|can\s+i|is\s+it|are\s+there|please\s+tell\s+me)\b[^?]*\b(?:details?|information|documents?|papers?|fields?|options?|clauses?|annexures?|copies|attachments?)\b/i;
+
+const DRAFT_FOLLOW_UP_PATTERN =
+  /^(?:yes|no|ok|okay|sure|please\s+do|go\s+ahead|continue|proceed|next|what\s+next|what\s+else|more|thanks|thank\s+you|correct|right|not\s+sure|i\s+don'?t\s+know|none|nil|n\/a)\b/i;
+
+const DRAFT_EDIT_PATTERN =
+  /\b(?:add|remove|delete|change|replace|update|shorten|expand|rewrite|revise|edit|include|exclude|use|modify|amend|adjust|reword|make\s+it)\b/i;
+
+const DRAFT_REQUEST_PATTERN =
+  /^(?:please\s+)?(?:draft|drafting|prepare|create|write|make|fill|complete|format|edit|revise|rewrite|add|remove|delete|change|replace|update|shorten|expand)\b|\b(?:how\s+(?:do|can|should)\s+i|can\s+you|could\s+you|please|i\s+need|i\s+want)\b/i;
+
+const GENERAL_LEGAL_QUESTION_PATTERN =
+  /^(?:what|which|who|when|where|why|how|explain|define|describe|tell\s+me|meaning\s+of|difference\s+between|compare|can|could|should|is|are|does|do|did)\b|\b(?:want\s+to\s+know|tell\s+me\s+about|explain\s+to\s+me|what\s+is|what\s+are|who\s+is|who\s+was|meaning\s+of|difference\s+between|what\s+should\s+i\s+do)\b/i;
+
+const GENERAL_LEGAL_REFERENCE_PATTERN = /\b(?:article|section)\s+\d+/i;
+
+const GENERAL_LEGAL_CONSEQUENCE_PATTERN =
+  /\b(?:punishment|sentence|imprisonment|fine|damages|remed(?:y|ies)|liability|breach|limitation\s+period|jurisdiction|arrest|conviction|acquittal)\b/i;
+
+const NON_DOCUMENT_CREATIVE_PATTERN =
+  /\b(?:poem|story|essay|song|blog|tweet|social\s+media\s+post|speech|novel|script)\b/i;
+
+export interface DocumentDraftingQueryOptions {
+  /** True when an earlier turn already started a document draft. */
+  hasDraftContext?: boolean;
+  /** True when the last assistant message ended with a clarifying question. */
+  awaitingDraftAnswer?: boolean;
+}
+
+/**
+ * True when a query belongs in the Document Drafter rather than general legal
+ * chat. The route uses this as a deterministic guard before any provider call.
+ */
+export function isDocumentDraftingQuery(
+  query: string,
+  options: DocumentDraftingQueryOptions = {},
+): boolean {
+  const text = query.trim();
+  if (!text) return false;
+  const lower = text.toLowerCase();
+
+  const hasDocumentTerm = DRAFT_DOCUMENT_TERM_PATTERN.test(lower);
+  const hasAction = DRAFT_ACTION_PATTERN.test(lower);
+  const hasMechanics = DRAFT_MECHANICS_PATTERN.test(lower);
+  const hasClause = DRAFT_CLAUSE_PATTERN.test(lower);
+  const hasLegalContext = DRAFT_LEGAL_CONTEXT_PATTERN.test(lower);
+  const asksGeneralQuestion = GENERAL_LEGAL_QUESTION_PATTERN.test(text);
+  const isDraftingRequest = DRAFT_REQUEST_PATTERN.test(text);
+  const hasMechanicsObject = DRAFT_MECHANICS_OBJECT_PATTERN.test(lower);
+
+  // "What is the Indian Contract Act?" contains "contract", but it is a
+  // general statute question, not a drafting request.
+  if (DRAFT_STATUTE_NAME_PATTERN.test(lower) && !isDraftingRequest) {
+    return false;
+  }
+
+  if (hasDocumentTerm) {
+    // "What is the punishment for breach of contract?" is still general legal
+    // advice, not a document-drafting question.
+    if (
+      asksGeneralQuestion &&
+      GENERAL_LEGAL_CONSEQUENCE_PATTERN.test(lower) &&
+      !hasAction &&
+      !hasMechanics &&
+      !hasClause &&
+      !isDraftingRequest
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  if (NON_DOCUMENT_CREATIVE_PATTERN.test(lower)) return false;
+
+  // Drafting verbs are enough when the query is anchored in a legal matter.
+  if (hasAction && hasLegalContext && (isDraftingRequest || options.hasDraftContext)) {
+    return true;
+  }
+
+  // Clause questions are document-drafting questions.
+  if (hasClause && (hasLegalContext || hasAction || options.hasDraftContext)) {
+    return true;
+  }
+
+  // Format/stamp/notary/registration questions need a document object.
+  if (hasMechanics && hasLegalContext && hasMechanicsObject) {
+    return true;
+  }
+
+  // "Do I need stamp paper?" / "Is notarisation required?"
+  if (
+    hasMechanics &&
+    /\b(?:need|needed|required|necessary|mandatory)\b/i.test(lower) &&
+    (hasMechanicsObject || options.hasDraftContext)
+  ) {
+    return true;
+  }
+
+  // "What details do you need?" / "Which documents should I attach?"
+  if (DRAFT_CLARIFICATION_PATTERN.test(lower)) return true;
+
+  if (options.hasDraftContext) {
+    if (DRAFT_FOLLOW_UP_PATTERN.test(lower)) return true;
+    if (DRAFT_EDIT_PATTERN.test(lower) && !asksGeneralQuestion) return true;
+    if (asksGeneralQuestion) return false;
+    if (
+      GENERAL_LEGAL_REFERENCE_PATTERN.test(lower) &&
+      !options.awaitingDraftAnswer
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
 const FOREIGN_JURISDICTION_KEYWORDS = [
   "usa",
   "united states",
