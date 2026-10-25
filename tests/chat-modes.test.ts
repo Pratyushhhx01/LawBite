@@ -895,6 +895,32 @@ describe("Document Drafter mode", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("does not treat its own refusal as the start of a draft", async () => {
+    const fetchMock = vi.fn(async () =>
+      sseResponse(framesToText([delta("Bail is a legal process."), finish])),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationType: "draft",
+          messages: [
+            { role: "user", content: "What is Article 370?" },
+            { role: "assistant", content: DRAFT_SCOPE_REFUSAL },
+            { role: "user", content: "bail" },
+          ],
+        }),
+      }) as unknown as NextRequest,
+    );
+    const { content } = await readSse(res);
+
+    expect(content).toBe(DRAFT_SCOPE_REFUSAL);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("allows a short factual answer during an active draft", async () => {
     const document =
       "LEGAL NOTICE\n\nDate: 1 January 2026\n\nFrom: [sender name]\n\nTo: [recipient name]\n\nSubject: [subject]\n\nSir/Madam,\n\n1. This notice is issued under the applicable law.\n\nYours faithfully,\n[sender name]";

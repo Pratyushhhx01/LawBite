@@ -1101,6 +1101,10 @@ export async function POST(request: NextRequest) {
         }
         if (m.role === "assistant") {
           const text = extractTextFromContent(m.content);
+          // The refusal itself mentions document types ("legal notice", "FIR").
+          // It must not be mistaken for the start of a draft, otherwise a later
+          // one-word general question ("bail") would be allowed through.
+          if (text.includes(DRAFT_SCOPE_REFUSAL)) return false;
           return (
             text.includes(DRAFT_DISCLAIMER) ||
             /\b(?:LEGAL NOTICE|FIRST INFORMATION REPORT|AFFIDAVIT|CONSUMER COMPLAINT|RTI APPLICATION|WILL|PETITION|CONTRACT|AGREEMENT)\b/i.test(
