@@ -298,6 +298,7 @@ export default function CasesApp(_props: CasesAppProps) {
       });
     } else {
       resetForm();
+      setPendingFiles([]);
     }
     setEditMode(!!c);
     setShowCreate(!c);
@@ -742,6 +743,7 @@ export default function CasesApp(_props: CasesAppProps) {
                       setShowCreate(false);
                       setEditMode(false);
                       resetForm();
+                      setPendingFiles([]);
                     }}
                     className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/50 transition-colors hover:text-white/70"
                   >
