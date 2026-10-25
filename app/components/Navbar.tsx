@@ -290,6 +290,20 @@ export default function Navbar() {
           ))}
           <li
             style={{ transitionDelay: `${links.length * 40}ms` }}
+            className={`transform transition-all duration-500 ${
+              open ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+            }`}
+          >
+            <Link
+              href="/news"
+              onClick={() => setOpen(false)}
+              className="block rounded-xl px-3 py-2.5 text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              Legal News
+            </Link>
+          </li>
+          <li
+            style={{ transitionDelay: `${(links.length + 1) * 40}ms` }}
             className={`mt-2 transform transition-all duration-500 ${
               open ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
             }`}
