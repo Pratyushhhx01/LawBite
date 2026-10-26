@@ -49,14 +49,18 @@ export async function GET(request: Request) {
     for (const result of queryResults) {
       if (result.status === "fulfilled") {
         for (const r of result.value.results ?? []) {
-          if (r.url && r.title) {
-            allResults.push({
-              title: r.title,
-              url: r.url,
-              snippet: (r.content || "").slice(0, 300),
-              date: r.publishedDate || undefined,
-            });
+          if (!r.url || !r.title) continue;
+          try {
+            new URL(r.url);
+          } catch {
+            continue;
           }
+          allResults.push({
+            title: r.title,
+            url: r.url,
+            snippet: (r.content || "").slice(0, 300),
+            date: r.publishedDate || undefined,
+          });
         }
       }
     }

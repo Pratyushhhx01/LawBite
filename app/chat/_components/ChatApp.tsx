@@ -437,10 +437,12 @@ function AttachmentSheet({
   open,
   onClose,
   onPick,
+  sheetRef,
 }: {
   open: boolean;
   onClose: () => void;
   onPick: (kind: "pdf" | "image") => void;
+  sheetRef: RefObject<HTMLDivElement | null>;
 }) {
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -497,6 +499,7 @@ function AttachmentSheet({
         onClick={closeSheet}
       />
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label="Attach a file"
@@ -966,6 +969,7 @@ export default function ChatApp({
   const [chatAttachOpen, setChatAttachOpen] = useState(false);
   const analysisFileInputRef = useRef<HTMLInputElement | null>(null);
   const analysisAttachMenuRef = useRef<HTMLDivElement | null>(null);
+  const attachmentSheetRef = useRef<HTMLDivElement | null>(null);
   const [analysisAttachOpen, setAnalysisAttachOpen] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const [draftDocTypeOpen, setDraftDocTypeOpen] = useState(false);
@@ -1179,9 +1183,14 @@ export default function ChatApp({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      // The mobile attachment sheet renders outside the desktop popover refs.
+      // Ignore taps inside it so its option button still receives the click
+      // and can open the native file picker.
+      if (attachmentSheetRef.current?.contains(target)) return;
       if (
         reviewAttachMenuRef.current &&
-        !reviewAttachMenuRef.current.contains(e.target as Node)
+        !reviewAttachMenuRef.current.contains(target)
       ) {
         setReviewAttachOpen(false);
       }
@@ -1194,9 +1203,11 @@ export default function ChatApp({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (attachmentSheetRef.current?.contains(target)) return;
       if (
         chatAttachMenuRef.current &&
-        !chatAttachMenuRef.current.contains(e.target as Node)
+        !chatAttachMenuRef.current.contains(target)
       ) {
         setChatAttachOpen(false);
       }
@@ -1209,9 +1220,11 @@ export default function ChatApp({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (attachmentSheetRef.current?.contains(target)) return;
       if (
         analysisAttachMenuRef.current &&
-        !analysisAttachMenuRef.current.contains(e.target as Node)
+        !analysisAttachMenuRef.current.contains(target)
       ) {
         setAnalysisAttachOpen(false);
       }
@@ -3862,6 +3875,26 @@ export default function ChatApp({
             </svg>
             <span>History</span>
           </button>
+          <Link
+            href="/news"
+            onClick={() => setSidebarOpen(false)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium tracking-wide text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
+          >
+            <svg
+              aria-hidden
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9h4" />
+              <path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z" />
+            </svg>
+            <span>Legal News</span>
+          </Link>
           <button
             type="button"
             onClick={() => {
@@ -7182,6 +7215,7 @@ export default function ChatApp({
 
       <AttachmentSheet
         open={reviewAttachOpen || analysisAttachOpen || chatAttachOpen}
+        sheetRef={attachmentSheetRef}
         onClose={() => {
           setReviewAttachOpen(false);
           setAnalysisAttachOpen(false);

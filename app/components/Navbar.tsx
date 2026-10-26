@@ -261,7 +261,7 @@ export default function Navbar() {
       </nav>
 
       <div
-        className={`absolute left-4 right-4 top-full mt-2 origin-top overflow-hidden rounded-2xl border border-white/10 bg-black/85 backdrop-blur-xl transition-all duration-500 md:hidden ${
+        className={`absolute left-4 right-4 top-full mt-2 max-h-[calc(100dvh-5rem)] origin-top overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/85 backdrop-blur-xl transition-all duration-500 md:hidden ${
           open
             ? "scale-y-100 opacity-100"
             : "pointer-events-none scale-y-90 opacity-0"
