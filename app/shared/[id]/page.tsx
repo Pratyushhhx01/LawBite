@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import LogoIcon from "../../components/LogoIcon";
 import { getSharedChat } from "@/lib/shares";
+import { stripThinkingTokens } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Shared conversation — Lawbite",
@@ -93,7 +94,9 @@ export default async function SharedPage({
       <div className="mx-auto max-w-4xl px-5 py-10 sm:px-6">
         <div className="mb-8">
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-white/40">
-            {isMessageShare ? "Read-only shared message" : "Read-only shared chat"}
+            {isMessageShare
+              ? "Read-only shared message"
+              : "Read-only shared chat"}
           </div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
             {data.title || "Shared conversation"}
@@ -127,7 +130,9 @@ export default async function SharedPage({
                   {message.role === "user" ? "You" : "Lawbite AI"}
                 </div>
                 <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                  {message.content}
+                  {stripThinkingTokens(message.content)
+                    .replaceAll("[ADVICE_COMPLETE]", "")
+                    .trim()}
                 </div>
               </div>
             </div>

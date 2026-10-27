@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  isGrillAdvice,
   isSectionHeading,
   parseContent,
+  parseGrillIntake,
   sectionVariant,
   splitTextSegments,
 } from "@/app/chat/_components/messageParser";
@@ -66,7 +68,8 @@ describe("parseContent — real definitions", () => {
       {
         type: "definition",
         term: "Article 370",
-        content: "A temporary provision that gave Jammu and Kashmir special status.",
+        content:
+          "A temporary provision that gave Jammu and Kashmir special status.",
       },
     ]);
   });
@@ -97,7 +100,9 @@ describe("parseContent — real definitions", () => {
   });
 
   it("supports an en-dash separator with spaces", () => {
-    const blocks = parseContent("**Bail \u2013 a discretionary court relief.**");
+    const blocks = parseContent(
+      "**Bail \u2013 a discretionary court relief.**",
+    );
     expect(blocks[0]).toMatchObject({
       type: "definition",
       term: "Bail",
@@ -113,7 +118,9 @@ describe("parseContent — real definitions", () => {
   });
 
   it("does not turn a bulleted bold lead-in into a card", () => {
-    const blocks = parseContent("- **Source:** Constitution of India, Article 370");
+    const blocks = parseContent(
+      "- **Source:** Constitution of India, Article 370",
+    );
     expect(blocks.every((b) => b.type !== "definition")).toBe(true);
     expect((blocks[0] as { content: string }).content).toContain("**Source:**");
   });
@@ -290,5 +297,73 @@ describe("splitTextSegments", () => {
 
   it("does not create empty segments for blank lines", () => {
     expect(splitTextSegments(["", "  ", ""])).toEqual([]);
+  });
+});
+
+describe("AI Lawyer intake and advice detection", () => {
+  const advice = [
+    "**Bottom line**",
+    "You are entitled to remain until a valid notice is served.",
+    "",
+    "**The law**",
+    "The Transfer of Property Act, 1882 requires proper notice.",
+    "",
+    "**What to do now**",
+    "**Step 1: Reply in writing** State that you have not received a notice.",
+    "",
+    "**Timeline and cost**",
+    "A contested matter may take 3 to 6 months.",
+    "",
+    "| Option | What it is | Best when | Key risk |",
+    "| :--- | :--- | :--- | :--- |",
+    "| Negotiation | Agree on exit terms | Both sides want speed | No legal protection |",
+    "| Civil suit | Ask the court for an injunction | The threat continues | Court delays |",
+  ].join("\n");
+
+  it("recognises a completed advice turn from its marker", () => {
+    expect(isGrillAdvice(`${advice}\n\n[ADVICE_COMPLETE]`)).toBe(true);
+  });
+
+  it("recognises a legacy advice turn without the marker", () => {
+    expect(isGrillAdvice(advice)).toBe(true);
+  });
+
+  it("does not treat an intake acknowledgement as advice", () => {
+    expect(isGrillAdvice("I understand — no written notice was served.")).toBe(
+      false,
+    );
+  });
+
+  it("splits the acknowledgement from the next question", () => {
+    expect(
+      parseGrillIntake(
+        "I understand — no written notice was served.\n\n---\n\nHow long have you been in possession?",
+      ),
+    ).toEqual({
+      acknowledgement: "I understand — no written notice was served.",
+      question: "How long have you been in possession?",
+    });
+  });
+
+  it("does not split a comparison table on its --- separator row", () => {
+    expect(parseGrillIntake(advice)).toBeNull();
+  });
+
+  it("falls back to a final question paragraph when the divider is missing", () => {
+    expect(
+      parseGrillIntake(
+        "Thank you — no written notice has been served.\n\nHow long have you been in possession?",
+      ),
+    ).toEqual({
+      acknowledgement: "Thank you — no written notice has been served.",
+      question: "How long have you been in possession?",
+    });
+  });
+
+  it("renders a question-only reply in the question card", () => {
+    expect(parseGrillIntake("What is the date of the notice?")).toEqual({
+      acknowledgement: "",
+      question: "What is the date of the notice?",
+    });
   });
 });

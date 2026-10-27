@@ -35,7 +35,9 @@ import { TemplatesModal, FilingModal } from "./ToolsModals";
 import { formatCitation, copyToClipboard } from "@/lib/citations";
 import { isTrustedLegalSource } from "@/lib/legal-sources";
 import {
+  isGrillAdvice,
   parseContent,
+  parseGrillIntake,
   sectionVariant,
   splitTextSegments,
   type ContentBlockType,
@@ -65,8 +67,7 @@ type Citation = {
 function visibleCitations(citations: Citation[] | undefined): Citation[] {
   if (!citations) return [];
   return citations.filter(
-    (citation) =>
-      citation.type === "act" || isTrustedLegalSource(citation.url),
+    (citation) => citation.type === "act" || isTrustedLegalSource(citation.url),
   );
 }
 
@@ -1413,7 +1414,10 @@ export default function ChatApp({
     return elements;
   }
 
-  function renderTextSegments(textContent: string, keyPrefix: string): ReactNode {
+  function renderTextSegments(
+    textContent: string,
+    keyPrefix: string,
+  ): ReactNode {
     const segments = splitTextSegments(textContent.split("\n"));
 
     return (
@@ -1441,11 +1445,7 @@ export default function ChatApp({
             <div key={si} className={si > 0 ? "mt-4" : ""}>
               {renderCallout(
                 seg.heading ?? "",
-                renderInlineLines(
-                  seg.lines,
-                  `${keyPrefix}-${si}`,
-                  bulletClass,
-                ),
+                renderInlineLines(seg.lines, `${keyPrefix}-${si}`, bulletClass),
                 variant,
               )}
             </div>
@@ -1759,8 +1759,7 @@ export default function ChatApp({
       .then(async (res) => {
         if (!res.ok) return;
         const data = await res.json().catch(() => null);
-        const title =
-          typeof data?.title === "string" ? data.title.trim() : "";
+        const title = typeof data?.title === "string" ? data.title.trim() : "";
         if (!title) return;
         setConversations((prev) =>
           prev.map((c) =>
@@ -2583,10 +2582,13 @@ export default function ChatApp({
           if (!conv) return prev;
           const lastMsg = conv.messages[conv.messages.length - 1];
           if (!lastMsg || lastMsg.role !== "assistant") return prev;
-          if (!lastMsg.content.includes("[ADVICE_COMPLETE]")) return prev;
+          if (!isGrillAdvice(lastMsg.content)) return prev;
 
-          const summary = lastMsg.content
-            .replace("[ADVICE_COMPLETE]", "")
+          // Keep the marker in the conversation so the advice keeps its rich
+          // layout after a reload, and so the next turn knows the advice was
+          // already given. Only the saved-case summary is marker-free.
+          const summary = stripThinkingTokens(lastMsg.content)
+            .replaceAll("[ADVICE_COMPLETE]", "")
             .trim();
           const firstUserMsg = conv.messages.find((m) => m.role === "user");
           const problem = firstUserMsg?.content ?? "Legal problem";
@@ -2623,17 +2625,6 @@ export default function ChatApp({
             date: Date.now(),
             conversationId: conv.id,
           };
-
-          // Clean the marker from the stored message
-          const cleanedConv = {
-            ...conv,
-            messages: conv.messages.map((m) =>
-              m.id === lastMsg.id ? { ...m, content: summary } : m,
-            ),
-          };
-          setConversations((prev) =>
-            prev.map((c) => (c.id === activeId ? cleanedConv : c)),
-          );
 
           setSavedCases((prev) => {
             const updated = [
@@ -4272,9 +4263,11 @@ export default function ChatApp({
                 const isGrillAssistant =
                   message.role === "assistant" &&
                   (message.type ?? active?.type) === "grill";
-                const hasAdviceComplete =
-                  message.content.includes("[ADVICE_COMPLETE]");
-                const hasDelimiter = message.content.includes("---");
+                const grillAdvice = isGrillAdvice(message.content);
+                const grillIntake =
+                  isGrillAssistant && !grillAdvice
+                    ? parseGrillIntake(message.content)
+                    : null;
 
                 if (
                   isThinking &&
@@ -4287,77 +4280,53 @@ export default function ChatApp({
                   return null;
                 }
 
-                if (isGrillAssistant && !hasAdviceComplete) {
-                  const cleaned = stripThinkingTokens(
-                    message.content.replace(/\[ADVICE_COMPLETE\]/g, "").trim(),
+                if (grillIntake) {
+                  const { acknowledgement, question } = grillIntake;
+                  return (
+                    <Fragment key={message.id}>
+                      {acknowledgement && (
+                        <li className="animate-message-in flex justify-start">
+                          <div className="max-w-[85%] rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white/70 sm:text-[15px]">
+                            <div className="whitespace-pre-wrap leading-relaxed">
+                              {acknowledgement.split(/\n\n+/).map((para, i) => (
+                                <p key={i} className={i > 0 ? "mt-2" : ""}>
+                                  {renderBold(para)}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        </li>
+                      )}
+                      {question && (
+                        <li className="animate-message-in flex justify-start">
+                          <div className="max-w-[85%] rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-sm leading-relaxed sm:text-[15px]">
+                            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-400/70">
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="h-3 w-3"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z" />
+                                <path d="M10 21h4M9 17h6" />
+                              </svg>
+                              Next Question
+                            </div>
+                            <div className="whitespace-pre-wrap leading-relaxed text-white/90">
+                              {question.split(/\n\n+/).map((para, i) => (
+                                <p key={i} className={i > 0 ? "mt-2" : ""}>
+                                  {renderBold(para)}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        </li>
+                      )}
+                    </Fragment>
                   );
-                  let response = "";
-                  let question = "";
-
-                  if (hasDelimiter) {
-                    const parts = cleaned.split(/\n---\n/);
-                    response = parts[0]?.trim() ?? "";
-                    question = parts.slice(1).join("\n---\n").trim();
-                  } else {
-                    const paragraphs = cleaned.split(/\n\n+/);
-                    const lastIdx = paragraphs.length - 1;
-                    const lastPara = paragraphs[lastIdx]?.trim() ?? "";
-                    if (paragraphs.length > 1 && /\?\s*$/.test(lastPara)) {
-                      response = paragraphs
-                        .slice(0, lastIdx)
-                        .join("\n\n")
-                        .trim();
-                      question = lastPara;
-                    }
-                  }
-
-                  if (response || question) {
-                    return (
-                      <Fragment key={message.id}>
-                        {response && (
-                          <li className="animate-message-in flex justify-start">
-                            <div className="max-w-[85%] rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white/70 sm:text-[15px]">
-                              <div className="whitespace-pre-wrap leading-relaxed">
-                                {response.split(/\n\n+/).map((para, i) => (
-                                  <p key={i} className={i > 0 ? "mt-2" : ""}>
-                                    {renderBold(para)}
-                                  </p>
-                                ))}
-                              </div>
-                            </div>
-                          </li>
-                        )}
-                        {question && (
-                          <li className="animate-message-in flex justify-start">
-                            <div className="max-w-[85%] rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-sm leading-relaxed sm:text-[15px]">
-                              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-400/70">
-                                <svg
-                                  viewBox="0 0 24 24"
-                                  className="h-3 w-3"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z" />
-                                  <path d="M10 21h4M9 17h6" />
-                                </svg>
-                                Next Question
-                              </div>
-                              <div className="whitespace-pre-wrap leading-relaxed text-white/90">
-                                {question.split(/\n\n+/).map((para, i) => (
-                                  <p key={i} className={i > 0 ? "mt-2" : ""}>
-                                    {renderBold(para)}
-                                  </p>
-                                ))}
-                              </div>
-                            </div>
-                          </li>
-                        )}
-                      </Fragment>
-                    );
-                  }
                 }
                 return (
                   <li
@@ -4452,13 +4421,13 @@ export default function ChatApp({
                             return renderContentBlocks(blocks);
                           })()}
                           {visibleCitations(message.citations).length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="text-[11px] font-semibold uppercase tracking-wider text-white/35">
-                                  Sources
-                                </span>
-                                {visibleCitations(message.citations)
-                                  .slice(0, 2)
-                                  .map((cit, i) => (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-[11px] font-semibold uppercase tracking-wider text-white/35">
+                                Sources
+                              </span>
+                              {visibleCitations(message.citations)
+                                .slice(0, 2)
+                                .map((cit, i) => (
                                   <div
                                     key={i}
                                     className="inline-flex max-w-full items-center gap-1 rounded-full border border-white/15 bg-white/[0.05] py-1 pl-2.5 pr-1 text-[11px] font-medium text-white/75 transition-colors hover:border-white/30 hover:text-white"
@@ -4546,11 +4515,11 @@ export default function ChatApp({
                                     </button>
                                   </div>
                                 ))}
-                              </div>
-                            )}
+                            </div>
+                          )}
                           {((message.type ?? active?.type) === "review" ||
                             (message.type ?? active?.type) === "draft" ||
-                            message.content.includes("[ADVICE_COMPLETE]")) && (
+                            isGrillAdvice(message.content)) && (
                             <p className="mt-2 text-xs italic text-white/40 border-t border-white/10 pt-3">
                               This is an AI-generated analysis for reference
                               purposes. Please consult a practicing lawyer
@@ -5245,12 +5214,16 @@ export default function ChatApp({
                             <AttachmentOptionButton
                               kind="pdf"
                               label="PDF Document"
-                              onClick={() => chooseAttachment("pdf", "analysis")}
+                              onClick={() =>
+                                chooseAttachment("pdf", "analysis")
+                              }
                             />
                             <AttachmentOptionButton
                               kind="image"
                               label="Image"
-                              onClick={() => chooseAttachment("image", "analysis")}
+                              onClick={() =>
+                                chooseAttachment("image", "analysis")
+                              }
                             />
                           </div>
                         )}
@@ -5618,8 +5591,8 @@ export default function ChatApp({
                         structured form, or ask a drafting question in chat.
                       </p>
                       <p className="mt-2 max-w-md text-center text-xs leading-relaxed text-blue-400/60">
-                        Only questions about drafting or completing Indian
-                        legal documents are supported in this mode.
+                        Only questions about drafting or completing Indian legal
+                        documents are supported in this mode.
                       </p>
                       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                         <button
@@ -8716,7 +8689,10 @@ export default function ChatApp({
                                 {
                                   id: newId("a"),
                                   role: "assistant",
-                                  content: sc.summary,
+                                  // Restored cases are completed advice turns.
+                                  // Keep the marker so the rich advice layout
+                                  // and the follow-up route stay consistent.
+                                  content: `${sc.summary}\n\n[ADVICE_COMPLETE]`,
                                   type: "grill",
                                 },
                               ],

@@ -5,6 +5,8 @@
  * classification can be unit-tested and regressions are caught in CI.
  */
 
+import { stripThinkingTokens } from "@/lib/utils";
+
 export type ContentBlockType =
   | { type: "text"; content: string }
   | { type: "table"; headers: string[]; rows: string[][] }
@@ -108,9 +110,7 @@ export function parseContent(text: string): ContentBlockType[] {
     if (warningMatch) {
       let content = warningMatch[2];
       const variant = warningMatch[1].toLowerCase() as
-        | "warning"
-        | "important"
-        | "note";
+        "warning" | "important" | "note";
       i++;
       while (i < lines.length) {
         const next = lines[i].trim();
@@ -278,7 +278,10 @@ export type TextSegment = { heading: string | null; lines: string[] };
  * lead answer, the conclusion and genuine warnings get a highlighted callout.
  */
 export function sectionVariant(title: string): SegmentVariant {
-  const t = title.trim().toLowerCase().replace(/[:\s]+$/, "");
+  const t = title
+    .trim()
+    .toLowerCase()
+    .replace(/[:\s]+$/, "");
   if (/^(short answer|answer|in short)$/.test(t)) return "lead";
   if (
     /^(bottom line|the bottom line|practical takeaway|key takeaways?|takeaways?|summary|conclusion|in summary|to summarize|final word|what this means)$/.test(
@@ -311,4 +314,81 @@ export function splitTextSegments(lines: string[]): TextSegment[] {
   }
   flush();
   return segments;
+}
+
+export const ADVICE_COMPLETE_MARKER = "[ADVICE_COMPLETE]";
+
+/**
+ * A completed AI Lawyer advice turn is not an intake turn.
+ *
+ * The marker is the reliable signal, but conversations saved before the
+ * marker was preserved (or a provider that dropped the final token) can end
+ * with the advice text only. Those always begin with the required
+ * "**Bottom line**" heading, so use that as the fallback instead of treating
+ * the advice as an acknowledgement + question pair.
+ */
+export function isGrillAdvice(content: string): boolean {
+  if (content.includes(ADVICE_COMPLETE_MARKER)) return true;
+  const cleaned = stripThinkingTokens(content)
+    .replaceAll(ADVICE_COMPLETE_MARKER, "")
+    .trim();
+  if (!cleaned) return false;
+  if (/^(?:#{1,6}\s*)?(?:\*\*)?\s*Bottom line\b/i.test(cleaned)) {
+    return true;
+  }
+  return (
+    /\*\*The law\*\*/i.test(cleaned) && /\*\*What to do now\*\*/i.test(cleaned)
+  );
+}
+
+export type GrillIntake = {
+  acknowledgement: string;
+  question: string;
+};
+
+/**
+ * Split an in-progress AI Lawyer reply into its acknowledgement and its single
+ * next question. A delimiter is only a line containing `---`; table separator
+ * rows such as `| :--- | :--- |` must never be mistaken for the intake divider.
+ */
+export function parseGrillIntake(content: string): GrillIntake | null {
+  if (isGrillAdvice(content)) return null;
+
+  const cleaned = stripThinkingTokens(content)
+    .replaceAll(ADVICE_COMPLETE_MARKER, "")
+    .trim();
+  if (!cleaned) return null;
+
+  const delimiter = /\r?\n[ \t]*---[ \t]*\r?\n/;
+  if (delimiter.test(cleaned)) {
+    const [first, ...rest] = cleaned.split(delimiter);
+    const acknowledgement = first.trim();
+    const question = rest.join("\n---\n").trim();
+    return acknowledgement || question ? { acknowledgement, question } : null;
+  }
+
+  // Models occasionally omit the divider but still put the question in its
+  // own final paragraph. Keep that reply in the same intake layout instead of
+  // falling back to a plain chat bubble.
+  const paragraphs = cleaned
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length > 1) {
+    const last = paragraphs[paragraphs.length - 1];
+    if (/\?\s*$/.test(last)) {
+      return {
+        acknowledgement: paragraphs.slice(0, -1).join("\n\n"),
+        question: last,
+      };
+    }
+  }
+
+  // A question with no acknowledgement still belongs in the question card.
+  if (paragraphs.length === 1 && /\?\s*$/.test(paragraphs[0])) {
+    return { acknowledgement: "", question: paragraphs[0] };
+  }
+
+  return null;
 }
