@@ -270,6 +270,8 @@
 
 .cta-sheen {
   animation: border-spin 8s linear infinite;
+  /* Promote to its own layer so the rotate stays on the compositor on phones. */
+  will-change: transform;
 }
 
 html,
@@ -468,10 +470,11 @@ section[id] {
   inherits: false;
 }
 
-/* Phones/tablets: skip continuous decorative motion and hover-only filters. */
+/* Phones/tablets: skip the large panning grid and hover-only filters, but
+   keep the CTA sheen spinning — it is a compositor-only transform and is the
+   section's signature accent, so it should look the same on mobile. */
 @media (hover: none) {
-  .grid-pan-layer,
-  .cta-sheen {
+  .grid-pan-layer {
     animation: none;
   }
 

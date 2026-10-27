@@ -369,23 +369,17 @@ function ModeOptionButton({
   );
 }
 
-function AttachmentOptionButton({
+function AttachmentOptionFace({
   kind,
   label,
-  onClick,
 }: {
   kind: "pdf" | "image";
   label: string;
-  onClick: () => void;
 }) {
   const isPdf = kind === "pdf";
   const accent = ATTACHMENT_ACCENT_CLASSES[kind];
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group inline-flex w-[152px] items-center gap-2.5 rounded-lg border bg-[#0a0a0a] px-3 py-2 text-left transition-all duration-300 ${accent.button}`}
-    >
+    <>
       <div
         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-all duration-300 ${accent.iconWrap}`}
       >
@@ -425,7 +419,68 @@ function AttachmentOptionButton({
       >
         {label}
       </span>
+    </>
+  );
+}
+
+function AttachmentOptionButton({
+  kind,
+  label,
+  onClick,
+}: {
+  kind: "pdf" | "image";
+  label: string;
+  onClick: () => void;
+}) {
+  const accent = ATTACHMENT_ACCENT_CLASSES[kind];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group inline-flex w-[152px] items-center gap-2.5 rounded-lg border bg-[#0a0a0a] px-3 py-2 text-left transition-all duration-300 ${accent.button}`}
+    >
+      <AttachmentOptionFace kind={kind} label={label} />
     </button>
+  );
+}
+
+/**
+ * A native file picker rendered as an invisible <input type="file"> stretched
+ * over the option row. Taps land directly on the input, so mobile browsers
+ * (iOS Safari in particular) treat it as a trusted activation and open the
+ * native file/gallery picker. Programmatic `input.click()` on a `display:none`
+ * input is blocked there, which is why the sheet used to do nothing.
+ */
+function AttachmentFileOption({
+  kind,
+  label,
+  onPick,
+}: {
+  kind: "pdf" | "image";
+  label: string;
+  onPick: (
+    kind: "pdf" | "image",
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => void;
+}) {
+  const accent = ATTACHMENT_ACCENT_CLASSES[kind];
+  return (
+    <label
+      className={`group relative inline-flex w-[152px] cursor-pointer items-center gap-2.5 rounded-lg border bg-[#0a0a0a] px-3 py-2 text-left transition-all duration-300 ${accent.button}`}
+    >
+      <input
+        type="file"
+        accept={
+          kind === "pdf"
+            ? ".pdf,application/pdf"
+            : "image/*,.png,.jpg,.jpeg,.webp,.gif"
+        }
+        aria-label={label}
+        onChange={(e) => onPick(kind, e)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+      <AttachmentOptionFace kind={kind} label={label} />
+    </label>
   );
 }
 
@@ -442,7 +497,10 @@ function AttachmentSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  onPick: (kind: "pdf" | "image") => void;
+  onPick: (
+    kind: "pdf" | "image",
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => void;
   sheetRef: RefObject<HTMLDivElement | null>;
 }) {
   const [dragY, setDragY] = useState(0);
@@ -550,19 +608,19 @@ function AttachmentSheet({
           </div>
         </div>
         <div className="flex flex-col items-center gap-2 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          <AttachmentOptionButton
+          <AttachmentFileOption
             kind="pdf"
             label="PDF Document"
-            onClick={() => {
-              onPick("pdf");
+            onPick={(kind, e) => {
+              onPick(kind, e);
               closeSheet();
             }}
           />
-          <AttachmentOptionButton
+          <AttachmentFileOption
             kind="image"
             label="Image"
-            onClick={() => {
-              onPick("image");
+            onPick={(kind, e) => {
+              onPick(kind, e);
               closeSheet();
             }}
           />
@@ -1781,6 +1839,11 @@ export default function ChatApp({
     if (target) setMode(target.type);
     setActiveId(id);
     setSidebarOpen(false);
+    // Selecting a conversation from the history popup should reveal the chat
+    // immediately, so dismiss the popup (no-op when it is already closed).
+    setHistoryOpen(false);
+    setHoveredId(null);
+    setContextMenuId(null);
   }
 
   function startNewChat() {
@@ -1999,7 +2062,10 @@ export default function ChatApp({
           ? analysisFileInputRef.current
           : chatFileInputRef.current;
     if (input) {
-      input.accept = kind === "pdf" ? ".pdf" : ".png,.jpg,.jpeg,.webp,.gif";
+      input.accept =
+        kind === "pdf"
+          ? ".pdf,application/pdf"
+          : "image/*,.png,.jpg,.jpeg,.webp,.gif";
       input.click();
     }
     if (target === "review") setReviewAttachOpen(false);
@@ -3866,26 +3932,6 @@ export default function ChatApp({
             </svg>
             <span>History</span>
           </button>
-          <Link
-            href="/news"
-            onClick={() => setSidebarOpen(false)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium tracking-wide text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
-          >
-            <svg
-              aria-hidden
-              viewBox="0 0 24 24"
-              className="h-4 w-4 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9h4" />
-              <path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z" />
-            </svg>
-            <span>Legal News</span>
-          </Link>
           <button
             type="button"
             onClick={() => {
@@ -5178,7 +5224,8 @@ export default function ChatApp({
                         ref={analysisFileInputRef}
                         type="file"
                         accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.webp,.gif"
-                        className="hidden"
+                        tabIndex={-1}
+                        className="sr-only"
                         onChange={(e) =>
                           handleFileUpload(e, () =>
                             setAnalysisAttachOpen(false),
@@ -5463,7 +5510,8 @@ export default function ChatApp({
                         ref={chatFileInputRef}
                         type="file"
                         accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.webp,.gif"
-                        className="hidden"
+                        tabIndex={-1}
+                        className="sr-only"
                         onChange={(e) =>
                           handleFileUpload(e, () => setChatAttachOpen(false))
                         }
@@ -7058,7 +7106,8 @@ export default function ChatApp({
                     ref={chatFileInputRef}
                     type="file"
                     accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.webp,.gif"
-                    className="hidden"
+                    tabIndex={-1}
+                    className="sr-only"
                     onChange={(e) =>
                       handleFileUpload(e, () => setChatAttachOpen(false))
                     }
@@ -7110,7 +7159,8 @@ export default function ChatApp({
                     ref={reviewFileInputRef}
                     type="file"
                     accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.webp,.gif"
-                    className="hidden"
+                    tabIndex={-1}
+                    className="sr-only"
                     onChange={handleReviewFileUpload}
                   />
                   <div className="relative" ref={reviewAttachMenuRef}>
@@ -7194,10 +7244,11 @@ export default function ChatApp({
           setAnalysisAttachOpen(false);
           setChatAttachOpen(false);
         }}
-        onPick={(kind) => {
-          if (reviewAttachOpen) chooseAttachment(kind, "review");
-          else if (analysisAttachOpen) chooseAttachment(kind, "analysis");
-          else chooseAttachment(kind, "chat");
+        onPick={(_kind, e) => {
+          if (reviewAttachOpen) handleReviewFileUpload(e);
+          else if (analysisAttachOpen)
+            handleFileUpload(e, () => setAnalysisAttachOpen(false));
+          else handleFileUpload(e, () => setChatAttachOpen(false));
         }}
       />
 
