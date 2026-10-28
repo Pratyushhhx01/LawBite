@@ -11,8 +11,9 @@ to reproduce each claim, see [`docs/evidence.md`](docs/evidence.md).
 
 ## Requirements
 
-- Node.js 20 or newer
-- A PostgreSQL database (Neon) plus the environment variables listed in `AGENTS.md`
+- Node.js 20.9 or newer (see `.nvmrc`)
+- A PostgreSQL database (Neon) plus the environment variables listed in
+  [`.env.example`](.env.example)
 - At least one AI provider API key: **Inception Labs** (default) and/or **NVIDIA** (fallback)
 
 ## Getting Started
@@ -92,6 +93,26 @@ secret), and an actionable hint for `InvalidAccessKeyId`, `SignatureDoesNotMatch
 benchmark and after rotating production credentials. See
 [`docs/runbook-s3.md`](docs/runbook-s3.md) for the full rotation and verification
 procedure.
+
+## Reliability and verified citations
+
+- **Provider failover.** The chat route tries the configured providers in order
+  with connect and first-token timeouts, retries HTTP 429 with backoff, and
+  degrades to a clear message instead of a blank reply.
+- **Grounded Sources panel.** Every response ships structured citations. Those
+  citations are checked against the S3 bare acts in parallel with the model
+  stream, and the UI marks each one as verified, not found in the named act, or
+  not checkable because the knowledge base was unavailable. A lookup error is
+  never reported as a hallucination.
+- **Graceful degradation.** A missing S3 object, Tavily failure, or provider
+  outage cannot strip the disclaimer or crash the stream; the app falls back to
+  model knowledge and keeps the response readable.
+- **Health probe.** `GET /api/health` returns `200` when the database, auth
+  config, and at least one AI provider are usable, and `503` otherwise. Point
+  uptime monitoring at it.
+- **Fail-safe configuration.** `lib/env.ts` validates required and optional
+  variables at startup, and `next.config.ts` disables the `X-Powered-By` header
+  and applies one central header list from `lib/security-headers.ts`.
 
 ## Security
 

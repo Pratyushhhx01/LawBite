@@ -16,24 +16,31 @@ Browser
      -> getSystemPrompt()               lib/chat-prompts.ts
      -> provider fallback chain         lib/ai-providers.ts
      -> SSE stream back to the browser
+     -> citation verification frame     lib/response-citations.ts
 ```
+
+Citations are checked against the bare acts while the answer streams, so the
+Sources strip in the chat UI can mark each provision as verified, not found, or
+not checkable. A lookup error is never reported as a hallucination.
 
 Citations can be checked separately through the authenticated
 `POST /api/citations/verify` endpoint, which uses `lib/citation-verifier.ts`.
 
 ## Module boundaries
 
-| Module | Responsibility |
-| --- | --- |
-| `app/api/chat/route.ts` | HTTP validation, retrieval orchestration, provider failover, SSE transport, and response post-processing. |
-| `lib/chat-prompts.ts` | System prompts, source-quality rules, draft disclaimer, and `getSystemPrompt()`. Data-only; no transport code. |
-| `lib/act-map.ts` | Maps user-facing act names and abbreviations to S3 bare-act keys. |
-| `lib/chat-filters.ts` | Pure query classification: legal/non-legal, Indian context, foreign jurisdiction, acronym context. |
-| `lib/ai-providers.ts` | Provider registry, model catalogue, request shaping, reasoning effort, and fallback order. |
-| `lib/s3.ts` | Read-only access to the S3 bare-acts knowledge base. |
-| `lib/citation-verifier.ts` | Citation parsing, act resolution, S3 verification, and precision/hallucination metrics. |
-| `lib/legal-sources.ts` | Trusted-source and excluded-domain rules for web results. |
-| `scripts/legal-eval.mjs` | Seeded legal QA benchmark runner and report generator. |
+| Module                      | Responsibility                                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `app/api/chat/route.ts`     | HTTP validation, retrieval orchestration, provider failover, SSE transport, and response post-processing.      |
+| `lib/chat-prompts.ts`       | System prompts, source-quality rules, draft disclaimer, and `getSystemPrompt()`. Data-only; no transport code. |
+| `lib/act-map.ts`            | Maps user-facing act names and abbreviations to S3 bare-act keys.                                              |
+| `lib/chat-filters.ts`       | Pure query classification: legal/non-legal, Indian context, foreign jurisdiction, acronym context.             |
+| `lib/ai-providers.ts`       | Provider registry, model catalogue, request shaping, reasoning effort, and fallback order.                     |
+| `lib/s3.ts`                 | Read-only access to the S3 bare-acts knowledge base.                                                           |
+| `lib/citation-verifier.ts`  | Citation parsing, act resolution, S3 verification, and precision/hallucination metrics.                        |
+| `lib/response-citations.ts` | Runs verification alongside a chat stream and annotates the citations sent to the UI.                          |
+| `lib/legal-sources.ts`      | Trusted-source and excluded-domain rules for web results.                                                      |
+| `app/api/health/route.ts`   | Liveness/readiness probe for uptime monitors.                                                                  |
+| `scripts/legal-eval.mjs`    | Seeded legal QA benchmark runner and report generator.                                                         |
 
 Keeping prompts and act mappings out of the route means a prompt or coverage
 change produces a small, reviewable diff instead of touching the streaming

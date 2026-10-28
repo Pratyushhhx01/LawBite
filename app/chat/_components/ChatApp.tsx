@@ -57,6 +57,25 @@ type Citation = {
   label: string;
   snippet: string;
   url?: string;
+  /**
+   * Server-side check against the S3 bare acts. Undefined means the citation
+   * was not section-checkable (for example an act reference without a number).
+   */
+  verification?: "verified" | "not_found" | "unavailable";
+};
+
+type CitationVerificationSummary = {
+  total: number;
+  sectionTotal: number;
+  sectionVerified: number;
+  sectionUnverified: number;
+  sectionLookupErrors: number;
+  verifiableSectionTotal: number;
+  precision: number | null;
+  hallucinationRate: number | null;
+  referenceTotal: number;
+  webTotal: number;
+  webTrusted: number;
 };
 
 /**
@@ -85,6 +104,7 @@ type Message = {
   documentText?: string;
   documentTruncated?: boolean;
   citations?: Citation[];
+  verification?: CitationVerificationSummary;
 };
 
 type ChatUser = {
@@ -2392,8 +2412,7 @@ export default function ChatApp({
       documentName: documentName ?? attachment?.fileName,
       // Persist the extracted text so follow-up turns (and reloads) still have
       // the document without showing it inside the chat bubble.
-      documentText:
-        attachment?.type === "pdf" ? attachment.text : undefined,
+      documentText: attachment?.type === "pdf" ? attachment.text : undefined,
       documentTruncated:
         attachment?.type === "pdf" ? attachment.truncated : undefined,
     };
@@ -2617,6 +2636,25 @@ export default function ChatApp({
                         ...c,
                         messages: c.messages.map((m) =>
                           m.id === assistantId ? { ...m, citations } : m,
+                        ),
+                      }
+                    : c,
+                ),
+              );
+            }
+            if (
+              parsed.verification &&
+              typeof parsed.verification === "object"
+            ) {
+              const verification =
+                parsed.verification as CitationVerificationSummary;
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === activeId
+                    ? {
+                        ...c,
+                        messages: c.messages.map((m) =>
+                          m.id === assistantId ? { ...m, verification } : m,
                         ),
                       }
                     : c,
@@ -4577,6 +4615,39 @@ export default function ChatApp({
                               <span className="text-[11px] font-semibold uppercase tracking-wider text-white/35">
                                 Sources
                               </span>
+                              {message.verification &&
+                                message.verification.verifiableSectionTotal >
+                                  0 && (
+                                  <span
+                                    title="Sections checked against the bare-act knowledge base"
+                                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${
+                                      message.verification.sectionVerified ===
+                                      message.verification
+                                        .verifiableSectionTotal
+                                        ? "border-emerald-400/20 bg-emerald-400/[0.07] text-emerald-300/90"
+                                        : "border-amber-400/20 bg-amber-400/[0.07] text-amber-300/90"
+                                    }`}
+                                  >
+                                    <svg
+                                      viewBox="0 0 24 24"
+                                      className="h-3 w-3"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    >
+                                      <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
+                                      <path d="M9 12l2 2 4-4" />
+                                    </svg>
+                                    {message.verification.sectionVerified}/
+                                    {
+                                      message.verification
+                                        .verifiableSectionTotal
+                                    }{" "}
+                                    verified
+                                  </span>
+                                )}
                               {visibleCitations(message.citations)
                                 .slice(0, 2)
                                 .map((cit, i) => (
@@ -4610,6 +4681,45 @@ export default function ChatApp({
                                           </>
                                         )}
                                       </svg>
+                                      {cit.verification === "verified" && (
+                                        <span
+                                          title="Verified against the bare act"
+                                          aria-label="Verified against the bare act"
+                                          className="shrink-0 text-emerald-400"
+                                        >
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            className="h-3 w-3"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="3"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          >
+                                            <path d="M20 6L9 17l-5-5" />
+                                          </svg>
+                                        </span>
+                                      )}
+                                      {cit.verification === "not_found" && (
+                                        <span
+                                          title="Section not found in the bare act — treat as unverified"
+                                          aria-label="Section not found in the bare act"
+                                          className="shrink-0 text-amber-400"
+                                        >
+                                          <svg
+                                            viewBox="0 0 24 24"
+                                            className="h-3 w-3"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          >
+                                            <circle cx="12" cy="12" r="9" />
+                                            <path d="M12 8v5M12 16h.01" />
+                                          </svg>
+                                        </span>
+                                      )}
                                       <span className="truncate">
                                         {cit.label}
                                       </span>
@@ -8686,6 +8796,23 @@ export default function ChatApp({
               {citationOpen.url && (
                 <p className="mt-1 break-all text-xs text-blue-400/80">
                   {citationOpen.url}
+                </p>
+              )}
+              {citationOpen.verification && (
+                <p
+                  className={`mt-2 text-xs ${
+                    citationOpen.verification === "verified"
+                      ? "text-emerald-300/90"
+                      : citationOpen.verification === "not_found"
+                        ? "text-amber-300/90"
+                        : "text-white/45"
+                  }`}
+                >
+                  {citationOpen.verification === "verified"
+                    ? "Verified against the bare-act knowledge base."
+                    : citationOpen.verification === "not_found"
+                      ? "Section not found in the named bare act. Treat this citation as unverified."
+                      : "The knowledge base was unavailable, so this citation could not be checked."}
                 </p>
               )}
             </div>

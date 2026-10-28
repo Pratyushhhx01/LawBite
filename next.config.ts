@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
+import {
+  CONTENT_SECURITY_POLICY,
+  SECURITY_HEADERS,
+} from "./lib/security-headers";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  reactStrictMode: true,
   serverExternalPackages: [
     "kysely",
     "pg",
@@ -13,21 +19,11 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
+          ...SECURITY_HEADERS.map((header) => ({ ...header })),
           {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
+            key: "Content-Security-Policy",
+            value: CONTENT_SECURITY_POLICY,
           },
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
-          },
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
         ],
       },
     ];

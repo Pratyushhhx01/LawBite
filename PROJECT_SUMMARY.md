@@ -8,17 +8,17 @@ An AI legal assistant for Indian law. Users ask questions in plain language and 
 
 ## Tech Stack
 
-| Layer          | Technology                                             |
-| -------------- | ------------------------------------------------------ |
-| Framework      | Next.js 16 (App Router), React 19, TypeScript (strict) |
-| Styling        | Tailwind CSS 4                                         |
-| Auth           | Better Auth (Google + GitHub OAuth, Kysely adapter)    |
-| Database       | PostgreSQL on Neon (Kysely type-safe queries)          |
-| Knowledge base | AWS S3 (bare acts as structured JSON + full text)      |
-| AI             | NVIDIA API — Llama 3.1 8B Instruct                     |
-| Web search     | Tavily (real-time augmentation)                        |
-| File upload    | pdf-parse for PDFs, image passthrough for review       |
-| Testing        | Vitest                                                 |
+| Layer          | Technology                                                  |
+| -------------- | ----------------------------------------------------------- |
+| Framework      | Next.js 16 (App Router), React 19, TypeScript (strict)      |
+| Styling        | Tailwind CSS 4                                              |
+| Auth           | Better Auth (Google + GitHub OAuth, Kysely adapter)         |
+| Database       | PostgreSQL on Neon (Kysely type-safe queries)               |
+| Knowledge base | AWS S3 (bare acts as structured JSON + full text)           |
+| AI             | Inception Labs Mercury 2.5 (default), NVIDIA NIM (fallback) |
+| Web search     | Tavily (real-time augmentation)                             |
+| File upload    | pdf-parse for PDFs, image passthrough for review            |
+| Testing        | Vitest                                                      |
 
 ## Architecture at a glance
 
@@ -27,7 +27,7 @@ UI (landing + chat) ─► /api/chat (SSE streaming)
                          ├─ classify query (S3 KB vs web search)
                          ├─ retrieve context from S3 bare acts
                          ├─ Tavily web search (if needed)
-                         └─ NVIDIA Llama 3.1 → streamed tokens
+                         └─ Inception Mercury 2.5 (NVIDIA fallback) → streamed tokens
 Auth (Better Auth) ─► Postgres on Neon (Kysely)
 ```
 
@@ -36,7 +36,7 @@ Auth (Better Auth) ─► Postgres on Neon (Kysely)
 1. **Login** — Better Auth, OAuth-only, session checked server-side.
 2. **Ask** — user sends a message from the chat UI.
 3. **Classify + retrieve** — `/api/chat` decides whether the answer needs act text (S3) or live info (Tavily), then builds the prompt with real section text.
-4. **Generate + stream** — Llama 3.1 8B responds; tokens stream to the client over SSE.
+4. **Generate + stream** — Inception Mercury 2.5 responds (NVIDIA NIM is the automatic fallback); tokens stream to the client over SSE.
 5. **Persist** — conversation history in localStorage, grouped by day, with share + saved-cases features.
 
 ## Chat modes
@@ -56,7 +56,7 @@ Auth (Better Auth) ─► Postgres on Neon (Kysely)
 
 ## Testing & quality
 
-- 73 Vitest tests (auth flow, chat endpoint, S3 knowledge-base integrity).
+- Vitest suite covering auth flow, chat endpoint, citation verification, and S3 knowledge-base integrity.
 - `next build` doubles as type-check (`noEmit`, strict mode).
 - `npm run lint` — ESLint with next config.
 

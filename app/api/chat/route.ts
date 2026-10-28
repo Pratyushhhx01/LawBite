@@ -30,6 +30,10 @@ import {
   TAVILY_EXCLUDED_DOMAINS,
 } from "@/lib/legal-sources";
 import {
+  verifyResponseCitations,
+  type CitationPayload,
+} from "@/lib/response-citations";
+import {
   buildCandidateChain,
   buildProviderPayload,
   ensureReasoningBudget,
@@ -328,6 +332,38 @@ type Citation = {
   snippet: string;
   url?: string;
 };
+
+/**
+ * Emit the Sources frame once verification resolves. Verification starts in
+ * parallel with the model stream, so this normally adds no latency; the
+ * timeout inside `verifyResponseCitations` guarantees it can never hang the
+ * end of the response.
+ */
+async function emitCitationPayload(
+  controller: { enqueue(chunk: Uint8Array): void },
+  encoder: TextEncoder,
+  payloadPromise: Promise<CitationPayload>,
+) {
+  const payload = await payloadPromise;
+  if (payload.citations.length === 0) return;
+
+  try {
+    controller.enqueue(
+      encoder.encode(
+        `data: ${JSON.stringify({ citations: payload.citations })}\n\n`,
+      ),
+    );
+    if (payload.summary) {
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ verification: payload.summary })}\n\n`,
+        ),
+      );
+    }
+  } catch {
+    /* controller may be closed */
+  }
+}
 
 async function webSearch(
   query: string,
@@ -1142,9 +1178,7 @@ export async function POST(request: NextRequest) {
         }
         return false;
       });
-    const lastAssistant = messages
-      .filter((m) => m.role === "assistant")
-      .pop();
+    const lastAssistant = messages.filter((m) => m.role === "assistant").pop();
     const awaitingDraftAnswer =
       !!lastAssistant &&
       /\?\s*$/.test(extractTextFromContent(lastAssistant.content).trim());
@@ -1342,6 +1376,18 @@ Never transpose tables, never leave a table cell blank, never invent section num
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
+    });
+
+    // Verify citations against the bare acts while the answer streams. The
+    // Sources frame is sent after the text, so this latency is hidden behind
+    // generation instead of delaying the first token.
+    const citationPayloadPromise = verifyResponseCitations(citations, {
+      onError: (error) => {
+        console.warn(
+          "[ChatAPI] citation verification skipped:",
+          error instanceof Error ? error.message : error,
+        );
+      },
     });
 
     let finalSystemPrompt = `${systemPrompt}\n\n${SOURCE_QUALITY_RULES}\n\n${SCOPE_RULES}`;
@@ -2052,15 +2098,11 @@ Never transpose tables, never leave a table cell blank, never invent section num
               }
             }
 
-            if (citations.length > 0) {
-              try {
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ citations })}\n\n`),
-                );
-              } catch {
-                /* controller may be closed */
-              }
-            }
+            await emitCitationPayload(
+              controller,
+              encoder,
+              citationPayloadPromise,
+            );
           } catch (err) {
             console.warn("[ChatAPI] stream pipe error:", err);
             try {
@@ -2804,15 +2846,11 @@ Never transpose tables, never leave a table cell blank, never invent section num
             );
           }
 
-          if (citations.length > 0) {
-            try {
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ citations })}\n\n`),
-              );
-            } catch {
-              /* skip */
-            }
-          }
+          await emitCitationPayload(
+            controller,
+            encoder,
+            citationPayloadPromise,
+          );
 
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (error) {

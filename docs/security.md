@@ -30,11 +30,25 @@ Every route is served with:
 - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
 - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
 - `Cross-Origin-Opener-Policy: same-origin`
+- `Content-Security-Policy` with `frame-ancestors 'none'`
 
-These are set in `next.config.ts` and covered by
-`tests/security-headers.test.ts`. A strict CSP is not enabled yet because the app
-uses inline Next.js bootstrap scripts and third-party document tooling; adding one
-needs a nonce/hash rollout and a report-only phase.
+The header list lives in `lib/security-headers.ts` and is applied by both
+`proxy.ts` (page requests) and `next.config.ts` (every route, including the
+auth callback the proxy matcher skips). Keeping one list prevents the two
+layers from drifting. `tests/security-headers.test.ts` asserts the baseline on
+the Next.js config layer.
+
+The CSP still allows `'unsafe-inline'` / `'unsafe-eval'` because the app relies
+on inline Next.js bootstrap scripts and third-party document tooling. A nonce
+rollout with a report-only phase is the next hardening step.
+
+## Health probe
+
+`GET /api/health` returns `200` when the database, auth config, and at least one
+AI provider are usable, and `503` otherwise. Optional integrations (S3, Tavily)
+are reported but do not fail the probe because the app degrades gracefully
+without them. The response never includes secret values, only presence booleans
+and database latency. Point the uptime monitor at this endpoint.
 
 ## Authentication
 
