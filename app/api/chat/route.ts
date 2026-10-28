@@ -1037,6 +1037,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Document Reviewer is scoped to an attached document. A review turn with
+    // neither document text nor an image has nothing to review, so reject it
+    // instead of letting the model answer a free-floating legal question.
+    if (conversationType === "review") {
+      const hasAttachedDocument = messages.some((message: unknown) => {
+        const content = (message as { content?: unknown })?.content;
+        if (Array.isArray(content)) {
+          return content.some(
+            (part: { type?: string } | null) =>
+              part && typeof part === "object" && part.type === "image_url",
+          );
+        }
+        return (
+          typeof content === "string" &&
+          /\[Document:\s*[^\]\n]+\]/.test(content)
+        );
+      });
+      if (!hasAttachedDocument) {
+        return Response.json(
+          {
+            error:
+              "Attach a PDF or image before asking the Document Reviewer a question.",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     if (!isProviderConfigured("inception") && !isProviderConfigured("nvidia")) {
       return Response.json(
         {

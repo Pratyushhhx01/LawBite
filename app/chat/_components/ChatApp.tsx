@@ -77,6 +77,13 @@ type Message = {
   content: string;
   type?: ConversationType;
   documentName?: string;
+  /**
+   * Extracted text of the document attached in Document Reviewer mode. Kept on
+   * the message so every later turn (and every reload) can put the document
+   * back in front of the model without showing the raw text in the bubble.
+   */
+  documentText?: string;
+  documentTruncated?: boolean;
   citations?: Citation[];
 };
 
@@ -109,6 +116,15 @@ type Conversation = {
   pinned?: boolean;
   folderId?: string | null;
   createdAt?: number;
+};
+
+/** A document the Document Reviewer is allowed to answer questions about. */
+type ReviewDoc = {
+  type: "pdf" | "image";
+  fileName: string;
+  text?: string;
+  imageBase64?: string;
+  truncated?: boolean;
 };
 
 type SavedCase = {
@@ -1014,6 +1030,10 @@ export default function ChatApp({
   const [lastReviewIdRef, setLastReviewIdRef] = useState<string | null>(null);
   const [reviewFileUploading, setReviewFileUploading] = useState(false);
   const [reviewAttachOpen, setReviewAttachOpen] = useState(false);
+  // Documents attached per review conversation for this session. PDF/DOCX text
+  // is also persisted on the message, but an image (base64) is far too large to
+  // store, so it lives here and lets follow-up questions keep seeing it.
+  const [reviewDocs, setReviewDocs] = useState<Record<string, ReviewDoc>>({});
   const [pendingAttachment, setPendingAttachment] = useState<{
     type: "pdf" | "image";
     fileName: string;
@@ -1036,6 +1056,34 @@ export default function ChatApp({
 
   const active =
     conversations.find((c) => c.id === activeId) ?? conversations[0];
+
+  // The document a review turn is allowed to talk about: an attachment that is
+  // waiting to be sent, the in-session copy (needed for images), or the text
+  // saved on an earlier user message (restores after a reload).
+  const storedReviewDoc: ReviewDoc | null = (() => {
+    if (mode !== "review" && active?.type !== "review") return null;
+    const transient = reviewDocs[activeId];
+    if (transient) return transient;
+    const messages = active?.messages ?? [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      if (message.role === "user" && message.documentText) {
+        return {
+          type: "pdf",
+          fileName: message.documentName ?? "Attached document",
+          text: message.documentText,
+          truncated: message.documentTruncated,
+        };
+      }
+    }
+    return null;
+  })();
+
+  const activeReviewDoc: ReviewDoc | null =
+    mode === "review" ? (pendingAttachment ?? storedReviewDoc) : null;
+  // Document Reviewer exists to review a document. Until one is attached the
+  // composer stays locked, so the model is never asked to guess what to review.
+  const reviewNeedsDocument = mode === "review" && !activeReviewDoc;
 
   const showSuggestion = useMemo(() => {
     if (isThinking || isResponding) return false;
@@ -1838,6 +1886,8 @@ export default function ChatApp({
     const target = conversations.find((c) => c.id === id);
     if (target) setMode(target.type);
     setActiveId(id);
+    // A pending attachment belongs to the conversation it was picked in.
+    setPendingAttachment(null);
     setSidebarOpen(false);
     // Selecting a conversation from the history popup should reveal the chat
     // immediately, so dismiss the popup (no-op when it is already closed).
@@ -1897,6 +1947,7 @@ export default function ChatApp({
     setActiveId(conv.id);
     setMode(convType);
     setDraft("");
+    setPendingAttachment(null);
     setSidebarOpen(false);
     lastTalkIdRef.current = null;
     lastAnalysisIdRef.current = null;
@@ -1945,20 +1996,30 @@ export default function ChatApp({
       }
       const data = await res.json();
 
-      if (data.type === "image") {
-        setPendingAttachment({
-          type: "image",
-          fileName: data.fileName,
-          imageBase64: data.imageBase64,
-        });
-      } else {
-        setPendingAttachment({
-          type: "pdf",
-          fileName: data.fileName,
-          text: data.text,
-          truncated: data.truncated,
-        });
+      // A scanned PDF can parse to an empty string. Without text there is
+      // nothing for the reviewer to ground its answers in, so treat it as a
+      // failed upload and suggest the image path instead.
+      if (data.type !== "image" && !String(data.text ?? "").trim()) {
+        throw new Error(
+          "No readable text was found in this document. Try uploading an image of it instead.",
+        );
       }
+
+      const doc: ReviewDoc =
+        data.type === "image"
+          ? {
+              type: "image",
+              fileName: data.fileName,
+              imageBase64: data.imageBase64,
+            }
+          : {
+              type: "pdf",
+              fileName: data.fileName,
+              text: data.text,
+              truncated: data.truncated,
+            };
+      setReviewDocs((prev) => ({ ...prev, [activeId]: doc }));
+      setPendingAttachment(doc);
     } catch (err) {
       console.error("File upload error:", err);
       const errorMsg =
@@ -1985,6 +2046,19 @@ export default function ChatApp({
       setReviewFileUploading(false);
       e.target.value = "";
       setReviewAttachOpen(false);
+    }
+  }
+
+  function clearPendingAttachment() {
+    setPendingAttachment(null);
+    // Removing the file in review mode must also revoke the in-session copy,
+    // otherwise the composer would stay unlocked with no visible attachment.
+    if (mode === "review") {
+      setReviewDocs((prev) => {
+        const next = { ...prev };
+        delete next[activeId];
+        return next;
+      });
     }
   }
 
@@ -2124,6 +2198,7 @@ export default function ChatApp({
       setActiveId(conv.id);
     }
     setDraft("");
+    setPendingAttachment(null);
     if (target === "draft") {
       setSelectedDocType(null);
       setFormData({});
@@ -2296,6 +2371,15 @@ export default function ChatApp({
     const trimmed = text.trim();
     if (!trimmed || isResponding) return;
 
+    // Document Reviewer answers must be grounded in a document. A turn with a
+    // fresh attachment is always fine; otherwise the conversation must already
+    // carry one (in-session copy or text saved on an earlier user message).
+    const hasReviewDocument =
+      !!attachment ||
+      !!reviewDocs[activeId] ||
+      !!active?.messages.some((m) => m.role === "user" && m.documentText);
+    if (mode === "review" && !hasReviewDocument) return;
+
     stopRequestedRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -2306,6 +2390,12 @@ export default function ChatApp({
       content: trimmed,
       type: mode,
       documentName: documentName ?? attachment?.fileName,
+      // Persist the extracted text so follow-up turns (and reloads) still have
+      // the document without showing it inside the chat bubble.
+      documentText:
+        attachment?.type === "pdf" ? attachment.text : undefined,
+      documentTruncated:
+        attachment?.type === "pdf" ? attachment.truncated : undefined,
     };
     const assistantId = newId("a");
 
@@ -2377,13 +2467,21 @@ export default function ChatApp({
     let userApiContent:
       | string
       | Array<{ type: string; text?: string; image_url?: { url: string } }>;
-    if (attachment?.type === "image" && attachment.imageBase64) {
+    // PDF/DOCX text for a follow-up lives in the saved first message (see
+    // `conversationMessages` below). An image cannot be stored that way, so the
+    // in-session copy is re-sent on every review turn to keep it visible.
+    const followUpImageDoc =
+      mode === "review" && !attachment && reviewDocs[activeId]?.type === "image"
+        ? reviewDocs[activeId]
+        : undefined;
+    const docForTurn = attachment ?? followUpImageDoc;
+    if (docForTurn?.type === "image" && docForTurn.imageBase64) {
       userApiContent = [
         { type: "text", text: trimmed },
-        { type: "image_url", image_url: { url: attachment.imageBase64 } },
+        { type: "image_url", image_url: { url: docForTurn.imageBase64 } },
       ];
-    } else if (attachment?.type === "pdf" && attachment.text) {
-      const docContext = `[Document: ${attachment.fileName}]\n\n${attachment.text}\n\n${attachment.truncated ? "(Note: Document was truncated due to length. Analysis covers the extracted portion.)\n\n" : ""}`;
+    } else if (docForTurn?.type === "pdf" && docForTurn.text) {
+      const docContext = `[Document: ${docForTurn.fileName}]\n\n${docForTurn.text}\n\n${docForTurn.truncated ? "(Note: Document was truncated due to length. Analysis covers the extracted portion.)\n\n" : ""}`;
       userApiContent = `${docContext}${trimmed}`;
     } else if (imageDataUrl) {
       userApiContent = [
@@ -2406,7 +2504,9 @@ export default function ChatApp({
         )
         .map((m) => ({
           role: m.role,
-          content: m.content,
+          content: m.documentText
+            ? `[Document: ${m.documentName ?? "Attached document"}]\n\n${m.documentText}\n\n${m.documentTruncated ? "(Note: Document was truncated due to length. Analysis covers the extracted portion.)\n\n" : ""}${m.content}`
+            : m.content,
         })),
       { role: "user" as const, content: userApiContent },
     ];
@@ -2710,6 +2810,8 @@ export default function ChatApp({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isResponding) return;
+    // Document Reviewer needs the document before any turn can be sent.
+    if (reviewNeedsDocument) return;
     if (pendingAttachment && !draft.trim()) {
       const defaultPrompt =
         pendingAttachment.type === "image"
@@ -2725,7 +2827,7 @@ export default function ChatApp({
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (isResponding) return;
+      if (isResponding || reviewNeedsDocument) return;
       if (pendingAttachment && !draft.trim()) {
         const defaultPrompt =
           pendingAttachment.type === "image"
@@ -3774,7 +3876,11 @@ export default function ChatApp({
     return (
       <button
         type="submit"
-        disabled={(!draft.trim() && !pendingAttachment) || isResponding}
+        disabled={
+          (!draft.trim() && !pendingAttachment) ||
+          isResponding ||
+          reviewNeedsDocument
+        }
         aria-label="Send message"
         className="btn-shine group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-black transition-transform duration-300 hover:scale-[1.05] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
       >
@@ -5062,7 +5168,7 @@ export default function ChatApp({
                         </span>
                         <button
                           type="button"
-                          onClick={() => setPendingAttachment(null)}
+                          onClick={clearPendingAttachment}
                           className="ml-auto shrink-0 rounded-full p-0.5 text-white/40 hover:text-white/80 transition-colors"
                           aria-label="Remove attachment"
                         >
@@ -5347,7 +5453,7 @@ export default function ChatApp({
                         </span>
                         <button
                           type="button"
-                          onClick={() => setPendingAttachment(null)}
+                          onClick={clearPendingAttachment}
                           className="ml-auto shrink-0 rounded-full p-0.5 text-white/40 hover:text-white/80 transition-colors"
                           aria-label="Remove attachment"
                         >
@@ -6668,7 +6774,8 @@ export default function ChatApp({
                     Upload a PDF or image — rental agreement, employment
                     contract, FIR, sale deed, or any legal document — and get a
                     clause-by-clause risk analysis with plain-language
-                    explanations.
+                    explanations. After uploading, ask follow-up questions about
+                    any clause and every answer stays grounded in your document.
                   </p>
                   <div className="mt-8 flex flex-wrap justify-center gap-3">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/50">
@@ -6820,7 +6927,7 @@ export default function ChatApp({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPendingAttachment(null)}
+                  onClick={clearPendingAttachment}
                   className="ml-auto shrink-0 rounded-full p-0.5 text-white/40 hover:text-white/80 transition-colors"
                   aria-label="Remove attachment"
                 >
@@ -6838,6 +6945,27 @@ export default function ChatApp({
                   </svg>
                 </button>
               </div>
+            )}
+            {reviewNeedsDocument && (
+              <p
+                role="status"
+                className="mx-auto mb-2 flex max-w-3xl items-center justify-center gap-2 text-center text-xs text-emerald-300/70"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-3.5 w-3.5 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+                Attach a PDF or image first — the Document Reviewer only answers
+                questions about your document.
+              </p>
             )}
             <form
               onSubmit={onSubmit}
@@ -7209,15 +7337,20 @@ export default function ChatApp({
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onKeyDown}
+                disabled={reviewNeedsDocument}
                 placeholder={
-                  pendingAttachment
-                    ? "Ask about this document, or send to review as-is…"
-                    : mode === "draft"
-                      ? "Ask about drafting an Indian legal document…"
-                      : "Message Lawbite…"
+                  reviewNeedsDocument
+                    ? "Attach a document to start the review…"
+                    : pendingAttachment
+                      ? "Ask about this document, or send to review as-is…"
+                      : mode === "review"
+                        ? `Ask about ${activeReviewDoc?.fileName ?? "this document"}…`
+                        : mode === "draft"
+                          ? "Ask about drafting an Indian legal document…"
+                          : "Message Lawbite…"
                 }
                 rows={1}
-                className="min-h-[40px] max-h-40 w-full resize-none bg-transparent px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 focus:outline-none"
+                className="min-h-[40px] max-h-40 w-full resize-none bg-transparent px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               />
               {renderSendOrStop()}
             </form>

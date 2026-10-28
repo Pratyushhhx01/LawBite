@@ -18,6 +18,8 @@ type ConversationMessage = {
   content: string;
   type?: string;
   documentName?: string;
+  documentText?: string;
+  documentTruncated?: boolean;
 };
 
 async function getSessionUser(request: NextRequest) {

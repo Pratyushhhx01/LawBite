@@ -434,9 +434,13 @@ describe("vision-required requests", () => {
 
     await readSse(
       await POST(
-        makeRequest("review", "Review this rental agreement clause.", {
-          model: "inception:mercury-2.5",
-        }),
+        makeRequest(
+          "review",
+          "[Document: rental.pdf]\n\nReview this rental agreement clause.",
+          {
+            model: "inception:mercury-2.5",
+          },
+        ),
       ),
     );
 

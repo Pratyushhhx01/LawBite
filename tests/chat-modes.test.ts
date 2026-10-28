@@ -968,7 +968,7 @@ describe("Document Reviewer mode", () => {
     const res = await POST(
       makeRequest(
         "review",
-        "Review this agreement for risky clauses: [attached document]",
+        "[Document: agreement.pdf]\n\nReview this agreement for risky clauses.",
       ),
     );
     const { content } = await readSse(res);
