@@ -11,6 +11,7 @@ import SectionHashScroll from "./components/SectionHashScroll";
 import Showcase from "./components/Showcase";
 import Stats from "./components/Stats";
 import Testimonials from "./components/Testimonials";
+import Verification from "./components/Verification";
 
 const marqueeItems = [
   "157+ Indian Bare Acts",
@@ -33,6 +34,7 @@ export default function Home() {
         <Features />
         <Showcase />
         <HowItWorks />
+        <Verification />
         <Marquee items={marqueeItems.slice().reverse()} reverse />
         <Stats />
         <Testimonials />
