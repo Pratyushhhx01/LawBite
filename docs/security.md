@@ -9,12 +9,12 @@ in CI before typecheck, lint, and tests. The current lockfile resolves with
 When an advisory requires a breaking framework or auth upgrade, the upgrade is
 treated as a migration rather than a drive-by version bump. In particular:
 
-- **Better Auth is pinned to `1.6.33`.** Better Auth 1.7 adds a required
-  `account.issuer` column and a compound identity index. Deploying 1.7 without
-  the schema change and a reviewed issuer backfill can lock existing users out.
-  The 1.6.33 patch contains the account-takeover fix without that schema change.
-  A 1.7 upgrade must land with a Neon migration, a backfill plan, and an auth
-  regression run.
+- **Better Auth is pinned to `1.7.14`.** This fixes GHSA-44jh-23m7-hpcf
+  (concurrent requests can exceed PostgreSQL rate limits). Better Auth 1.7.3 and
+  newer keep the 1.6 account schema, so no Neon migration or issuer backfill was
+  required — the `account.issuer` requirement from 1.7.0–1.7.2 was reverted
+  upstream. Auth initialization, session lookup, and the schema-dependent paths
+  were re-run after the upgrade.
 - **Next.js is on 16.4.3 or newer within 16.x.** The 16.4.3 release fixes the
   critical advisories that affect 16.2.7.
 - **Vitest and the V8 coverage provider stay on the same version.** Mismatched

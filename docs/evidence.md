@@ -7,20 +7,20 @@ unavailable.
 
 ## What is verified
 
-| Area | Evidence | How to reproduce |
-| --- | --- | --- |
-| Type safety | TypeScript strict mode passes | `npm run typecheck` |
-| Lint | ESLint flat config passes with no warnings | `npm run lint` |
-| Unit and integration tests | 523 passed, 44 skipped across 26 files | `npm run test` |
-| Coverage | Local run: 51.5% statements, 46.8% branches, 61.5% functions, 52.0% lines. CI enforces floors of 46/40/55/47. | `npm run test:coverage` |
-| Production build | Next.js 16.4.3 build succeeds | `npm run build` |
-| Dependency audit | 0 known vulnerabilities; CI fails on high or critical advisories | `npm run audit` |
-| Browser hardening | HSTS, `nosniff`, frame denial, referrer policy, permissions policy, and COOP on every route | `tests/security-headers.test.ts` |
-| CI | Audit, typecheck, lint, coverage, and build on pushes and PRs | `.github/workflows/ci.yml` |
-| Deployed smoke | Manual workflow signs up a throwaway user and drives the live SSE chat path | `.github/workflows/deployed-smoke.yml` |
-| Legal benchmark harness | 50 seeded questions, citation verifier, recall/precision/refusal/latency report | `npm run eval:legal` |
-| S3 diagnosis | Credential, bucket, region, and read-access check with actionable errors | `npm run check:s3` |
-| Scope guard | Model-identity, prompt-injection, and off-topic questions are refused before the provider call; legal questions that use the word "model" still pass | `tests/chat-filters.test.ts`, `tests/chat-modes.test.ts` |
+| Area                       | Evidence                                                                                                                                             | How to reproduce                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Type safety                | TypeScript strict mode passes                                                                                                                        | `npm run typecheck`                                      |
+| Lint                       | ESLint flat config passes with no warnings                                                                                                           | `npm run lint`                                           |
+| Unit and integration tests | 523 passed, 44 skipped across 26 files                                                                                                               | `npm run test`                                           |
+| Coverage                   | Local run: 51.5% statements, 46.8% branches, 61.5% functions, 52.0% lines. CI enforces floors of 46/40/55/47.                                        | `npm run test:coverage`                                  |
+| Production build           | Next.js 16.4.3 build succeeds                                                                                                                        | `npm run build`                                          |
+| Dependency audit           | 0 known vulnerabilities; CI fails on high or critical advisories                                                                                     | `npm run audit`                                          |
+| Browser hardening          | HSTS, `nosniff`, frame denial, referrer policy, permissions policy, and COOP on every route                                                          | `tests/security-headers.test.ts`                         |
+| CI                         | Audit, typecheck, lint, coverage, and build on pushes and PRs                                                                                        | `.github/workflows/ci.yml`                               |
+| Deployed smoke             | Manual workflow signs up a throwaway user and drives the live SSE chat path                                                                          | `.github/workflows/deployed-smoke.yml`                   |
+| Legal benchmark harness    | 50 seeded questions, citation verifier, recall/precision/refusal/latency report                                                                      | `npm run eval:legal`                                     |
+| S3 diagnosis               | Credential, bucket, region, and read-access check with actionable errors                                                                             | `npm run check:s3`                                       |
+| Scope guard                | Model-identity, prompt-injection, and off-topic questions are refused before the provider call; legal questions that use the word "model" still pass | `tests/chat-filters.test.ts`, `tests/chat-modes.test.ts` |
 
 The 44 skipped tests are live-database and live-deployment suites. CI sets
 `CI_SKIP_DB_TESTS=1` so it never pretends to have a database it does not have.
@@ -56,8 +56,9 @@ The deployed smoke workflow is the separate opt-in path for a real environment.
 
 ## Security evidence
 
-- Better Auth is pinned to `1.6.33`, which contains the account-takeover fix
-  without the 1.7 `account.issuer` schema change.
+- Better Auth is pinned to `1.7.14`. The upgrade from `1.6.33` fixes
+  GHSA-44jh-23m7-hpcf and required no schema change because 1.7.3 and newer keep
+  the 1.6 account table.
 - `/api/chat` requires a session, caps messages and message length, and applies a
   per-user rate limit.
 - `/api/citations/verify` requires a session, caps input, and rate-limits

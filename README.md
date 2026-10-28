@@ -118,11 +118,10 @@ procedure.
 
 `npm run audit` fails on high or critical dependency advisories and runs in CI.
 The lockfile currently resolves with zero known vulnerabilities. Better Auth is
-pinned to `1.6.33`; upgrading to 1.7 requires an `account.issuer` schema
-migration and a reviewed backfill, so it is treated as a planned migration rather
-than a routine bump. See [`docs/security.md`](docs/security.md) for auth
-boundaries, request limits, secret handling, and the in-memory rate-limit
-limitation.
+pinned to `1.7.14`, which fixes GHSA-44jh-23m7-hpcf. Better Auth 1.7.3 and newer
+keep the 1.6 account schema, so this upgrade needed no database migration. See
+[`docs/security.md`](docs/security.md) for auth boundaries, request limits,
+secret handling, and the in-memory rate-limit limitation.
 
 ## Architecture
 
