@@ -212,7 +212,7 @@ export default function Features() {
             <Reveal
               key={feature.title}
               delay={((i % 3) + 1) as 1 | 2 | 3}
-              className="relative h-full group/card"
+              className="h-full"
             >
               <Link
                 href="/chat"
@@ -221,6 +221,10 @@ export default function Features() {
                 <div
                   aria-hidden
                   className="hover-blur-glow pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/0 blur-2xl transition-all duration-700 group-hover:bg-white/[0.06]"
+                />
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-px origin-left scale-x-0 bg-gradient-to-r from-white/0 via-white/60 to-white/0 transition-transform duration-700 group-hover:scale-x-100"
                 />
                 <div className="flex items-start justify-between">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white transition-all duration-500 group-hover:rotate-[8deg] group-hover:border-white/30 group-hover:bg-white/[0.07]">
@@ -246,11 +250,6 @@ export default function Features() {
                   </span>
                 </div>
               </Link>
-              {/* Bottom line glow placed with elevated z-index outside the card's overflow-hidden clipping */}
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-px origin-left scale-x-0 bg-gradient-to-r from-white/0 via-white/80 to-white/0 shadow-[0_0_8px_rgba(255,255,255,0.7)] transition-transform duration-700 group-hover/card:scale-x-100"
-              />
             </Reveal>
           ))}
         </div>

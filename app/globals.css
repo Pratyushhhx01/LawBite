@@ -405,7 +405,11 @@ section[id] {
 }
 
 .features-grid > * {
+  position: relative;
   overflow: hidden;
+}
+.features-grid > *:hover {
+  z-index: 10;
 }
 .features-grid > *:nth-child(1) {
   border-radius: 1.5rem 0 0 0;
