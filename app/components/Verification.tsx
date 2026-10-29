@@ -53,7 +53,13 @@ export default function Verification() {
         </Reveal>
 
         <div className="relative mt-20">
-          <ol className="relative space-y-12 before:absolute before:bottom-6 before:left-7 before:top-7 before:hidden before:w-px before:bg-gradient-to-b before:from-white/20 before:via-white/10 before:to-transparent sm:before:block">
+          {/* Base vertical connector track */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute bottom-8 left-7 top-7 hidden w-px bg-gradient-to-b from-white/15 via-white/10 to-transparent sm:block"
+          />
+
+          <ol className="space-y-12">
             {steps.map((step, i) => (
               <Reveal
                 key={step.number}
@@ -61,10 +67,20 @@ export default function Verification() {
               >
                 <li className="group relative flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-8">
                   <div className="relative shrink-0">
-                    <span className="relative inline-flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black text-sm font-mono text-white/80 transition-all duration-500 group-hover:scale-105 group-hover:border-white/40 group-hover:text-white">
+                    {/* Number badge without the circular glow behind it */}
+                    <span className="relative z-10 inline-flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black text-sm font-mono text-white/80 transition-all duration-500 group-hover:scale-105 group-hover:border-white/40 group-hover:text-white">
                       {step.number}
                     </span>
+
+                    {/* Connecting line glow animation extending downwards from the step on hover */}
+                    {i < steps.length - 1 && (
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute left-1/2 top-14 hidden h-12 w-px -translate-x-1/2 origin-top scale-y-0 bg-gradient-to-b from-white/90 via-white/50 to-white/0 shadow-[0_0_8px_rgba(255,255,255,0.7)] transition-transform duration-700 group-hover:scale-y-100 sm:block"
+                      />
+                    )}
                   </div>
+
                   <div className="pt-2">
                     <h3 className="text-lg font-medium text-white sm:text-xl">
                       {step.title}
