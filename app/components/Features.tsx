@@ -207,7 +207,7 @@ export default function Features() {
           </Reveal>
         </div>
 
-        <div className="features-grid mt-16 grid gap-px rounded-3xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="features-grid mt-16 grid gap-px rounded-3xl border border-white/[0.18] bg-white/[0.18] bg-clip-padding sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature, i) => (
             <Reveal
               key={feature.title}
