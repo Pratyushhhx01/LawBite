@@ -404,23 +404,27 @@ section[id] {
   transition-delay: 0.4s;
 }
 
+/* The cell deliberately does NOT clip: the card clips its own contents, and
+   the bottom glow line needs to spill into the grid gap below. */
 .features-grid > * {
   position: relative;
-  overflow: hidden;
 }
 .features-grid > *:hover {
   z-index: 10;
 }
-.features-grid > *:nth-child(1) {
+.features-grid > * > a {
+  overflow: hidden;
+}
+.features-grid > *:nth-child(1) > a {
   border-radius: 1.5rem 0 0 0;
 }
-.features-grid > *:nth-child(3) {
+.features-grid > *:nth-child(3) > a {
   border-radius: 0 1.5rem 0 0;
 }
-.features-grid > *:nth-child(7) {
+.features-grid > *:nth-child(7) > a {
   border-radius: 0 0 0 1.5rem;
 }
-.features-grid > *:nth-child(9) {
+.features-grid > *:nth-child(9) > a {
   border-radius: 0 0 1.5rem 0;
 }
 
