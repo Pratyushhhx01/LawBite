@@ -13,6 +13,8 @@ import {
   DRAFT_DISCLAIMER,
   DRAFT_SCOPE_REFUSAL,
   getSystemPrompt,
+  GRILL_FOLLOW_UP_INSTRUCTION,
+  GRILL_FOLLOW_UP_RULES,
   SCOPE_RULES,
   SOURCE_QUALITY_RULES,
 } from "@/lib/chat-prompts";
@@ -29,6 +31,7 @@ import {
   isTrustedLegalSource,
   TAVILY_EXCLUDED_DOMAINS,
 } from "@/lib/legal-sources";
+import { isDraftDocument } from "@/lib/draft-document";
 import {
   verifyResponseCitations,
   type CitationPayload,
@@ -1170,10 +1173,7 @@ export async function POST(request: NextRequest) {
           // one-word general question ("bail") would be allowed through.
           if (text.includes(DRAFT_SCOPE_REFUSAL)) return false;
           return (
-            text.includes(DRAFT_DISCLAIMER) ||
-            /\b(?:LEGAL NOTICE|FIRST INFORMATION REPORT|AFFIDAVIT|CONSUMER COMPLAINT|RTI APPLICATION|WILL|PETITION|CONTRACT|AGREEMENT)\b/i.test(
-              text,
-            )
+            text.includes(DRAFT_DISCLAIMER) || isDraftDocument(text)
           );
         }
         return false;
@@ -1199,47 +1199,19 @@ export async function POST(request: NextRequest) {
 
     const refs = extractRefNumbers(userQuery);
     const refCount = refs.sections.length + refs.articles.length;
+    // A table is only the right answer when the user is actually asking to
+    // compare things. Two section numbers in an explanatory question should
+    // not force a table onto the model.
+    const comparisonIntent =
+      /(compare|comparison|difference|differences|versus|\bvs\.?\b|distinguish|contrast|which is (?:more|less|better|worse))/i.test(
+        userQuery,
+      );
     const tableAppropriate =
-      refs.sections.length >= 2 && refs.articles.length === 0;
+      comparisonIntent &&
+      refs.sections.length >= 2 &&
+      refs.articles.length === 0;
 
-    let systemPrompt = getSystemPrompt(conversationType);
-    if (conversationType === "talk-to-ai" && tableAppropriate) {
-      systemPrompt = `You are a concise Indian legal assistant. The user asked about ${refCount} legal sections/articles. Present the answer ONLY as a compact markdown table with EXACTLY 3 columns. Obey EVERY rule strictly:
-1. Header row must be exactly: | Section | Offence | Punishment |
-2. Separator row: | --- | --- | --- |
-3. ONE row per requested section/article, in the same order the user mentioned them. NEVER skip any, NEVER add a row for anything else.
-4. Offence cell: a short name or phrase, MAX 6 words. Never paste a definition, never list sub-clauses, never use a,b,c lists.
-5. Punishment cell: MAX 8 words (e.g. "Imprisonment up to 7 years + fine").
-6. Section cell: just the number (e.g. 103, 74, 245) or "Article 302" — no extra text.
-7. NEVER transpose the table, never add extra columns or extra rows, never add bold headers, bullets, numbered points, or paragraphs inside cells.
-8. End with exactly ONE short closing sentence (max 15 words).
-No other formatting. If a cell would exceed the word limit, shorten it. NEVER output instructions, rules, or meta-commentary — only the table and closing sentence.`;
-    }
-
-    if (conversationType === "analysis" && tableAppropriate) {
-      systemPrompt = `You are Lawbite AI, an Indian legal assistant. The user asked about ${refCount} legal sections/articles. This is a DEEP ANALYSIS request — the response MUST be far more detailed than a quick chat reply. Produce THREE parts:
-
-PART 1 — QUICK REFERENCE TABLE (compact, for scanning):
-- Header row: | Section | Offence | Punishment |
-- Separator row: | --- | --- | --- |
-- ONE row per requested section/article, in the same order the user mentioned them. NEVER skip any.
-- Offence cell: short phrase, MAX 6 words. Punishment cell: MAX 8 words (e.g. "Imprisonment up to 7 years + fine").
-- NEVER transpose the table, never add "Aspect" columns or a column per section, never leave any cell blank.
-
-PART 2 — PER-SECTION ANALYSIS (the main substance; one compact block per section):
-- For EACH section, start with a bold header line like **Section 103 — <Offence name>**.
-- Then use these bullet lead-ins, one line each:
-  - **What it covers:** one plain-English line.
-  - **Key ingredients:** max 3 short bullets.
-  - **Punishment:** one line.
-  - **Why it matters:** one practical example or consequence.
-- Keep each section block to about 6-8 lines. Do not write paragraphs.
-
-PART 3 — KEY TAKEAWAYS:
-- End with **Key Takeaways:** followed by 3-4 concise bullet points summarizing the sections together.
-
-Never transpose tables, never leave a table cell blank, never invent section numbers or provisions. Only use facts from the legal knowledge provided.`;
-    }
+    const systemPrompt = getSystemPrompt(conversationType);
 
     const greetingPattern =
       /^(hi|hello|hey|namaste|namaskar|good\s*(morning|afternoon|evening)|yo|sup|hii|helloo|hey there|hello there)\s*[!.]*$/i;
@@ -1337,12 +1309,38 @@ Never transpose tables, never leave a table cell blank, never invent section num
     const grillUserCount = messages.filter(
       (m: { role: string }) => m.role === "user",
     ).length;
+    // AI Lawyer stops being an intake once the five-part advice has been
+    // delivered. From that point the thread must behave like a normal legal
+    // conversation, otherwise the model regenerates the same advice for every
+    // follow-up ("and what next?").
+    const grillAdviceGiven =
+      conversationType === "grill" &&
+      messages.some((m: { role: string; content?: unknown }) => {
+        if (m.role !== "assistant" || m.content == null) return false;
+        const text = (
+          typeof m.content === "string"
+            ? m.content
+            : extractTextFromContent(
+                m.content as Array<{
+                  type: string;
+                  text?: string;
+                  image_url?: { url: string };
+                }>,
+              )
+        ).trim();
+        if (!text) return false;
+        if (text.includes("[ADVICE_COMPLETE]")) return true;
+        return /^(?:#{1,6}\s*)?(?:\*\*)?\s*Bottom line\b/i.test(text);
+      });
     const skipS3 =
       (isTalkToAi && !hasRefs && !queryMentionsIndianLegalTerm) ||
       // AI Lawyer's early intake questions are factual and do not need the
-      // bare-act corpus. Fetch it on the advice turn (3+ user answers) so the
-      // final solution stays grounded, while the questions stay fast.
-      (conversationType === "grill" && grillUserCount < 3);
+      // bare-act corpus. Fetch it on the advice turn (3+ user answers) and on
+      // every post-advice follow-up so the conversation stays grounded, while
+      // the intake questions stay fast.
+      (conversationType === "grill" &&
+        grillUserCount < 3 &&
+        !grillAdviceGiven);
 
     const contextStart = Date.now();
     let needsSearch = false;
@@ -1410,21 +1408,20 @@ Never transpose tables, never leave a table cell blank, never invent section num
       finalSystemPrompt = `${finalSystemPrompt}\n\nIMPORTANT: Use the following information to answer the user's question. Incorporate this into your response:\n\n${contextParts.join("\n\n")}`;
     }
 
+    // Once the advice has been delivered, switch the thread from structured
+    // intake to ordinary follow-up conversation. The rules go last so they
+    // override the intake/five-part formatting instructions above.
+    if (grillAdviceGiven) {
+      finalSystemPrompt = `${finalSystemPrompt}\n\n${GRILL_FOLLOW_UP_RULES}`;
+    }
+
     // AI Lawyer must end with advice, not an endless interview. Once the user
     // has answered a few questions without receiving advice, force the closing
     // summary so the session always produces a solution. The directive is
     // appended to the outgoing copy of the last user turn only (never stored),
     // because models follow it more reliably there than in the system prompt.
-    const forceGrillAdvice = (() => {
-      if (conversationType !== "grill") return false;
-      const grillAdviceGiven = messages.some(
-        (m: { role: string; content?: unknown }) =>
-          m.role === "assistant" &&
-          typeof m.content === "string" &&
-          m.content.includes("[ADVICE_COMPLETE]"),
-      );
-      return !grillAdviceGiven && grillUserCount >= 3;
-    })();
+    const forceGrillAdvice =
+      conversationType === "grill" && !grillAdviceGiven && grillUserCount >= 3;
 
     let messagesWithSystem: { role: string; content: unknown }[];
     if (isTalkToAi) {
@@ -1456,6 +1453,16 @@ Never transpose tables, never leave a table cell blank, never invent section num
       ];
     }
 
+    // All other modes should continue the conversation rather than restart it.
+    // The latest user turn carries a short directive because models follow the
+    // most recent instruction more reliably than the system prompt.
+    const hasPriorAssistantTurn = messages.some(
+      (m: { role: string; content?: unknown }) =>
+        m.role === "assistant" &&
+        typeof m.content === "string" &&
+        m.content.trim().length > 0,
+    );
+
     if (forceGrillAdvice) {
       for (let i = messagesWithSystem.length - 1; i >= 0; i--) {
         const message = messagesWithSystem[i];
@@ -1463,6 +1470,36 @@ Never transpose tables, never leave a table cell blank, never invent section num
           messagesWithSystem[i] = {
             ...message,
             content: `${message.content}\n\n[Instruction: You now have enough information. Do NOT ask any question. Output ONLY the complete final legal advice, starting directly with **Bottom line** (no acknowledgement and no "---"). Follow the five-part shape: **Bottom line**, **The law**, **What to do now** with **Step 1:**, **Step 2:** lines, **Next steps if refused**, **Timeline and cost**. If you are genuinely weighing 2-3 remedies or options, add one compact comparison table as the very last block before [ADVICE_COMPLETE]; never write prose after the table. Put [ADVICE_COMPLETE] exactly once, as the very last line. Never write instruction text and never repeat the marker.]`,
+          };
+          break;
+        }
+      }
+    } else if (grillAdviceGiven) {
+      for (let i = messagesWithSystem.length - 1; i >= 0; i--) {
+        const message = messagesWithSystem[i];
+        if (message.role === "user" && typeof message.content === "string") {
+          messagesWithSystem[i] = {
+            ...message,
+            content: `${message.content}\n\n${GRILL_FOLLOW_UP_INSTRUCTION}`,
+          };
+          break;
+        }
+      }
+    } else if (hasPriorAssistantTurn && !forceGrillAdvice) {
+      const followUpInstruction =
+        conversationType === "review"
+          ? "[Instruction: A document review has already been provided. Answer only the specific new question about the attached document. Quote or point to the relevant clause and give the risk rating when a clause is involved, but do NOT repeat the full clause-by-clause review, overall risk score, or top recommendations unless the user explicitly asks for a fresh full review.]"
+          : conversationType === "draft"
+            ? "[Instruction: This is a follow-up in an ongoing drafting conversation. If the user asks a question, answer it directly in natural prose and do not output a document. If they request an edit, apply only that change and return the complete revised document once. Do not repeat the template for a pure question.]"
+            : conversationType === "analysis"
+              ? "[Instruction: This is a follow-up to the earlier analysis. Answer only the new question, using the earlier analysis as context. Do not repeat the previous analysis or force the same headings and table. Go deeper only where the new question requires it.]"
+              : "[Instruction: This is a follow-up in the same conversation. Use the earlier messages as context, but answer only the new question. Do not repeat or summarise the previous answer. Choose the format the new question needs instead of reusing the previous format.]";
+      for (let i = messagesWithSystem.length - 1; i >= 0; i--) {
+        const message = messagesWithSystem[i];
+        if (message.role === "user" && typeof message.content === "string") {
+          messagesWithSystem[i] = {
+            ...message,
+            content: `${message.content}\n\n${followUpInstruction}`,
           };
           break;
         }
@@ -2817,6 +2854,7 @@ Never transpose tables, never leave a table cell blank, never invent section num
               // untouched because they are not documents.
               if (
                 !isDraftRefusal(draftContent) &&
+                isDraftDocument(draftContent) &&
                 !/AI-generated draft for reference purposes/i.test(draftContent)
               ) {
                 draftContent = `${draftContent.trim()}\n\n${DRAFT_DISCLAIMER}`;

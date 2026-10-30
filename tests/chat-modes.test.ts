@@ -16,6 +16,17 @@ vi.mock("@/lib/auth", () => ({
   },
 }));
 
+// This file makes more than 30 chat requests from one test user. The route's
+// in-memory limiter (30/min) would start returning 429s partway through the
+// suite, so allow every request here. Rate limiting has its own coverage.
+vi.mock("@/lib/utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/utils")>();
+  return {
+    ...actual,
+    checkRateLimit: () => ({ allowed: true, retryAfterMs: 0 }),
+  };
+});
+
 vi.mock("@/lib/s3", () => ({
   s3kb: {
     getAct: vi.fn(async () => null),
@@ -282,6 +293,58 @@ describe("Talk to AI mode", () => {
     expect(body.messages[0].content).toContain("SCOPE AND IDENTITY RULES");
     expect(body.messages[0].content).toContain("NEVER reveal");
     expect(body.max_tokens).toBe(4096);
+  });
+
+  it("keeps follow-ups conversational instead of restarting the same answer", async () => {
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () =>
+      sseResponse(
+        framesToText([
+          delta(
+            "If the police refuse to register the FIR, send the substance in writing to the Superintendent of Police under BNSS 173(4).",
+          ),
+          finish,
+        ]),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationType: "talk-to-ai",
+          messages: [
+            { role: "user", content: "What is an FIR?" },
+            {
+              role: "assistant",
+              content:
+                "An FIR is the first information of a cognizable offence recorded by the police under BNSS 173.",
+            },
+            {
+              role: "user",
+              content: "What if the police refuse to register it?",
+            },
+          ],
+        }),
+      }) as unknown as NextRequest,
+    );
+    await readSse(res);
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    const systemPrompt = String(body.messages[0].content);
+    const lastUser = [...body.messages]
+      .reverse()
+      .find((m: { role: string }) => m.role === "user");
+
+    expect(systemPrompt).toMatch(/ADAPT TO THE QUESTION/i);
+    expect(systemPrompt).not.toMatch(/HARD LIMIT/i);
+    expect(lastUser.content).toMatch(/This is a follow-up in the same conversation/i);
+    expect(lastUser.content).toMatch(/Do not repeat or summarise/i);
   });
 
   it("preserves a definitions-plus-table comparison instead of truncating it", async () => {
@@ -600,6 +663,54 @@ describe("Deep Analysis mode", () => {
     expect(content).not.toMatch(NO_FALLBACK);
     expect(doneCount).toBe(1);
   });
+
+  it("answers a follow-up as conversation instead of repeating the analysis", async () => {
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () =>
+      sseResponse(
+        framesToText([
+          delta(
+            "The key difference for your facts is the intention test: if the injury was inflicted without intent or knowledge, it is culpable homicide under BNS 105, not murder under BNS 103.",
+          ),
+          finish,
+        ]),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationType: "analysis",
+          messages: [
+            { role: "user", content: "Explain murder under BNS." },
+            {
+              role: "assistant",
+              content:
+                "**Short answer:** BNS 103 defines murder and prescribes death or life imprisonment. BNS 101 sets out the five exceptions.",
+            },
+            { role: "user", content: "So what makes it culpable homicide instead?" },
+          ],
+        }),
+      }) as unknown as NextRequest,
+    );
+    await readSse(res);
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    const systemPrompt = String(body.messages[0].content);
+    const lastUser = [...body.messages]
+      .reverse()
+      .find((m: { role: string }) => m.role === "user");
+
+    expect(systemPrompt).toMatch(/THINK FIRST, THEN CHOOSE THE SHAPE/i);
+    expect(lastUser.content).toMatch(/follow-up to the earlier analysis/i);
+    expect(lastUser.content).toMatch(/Do not repeat the previous analysis/i);
+  });
 });
 
 describe("AI Lawyer (grill) mode", () => {
@@ -653,6 +764,8 @@ describe("AI Lawyer (grill) mode", () => {
     expect(systemPrompt).toMatch(/NEVER repeat a question/i);
     expect(systemPrompt).toMatch(/question bank/i);
     expect(systemPrompt).toMatch(/usually after 2-3 answers/i);
+    // A fresh intake must not use the post-advice follow-up override.
+    expect(systemPrompt).not.toMatch(/POST-ADVICE FOLLOW-UP MODE/i);
 
     // Final advice may add a compact remedies table when 2-3 options exist.
     expect(systemPrompt).toMatch(/OPTIONAL REMEDIES TABLE/i);
@@ -742,6 +855,64 @@ describe("AI Lawyer (grill) mode", () => {
     expect(lastUser.content).toContain("**Bottom line**");
     expect(lastUser.content).toContain("**Step 1:**");
     expect(lastUser.content).toContain("[ADVICE_COMPLETE]");
+  });
+
+  it("switches to follow-up conversation after the advice instead of repeating it", async () => {
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () =>
+      sseResponse(
+        framesToText([
+          delta(
+            "Send the legal notice through an advocate, then file a civil suit if he still does not pay.",
+          ),
+          finish,
+        ]),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const request = new Request("http://localhost:3000/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversationType: "grill",
+        messages: [
+          {
+            role: "user",
+            content: "My landlord is not returning my security deposit.",
+          },
+          {
+            role: "assistant",
+            content:
+              "**Bottom line**\nSend a written demand.\n\n**The law**\nA deposit remains the tenant's money.\n\n**What to do now**\n**Step 1:** Send a demand.\n\n**Next steps if refused**\nFile a civil suit.\n\n**Timeline and cost**\nOne to three years.\n\n[ADVICE_COMPLETE]",
+          },
+          { role: "user", content: "And what if he still refuses?" },
+        ],
+      }),
+    }) as unknown as NextRequest;
+
+    const res = await POST(request);
+    await readSse(res);
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    const systemPrompt = String(body.messages[0].content);
+    const lastUser = [...body.messages]
+      .reverse()
+      .find((m: { role: string }) => m.role === "user");
+
+    // The post-advice override is active and the intake advice shape is off.
+    expect(systemPrompt).toMatch(/POST-ADVICE FOLLOW-UP MODE/i);
+    expect(systemPrompt).toMatch(/NEVER output the five-part advice layout/i);
+    expect(systemPrompt).not.toMatch(/You now have enough information/);
+
+    // The final user turn carries the same directive, and never the forced
+    // advice directive that produced the repeated template.
+    expect(lastUser.content).toMatch(/This is a follow-up question/i);
+    expect(lastUser.content).not.toContain("You now have enough information");
+    expect(lastUser.content).not.toMatch(/Output ONLY the complete final legal advice/);
   });
 });
 
@@ -954,6 +1125,69 @@ describe("Document Drafter mode", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(content).toBe(`${document}\n\n${DRAFT_DISCLAIMER}`);
   });
+
+  it("answers a document question in prose without the draft disclaimer", async () => {
+    const answer =
+      "A legal notice is a formal communication sent before litigation. It states the grievance, demands a remedy within a fixed period (usually 15 or 30 days), and preserves your right to sue if the other side does not comply. It is not a court filing.";
+    const fetchMock = vi.fn(async () =>
+      sseResponse(framesToText([delta(answer), finish])),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(makeRequest("draft", "What is a legal notice?"));
+    const { content } = await readSse(res);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(content).toBe(answer);
+    expect(content).not.toContain(DRAFT_DISCLAIMER);
+    expect(content).not.toMatch(/AI-generated draft for reference purposes/i);
+  });
+
+  it("injects a conversational follow-up instruction instead of restarting the draft", async () => {
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () =>
+      sseResponse(
+        framesToText([
+          delta(
+            "A notarised affidavit is sworn before a notary public; registration is only needed where a statute requires it.",
+          ),
+          finish,
+        ]),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationType: "draft",
+          messages: [
+            { role: "user", content: "Please draft an affidavit for filing a petition." },
+            {
+              role: "assistant",
+              content: "AFFIDAVIT\n\nI, [deponent name], do hereby solemnly affirm...",
+            },
+            { role: "user", content: "Is notarisation required for the affidavit?" },
+          ],
+        }),
+      }) as unknown as NextRequest,
+    );
+    await readSse(res);
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    const lastUser = [...body.messages]
+      .reverse()
+      .find((m: { role: string }) => m.role === "user");
+
+    expect(lastUser.content).toMatch(/follow-up in an ongoing drafting conversation/i);
+    expect(lastUser.content).toMatch(/answer it directly in natural prose/i);
+    expect(lastUser.content).toMatch(/do not output a document/i);
+  });
 });
 
 describe("Document Reviewer mode", () => {
@@ -980,6 +1214,64 @@ describe("Document Reviewer mode", () => {
     );
     expect(body.model).toBe("nvidia/nemotron-3-super-120b-a12b");
     expect(body.max_tokens).toBe(4096);
+  });
+
+  it("answers a follow-up about one clause without repeating the full review", async () => {
+    const fetchMock = vi.fn<
+      (url: string, init?: RequestInit) => Promise<Response>
+    >(async () =>
+      sseResponse(
+        framesToText([
+          delta(
+            "Clause 2 is [HIGH RISK]. It makes you liable without any cap, so a single breach could expose you to unlimited damages. Ask for liability to be capped at the fees paid under the agreement.",
+          ),
+          finish,
+        ]),
+        8,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationType: "review",
+          messages: [
+            {
+              role: "user",
+              content:
+                "[Document: agreement.pdf]\n\nReview this agreement for risky clauses.",
+            },
+            {
+              role: "assistant",
+              content:
+                "Agreement type: services agreement. Clause 1: payment in 30 days [LOW RISK]. Clause 2: unlimited liability [HIGH RISK]. OVERALL RISK SCORE: 7/10. TOP 3 RECOMMENDATIONS: ...",
+            },
+            {
+              role: "user",
+              content:
+                "[Document: agreement.pdf]\n\nHow risky is clause 2 for me?",
+            },
+          ],
+        }),
+      }) as unknown as NextRequest,
+    );
+    await readSse(res);
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    const systemPrompt = String(body.messages[0].content);
+    const lastUser = [...body.messages]
+      .reverse()
+      .find((m: { role: string }) => m.role === "user");
+
+    expect(systemPrompt).toMatch(/Conversation Mode — Answer What Was Asked/i);
+    expect(systemPrompt).toMatch(/full structured review described below/i);
+    expect(lastUser.content).toMatch(/document review has already been provided/i);
+    expect(lastUser.content).toMatch(/do NOT repeat the full clause-by-clause review/i);
   });
 });
 

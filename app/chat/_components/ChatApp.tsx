@@ -34,6 +34,7 @@ import { RemindersModal } from "./RemindersModal";
 import { TemplatesModal, FilingModal } from "./ToolsModals";
 import { formatCitation, copyToClipboard } from "@/lib/citations";
 import { isTrustedLegalSource } from "@/lib/legal-sources";
+import { isDraftDocument } from "@/lib/draft-document";
 import {
   isGrillAdvice,
   parseContent,
@@ -2787,6 +2788,12 @@ export default function ChatApp({
           const lastMsg = conv.messages[conv.messages.length - 1];
           if (!lastMsg || lastMsg.role !== "assistant") return prev;
           if (!isGrillAdvice(lastMsg.content)) return prev;
+          // A follow-up turn must never create a second saved case for the
+          // same matter. Only the first advice turn does that.
+          const adviceAlreadySaved = conv.messages
+            .slice(0, -1)
+            .some((m) => m.role === "assistant" && isGrillAdvice(m.content));
+          if (adviceAlreadySaved) return prev;
 
           // Keep the marker in the conversation so the advice keeps its rich
           // layout after a reload, and so the next turn knows the advice was
@@ -4513,15 +4520,32 @@ export default function ChatApp({
         >
           {active && active.messages.length > 0 ? (
             <ul className="mx-auto flex max-w-3xl flex-col gap-6">
-              {active.messages.map((message) => {
+              {active.messages.map((message, messageIndex) => {
                 const isGrillAssistant =
                   message.role === "assistant" &&
                   (message.type ?? active?.type) === "grill";
+                // After the first five-part advice, AI Lawyer answers are an
+                // ordinary follow-up conversation. They must not be parsed as
+                // another intake question or another full advice turn.
+                const adviceAlreadyGiven =
+                  isGrillAssistant &&
+                  active.messages
+                    .slice(0, messageIndex)
+                    .some(
+                      (m) => m.role === "assistant" && isGrillAdvice(m.content),
+                    );
                 const grillAdvice = isGrillAdvice(message.content);
                 const grillIntake =
-                  isGrillAssistant && !grillAdvice
+                  isGrillAssistant && !grillAdvice && !adviceAlreadyGiven
                     ? parseGrillIntake(message.content)
                     : null;
+                const cleanedMessage = stripThinkingTokens(
+                  message.content,
+                ).replace(/\[ADVICE_COMPLETE\]/g, "");
+                const isDraftAssistantDocument =
+                  message.role === "assistant" &&
+                  (message.type ?? active?.type) === "draft" &&
+                  isDraftDocument(cleanedMessage);
 
                 if (
                   isThinking &&
@@ -4627,11 +4651,10 @@ export default function ChatApp({
                       ) : (
                         <div className="flex flex-col gap-2">
                           {(() => {
-                            const msgType = message.type ?? active?.type;
                             const cleaned = stripThinkingTokens(
                               message.content,
                             ).replace(/\[ADVICE_COMPLETE\]/g, "");
-                            if (msgType === "draft" && cleaned.trim()) {
+                            if (isDraftAssistantDocument && cleaned.trim()) {
                               return (
                                 <div className="w-full overflow-x-auto">
                                   <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-white/90">
@@ -4844,8 +4867,9 @@ export default function ChatApp({
                             </div>
                           )}
                           {((message.type ?? active?.type) === "review" ||
-                            (message.type ?? active?.type) === "draft" ||
-                            isGrillAdvice(message.content)) && (
+                            isDraftAssistantDocument ||
+                            isGrillAdvice(message.content) ||
+                            adviceAlreadyGiven) && (
                             <p className="mt-2 text-xs italic text-white/40 border-t border-white/10 pt-3">
                               This is an AI-generated analysis for reference
                               purposes. Please consult a practicing lawyer
