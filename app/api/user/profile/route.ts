@@ -38,6 +38,13 @@ export async function PUT(request: NextRequest) {
         );
       }
 
+      if (!s3Client || !S3_BUCKET) {
+        return NextResponse.json(
+          { error: "Storage service not configured" },
+          { status: 503 },
+        );
+      }
+
       const extMap: Record<string, string> = {
         "image/png": "png",
         "image/jpeg": "jpg",

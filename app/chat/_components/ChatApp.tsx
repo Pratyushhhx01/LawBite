@@ -3941,20 +3941,8 @@ export default function ChatApp({
   return (
     <div
       className="relative flex h-screen w-full overflow-hidden bg-black text-white"
-      onMouseMove={(event) => {
-        // Hovering the left edge reveals the drawer. A short grace close keeps
-        // it from staying open if the pointer never reaches the panel (for
-        // example when a modal is covering it). The top strip is left to the
-        // hamburger button so the two entry points do not fight each other.
-        if (sidebarOpen || event.clientX > 16 || event.clientY < 72) return;
-        if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
-          return;
-        }
-        cancelSidebarClose();
-        setSidebarOpen(true);
-        scheduleSidebarClose(1200);
-      }}
     >
+      {/* Mobile backdrop */}
       <div
         aria-hidden
         className={`fixed inset-0 z-30 bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
@@ -3963,29 +3951,44 @@ export default function ChatApp({
         onClick={() => setSidebarOpen(false)}
       />
 
+      {/* Persistent Icon Rail on Desktop (w-16), Expanding to Drawer (w-64) on Hover/Open. Full slide-over drawer on Mobile */}
       <aside
         id="chat-sidebar"
-        aria-hidden={!sidebarOpen}
-        inert={!sidebarOpen}
-        onMouseEnter={cancelSidebarClose}
-        onMouseLeave={() => scheduleSidebarClose()}
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/10 bg-black shadow-2xl transition-transform duration-300 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        aria-label="Sidebar navigation"
+        onMouseEnter={() => {
+          cancelSidebarClose();
+          setSidebarOpen(true);
+        }}
+        onMouseLeave={() => scheduleSidebarClose(150)}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-white/10 bg-black shadow-2xl transition-[width,transform] duration-300 ease-in-out md:translate-x-0 ${
+          sidebarOpen
+            ? "w-64 translate-x-0 shadow-[0_0_30px_rgba(0,0,0,0.8)]"
+            : "w-64 -translate-x-full md:w-16 md:translate-x-0"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        {/* Brand Header */}
+        <div className="flex h-16 items-center justify-between border-b border-white/10 px-3.5 sm:px-4">
           <Link
             href="/"
             aria-label="Lawbite home"
-            className="inline-flex items-center gap-2 text-sm font-semibold tracking-tight"
+            className="flex items-center gap-3 overflow-hidden text-sm font-semibold tracking-tight"
           >
-            <LogoIcon className="h-6 w-6" />
-            <span>Lawbite</span>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+              <LogoIcon className="h-6 w-6 shrink-0" />
+            </div>
+            <span
+              className={`whitespace-nowrap transition-opacity duration-200 ${
+                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              }`}
+            >
+              Lawbite
+            </span>
           </Link>
+          {/* Mobile close button */}
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="rounded-full p-1.5 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+            className="rounded-full p-1.5 text-white/60 transition-colors hover:bg-white/5 hover:text-white md:hidden"
             aria-label="Close sidebar"
           >
             <svg
@@ -4003,154 +4006,215 @@ export default function ChatApp({
           </button>
         </div>
 
-        <div className="px-4 pt-4 space-y-2">
+        {/* Primary Action Buttons */}
+        <div className="space-y-2 p-2.5">
           <button
             type="button"
             onClick={() => {
               setSidebarOpen(false);
               startNewChat();
             }}
-            className="group flex w-full items-center gap-2 rounded-full border border-white/15 bg-white px-4 py-2 text-sm font-medium text-black transition-transform duration-300 hover:scale-[1.01]"
+            title="New chat"
+            className="group flex h-11 w-full items-center rounded-xl border border-white/15 bg-white text-black transition-all duration-200 hover:bg-white/90 active:scale-[0.98] md:h-10"
           >
-            <svg
-              aria-hidden
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            <div className="flex h-10 w-11 shrink-0 items-center justify-center md:w-11">
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </div>
+            <span
+              className={`whitespace-nowrap pr-3 text-sm font-medium transition-opacity duration-200 ${
+                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              }`}
             >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            <span>New chat</span>
+              New chat
+            </span>
           </button>
+
           <button
             type="button"
             onClick={() => {
               setSidebarOpen(false);
               setMyCasesOpen(true);
             }}
-            className="flex w-full items-center gap-2 rounded-full border border-white/15 bg-white px-4 py-2 text-sm font-medium text-black transition-transform duration-300 hover:scale-[1.01]"
+            title="AI Lawyer"
+            className="flex h-11 w-full items-center rounded-xl border border-white/10 bg-white/5 text-white transition-all duration-200 hover:border-white/20 hover:bg-white/10 active:scale-[0.98] md:h-10"
           >
-            <svg
-              aria-hidden
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            <div className="flex h-10 w-11 shrink-0 items-center justify-center md:w-11">
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <span
+              className={`whitespace-nowrap pr-3 text-sm font-medium transition-opacity duration-200 ${
+                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              }`}
             >
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-            </svg>
-            <span>AI Lawyer</span>
+              AI Lawyer
+            </span>
           </button>
         </div>
 
-        <div className="mx-4 my-3 border-t border-white/10" />
+        <div className="mx-3 my-2 border-t border-white/10" />
 
-        <div className="px-4 space-y-1">
+        {/* Navigation Items */}
+        <div className="flex-1 space-y-1 overflow-y-auto px-2.5">
           <button
             type="button"
             onClick={() => {
               setSidebarOpen(false);
               setHistoryOpen(true);
             }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium tracking-wide text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
+            title="History"
+            className="flex h-10 w-full items-center rounded-lg text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white"
           >
-            <svg
-              aria-hidden
-              viewBox="0 0 24 24"
-              className="h-4 w-4 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            <div className="flex h-10 w-11 shrink-0 items-center justify-center">
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-4 w-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </div>
+            <span
+              className={`whitespace-nowrap pr-3 text-[13px] font-medium tracking-wide transition-opacity duration-200 ${
+                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              }`}
             >
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <span>History</span>
+              History
+            </span>
           </button>
+
           <button
             type="button"
             onClick={() => {
               setSidebarOpen(false);
               setCalculatorOpen(true);
             }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium tracking-wide text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
+            title="Calculators"
+            className="flex h-10 w-full items-center rounded-lg text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white"
           >
-            <svg
-              aria-hidden
-              viewBox="0 0 24 24"
-              className="h-4 w-4 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            <div className="flex h-10 w-11 shrink-0 items-center justify-center">
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-4 w-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="4" y="2" width="16" height="20" rx="2" />
+                <line x1="8" y1="6" x2="16" y2="6" />
+                <line x1="8" y1="10" x2="10" y2="10" />
+                <line x1="14" y1="10" x2="16" y2="10" />
+                <line x1="8" y1="14" x2="10" y2="14" />
+                <line x1="14" y1="14" x2="16" y2="14" />
+                <line x1="8" y1="18" x2="16" y2="18" />
+              </svg>
+            </div>
+            <span
+              className={`whitespace-nowrap pr-3 text-[13px] font-medium tracking-wide transition-opacity duration-200 ${
+                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              }`}
             >
-              <rect x="4" y="2" width="16" height="20" rx="2" />
-              <line x1="8" y1="6" x2="16" y2="6" />
-              <line x1="8" y1="10" x2="10" y2="10" />
-              <line x1="14" y1="10" x2="16" y2="10" />
-              <line x1="8" y1="14" x2="10" y2="14" />
-              <line x1="14" y1="14" x2="16" y2="14" />
-              <line x1="8" y1="18" x2="16" y2="18" />
-            </svg>
-            <span>Calculators</span>
+              Calculators
+            </span>
           </button>
+
           <button
             type="button"
             onClick={() => {
               setSidebarOpen(false);
               setRemindersOpen(true);
             }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium tracking-wide text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
+            title="Reminders"
+            className="flex h-10 w-full items-center rounded-lg text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white"
           >
-            <svg
-              aria-hidden
-              viewBox="0 0 24 24"
-              className="h-4 w-4 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            <div className="flex h-10 w-11 shrink-0 items-center justify-center">
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-4 w-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </div>
+            <span
+              className={`whitespace-nowrap pr-3 text-[13px] font-medium tracking-wide transition-opacity duration-200 ${
+                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              }`}
             >
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <span>Reminders</span>
+              Reminders
+            </span>
           </button>
         </div>
 
-        <div className="mt-auto border-t border-white/10 px-4 py-3">
+        {/* User Footer */}
+        <div className="mt-auto border-t border-white/10 p-2.5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              {user.image ? (
-                <Image
-                  src={user.image}
-                  alt=""
-                  width={28}
-                  height={28}
-                  unoptimized
-                  className="h-7 w-7 shrink-0 rounded-full border border-white/15 object-cover"
-                />
-              ) : (
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xs text-white/60">
-                  {(user.name || user.email || "U").charAt(0).toUpperCase()}
-                </div>
-              )}
-              <span className="truncate text-xs text-white/50">
+            <div className="flex items-center min-w-0">
+              <div className="flex h-10 w-11 shrink-0 items-center justify-center">
+                {user.image ? (
+                  <Image
+                    src={user.image}
+                    alt=""
+                    width={28}
+                    height={28}
+                    unoptimized
+                    className="h-7 w-7 rounded-full border border-white/15 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xs text-white/60">
+                    {(user.name || user.email || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <span
+                className={`truncate text-xs text-white/50 transition-opacity duration-200 ${
+                  sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+                }`}
+              >
                 {user.name || user.email}
               </span>
             </div>
-            <div className="flex items-center gap-1">
+            <div
+              className={`flex items-center gap-1 transition-opacity duration-200 ${
+                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => {
@@ -4202,10 +4266,10 @@ export default function ChatApp({
       </aside>
 
       <main
-        className={`flex min-w-0 flex-1 flex-col ${mode === "analysis" || mode === "talk-to-ai" || mode === "grill" ? "bg-black/80" : ""}`}
+        className={`flex min-w-0 flex-1 flex-col md:pl-16 ${mode === "analysis" || mode === "talk-to-ai" || mode === "grill" ? "bg-black/80" : ""}`}
       >
         <header
-          className={`flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-8 ${mode === "analysis" || mode === "talk-to-ai" || mode === "grill" ? "bg-black/50" : ""}`}
+          className={`flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-5 sm:px-8 ${mode === "analysis" || mode === "talk-to-ai" || mode === "grill" ? "bg-black/50" : ""}`}
         >
           <div className="flex min-w-0 items-center gap-3">
             {mode === "grill" && (
@@ -4235,7 +4299,7 @@ export default function ChatApp({
                 cancelSidebarClose();
                 setSidebarOpen(true);
               }}
-              className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+              className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/5 hover:text-white md:hidden"
               aria-label="Open sidebar"
               aria-expanded={sidebarOpen}
               aria-controls="chat-sidebar"

@@ -1,45 +1,24 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { readFile } from "fs/promises";
 import { join } from "path";
-import https from "https";
+import { lookupSectionExact, searchLegalChunksText } from "./legal-kb-db";
 
-const AWS_REGION = process.env.AWS_REGION || "ap-south-1";
-const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
-const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+/**
+ * Legal Knowledge Base Access Layer
+ *
+ * Provides high-speed retrieval of Indian statutes, sections, and references.
+ * Resolves seamlessly from PostgreSQL (via legal_chunks / pgvector) with
+ * local filesystem and in-memory cache fallbacks.
+ */
+
+const KB_ROOT = join(process.cwd(), "knowledge-base");
 
 export const S3_BUCKET = process.env.S3_BUCKET_NAME || "lawbite-app-storage";
+export const s3Client: { send: (command: unknown) => Promise<unknown> } | null = null;
 
-const httpAgent = new https.Agent({
-  keepAlive: true,
-  maxSockets: 20,
-  keepAliveMsecs: 30000,
-});
-
-export const s3Client = new S3Client({
-  region: AWS_REGION,
-  ...(AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY
-    ? {
-        credentials: {
-          accessKeyId: AWS_ACCESS_KEY_ID,
-          secretAccessKey: AWS_SECRET_ACCESS_KEY,
-        },
-      }
-    : {}),
-  requestHandler: new NodeHttpHandler({
-    requestTimeout: 10000,
-    connectionTimeout: 5000,
-    httpAgent,
-  }),
-});
-
-const s3 = s3Client;
-const BUCKET = S3_BUCKET;
-
-// ─── LRU-ish cache (Map with max size, oldest entries evicted first) ───
-const CACHE_MAX = 200;
+// In-memory LRU cache
+const CACHE_MAX = 500;
 const cache = new Map<string, { data: unknown; ts: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 function cacheGet<T>(key: string): T | null {
   const entry = cache.get(key);
@@ -59,130 +38,40 @@ function cacheSet(key: string, data: unknown): void {
   cache.set(key, { data, ts: Date.now() });
 }
 
-function localPathForKey(key: string): string {
-  const localRoot = key.startsWith("bare-acts/") ? "kb-build" : "kb-data";
-  return join(/* turbopackIgnore: true */ process.cwd(), localRoot, key);
-}
-
-async function readLocalFile(key: string): Promise<string | null> {
+async function readKbFile(relativePath: string): Promise<string | null> {
   try {
-    return await readFile(localPathForKey(key), "utf8");
+    const fullPath = join(KB_ROOT, relativePath);
+    return await readFile(fullPath, "utf8");
   } catch {
     return null;
   }
-}
-
-/**
- * Log only the AWS error class and HTTP status. Error messages from the SDK can
- * include credential identifiers, so they are deliberately not logged.
- */
-function logS3Failure(key: string, error: unknown): void {
-  const name = error instanceof Error ? error.name : "UnknownError";
-  const status = (error as { $metadata?: { httpStatusCode?: number } })
-    ?.$metadata?.httpStatusCode;
-  console.warn(
-    `[s3] ${key} unavailable: ${name}${status ? ` (HTTP ${status})` : ""}`,
-  );
 }
 
 async function getJson<T>(key: string): Promise<T | null> {
   const cached = cacheGet<T>(key);
   if (cached !== null) return cached;
 
+  const content = await readKbFile(key);
+  if (!content) return null;
+
   try {
-    const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
-    const res = await s3.send(cmd);
-    const body = await res.Body?.transformToString();
-    const parsed = body ? (JSON.parse(body) as T) : null;
-    if (parsed !== null) cacheSet(key, parsed);
+    const parsed = JSON.parse(content) as T;
+    cacheSet(key, parsed);
     return parsed;
-  } catch (error) {
-    const local = await readLocalFile(key);
-    if (local) {
-      const parsed = JSON.parse(local) as T;
-      cacheSet(key, parsed);
-      return parsed;
-    }
-    logS3Failure(key, error);
+  } catch {
     return null;
   }
 }
 
 async function getText(key: string): Promise<string | null> {
-  // Text keys are the large ones (`full.txt` per act, the full-text index), so
-  // skipping the cache here meant re-downloading an entire bare act on every
-  // single request — seconds of latency on the critical path before the model
-  // is even called.
   const cached = cacheGet<string>(key);
   if (cached !== null) return cached;
 
-  try {
-    const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
-    const res = await s3.send(cmd);
-    const text = (await res.Body?.transformToString()) || null;
-    if (text !== null) cacheSet(key, text);
-    return text;
-  } catch (error) {
-    const local = await readLocalFile(key);
-    if (local !== null) cacheSet(key, local);
-    if (local === null) logS3Failure(key, error);
-    return local;
+  const content = await readKbFile(key);
+  if (content !== null) {
+    cacheSet(key, content);
   }
-}
-
-/** Extract a specific section from an act's full.txt by section number */
-async function getSectionFromFullText(
-  actName: string,
-  section: string,
-): Promise<{ section: string; title: string; text: string } | null> {
-  const full = await getText(`bare-acts/${actName}/full.txt`);
-  if (!full) return null;
-  const secIndex = await getJson<Array<{ section: string; title: string }>>(
-    `bare-acts/${actName}/_sections.json`,
-  );
-  if (!secIndex) return null;
-  const entry = secIndex.find((s) => s.section === section);
-  if (!entry) return null;
-  const lines = full.split("\n");
-  const numPart = section.replace(/[A-Za-z]/g, "");
-
-  let startIdx = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    const searchStr = `${section}.`;
-    const idx = trimmed.indexOf(searchStr);
-    if (idx === -1) continue;
-    if (idx > 0 && /\d/.test(trimmed[idx - 1])) continue;
-    const after = trimmed.substring(
-      idx + searchStr.length,
-      idx + searchStr.length + 1,
-    );
-    if (after.match(/\s|\(|\[|[A-Z]/)) {
-      startIdx = i;
-      break;
-    }
-  }
-  if (startIdx === -1) return null;
-
-  let endIdx = lines.length;
-  for (let i = startIdx + 1; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    const nextMatch = trimmed.match(/^(\d+[A-Za-z]?)\s*\.(?:\s|\(|[A-Z])/m);
-    if (nextMatch) {
-      const nextN = nextMatch[1].replace(/[A-Za-z]/g, "");
-      if (
-        nextN !== "" &&
-        parseInt(nextN) > parseInt(numPart) &&
-        nextMatch[1] !== section
-      ) {
-        endIdx = i;
-        break;
-      }
-    }
-  }
-
-  const text = lines.slice(startIdx, endIdx).join("\n").trim();
-  return text ? { section, title: entry.title, text } : null;
+  return content;
 }
 
 export const s3kb = {
@@ -191,13 +80,37 @@ export const s3kb = {
     return getJson<Record<string, any>>(`bare-acts/${actName}/index.json`);
   },
   async getSection(actName: string, section: string) {
+    const cacheKey = `sec:${actName}:${section}`;
+    const cached = cacheGet<{ section: string; title: string; text: string }>(cacheKey);
+    if (cached) return cached;
+
+    // 1. Query PostgreSQL legal_chunks
+    try {
+      const dbChunk = await lookupSectionExact(actName, section);
+      if (dbChunk) {
+        const item = {
+          section: section,
+          title: dbChunk.title,
+          text: dbChunk.content,
+        };
+        cacheSet(cacheKey, item);
+        return item;
+      }
+    } catch {
+      /* Fallback to local files if database lookup fails */
+    }
+
+    // 2. Query local files
     const direct = await getJson<{
       section: string;
       title: string;
       text: string;
     } | null>(`bare-acts/${actName}/sections/${section}.json`);
-    if (direct) return direct;
-    return getSectionFromFullText(actName, section);
+    if (direct) {
+      cacheSet(cacheKey, direct);
+      return direct;
+    }
+    return null;
   },
   getFullTextIndex() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -208,12 +121,27 @@ export const s3kb = {
       `bare-acts/${actName}/_sections.json`,
     );
   },
-  /** Search across all acts in PARALLEL (was sequential before) */
   async searchActs(
     query: string,
   ): Promise<
     Array<{ act: string; section: string; title: string; text: string }>
   > {
+    // 1. Query PostgreSQL legal_chunks
+    try {
+      const dbResults = await searchLegalChunksText(query, 10);
+      if (dbResults.length > 0) {
+        return dbResults.map((r) => ({
+          act: r.act_id,
+          section: r.provision.replace(/^Section\s+/i, ""),
+          title: r.title,
+          text: r.content,
+        }));
+      }
+    } catch {
+      /* Fallback to local index if DB fails */
+    }
+
+    // 2. Fallback to local files
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const raw = await getJson<any[]>("bare-acts/_index.json");
     if (!raw) return [];
@@ -223,9 +151,6 @@ export const s3kb = {
     );
 
     const lower = query.toLowerCase();
-
-    // Fetch all section lists in parallel (batched to avoid too many concurrent requests)
-    const BATCH_SIZE = 20;
     const results: Array<{
       act: string;
       section: string;
@@ -233,28 +158,19 @@ export const s3kb = {
       text: string;
     }> = [];
 
-    for (let i = 0; i < acts.length; i += BATCH_SIZE) {
-      const batch = acts.slice(i, i + BATCH_SIZE);
-      const sectionLists = await Promise.all(
-        batch.map((actId) =>
-          getJson<Array<{ section: string; title: string }>>(
-            `bare-acts/${actId}/_sections.json`,
-          ),
-        ),
-      );
-
-      for (let j = 0; j < batch.length; j++) {
-        const sections = sectionLists[j];
-        if (!sections) continue;
-        for (const s of sections) {
-          if (s.title && s.title.toLowerCase().includes(lower)) {
-            results.push({
-              act: batch[j],
-              section: s.section,
-              title: s.title,
-              text: "",
-            });
-          }
+    for (const actId of acts) {
+      const sections = await getJson<
+        Array<{ section: string; title: string }>
+      >(`bare-acts/${actId}/_sections.json`);
+      if (!sections) continue;
+      for (const s of sections) {
+        if (s.title && s.title.toLowerCase().includes(lower)) {
+          results.push({
+            act: actId,
+            section: s.section,
+            title: s.title,
+            text: "",
+          });
         }
       }
     }
