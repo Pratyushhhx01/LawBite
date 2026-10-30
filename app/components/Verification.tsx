@@ -69,15 +69,18 @@ export default function Verification() {
                       <span className="relative z-10 inline-flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black text-sm font-mono text-white/80 transition-all duration-500 group-hover:scale-105 group-hover:border-white/40 group-hover:text-white">
                         {step.number}
                       </span>
-
-                      {/* Glowing vertical connector line on hover */}
-                      {i < steps.length - 1 && (
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute left-1/2 top-14 hidden h-10 w-px -translate-x-1/2 origin-top scale-y-0 bg-gradient-to-b from-white/90 via-white/50 to-white/0 shadow-[0_0_8px_rgba(255,255,255,0.7)] transition-transform duration-700 group-hover:scale-y-100 sm:block"
-                        />
-                      )}
                     </div>
+
+                    {/* Glowing connector: spans most of the gap to the next
+                        badge, but stops short of both circles. The li height
+                        adapts to the description, so every connector keeps the
+                        same visual proportion instead of a fixed short dash. */}
+                    {i < steps.length - 1 && (
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute left-7 top-[3.625rem] -bottom-[2.375rem] z-0 hidden w-px -translate-x-1/2 origin-top scale-y-0 bg-gradient-to-b from-white/90 via-white/50 to-white/0 shadow-[0_0_8px_rgba(255,255,255,0.7)] transition-transform duration-700 group-hover:scale-y-100 sm:block"
+                      />
+                    )}
 
                     <div className="pt-2">
                       <h3 className="text-base font-medium text-white sm:text-lg">
