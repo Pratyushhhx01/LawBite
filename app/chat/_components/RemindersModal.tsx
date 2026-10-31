@@ -52,9 +52,46 @@ function statusLabel(days: number): string {
   return `${days} days left`;
 }
 
-export function RemindersModal({ onClose }: { onClose: () => void }) {
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+const CACHE_KEY = "lawbite-reminders-cache";
+
+function getCachedReminders(): Reminder[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedReminders(reminders: Reminder[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(reminders));
+  } catch {
+    /* ignore storage quota limits */
+  }
+}
+
+export function RemindersModal({
+  onClose,
+  initialReminders,
+  onRemindersChange,
+}: {
+  onClose: () => void;
+  initialReminders?: Reminder[];
+  onRemindersChange?: (reminders: Reminder[]) => void;
+}) {
+  const [reminders, setReminders] = useState<Reminder[]>(() => {
+    if (initialReminders && initialReminders.length > 0) return initialReminders;
+    const cached = getCachedReminders();
+    return cached ?? [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (initialReminders && initialReminders.length > 0) return false;
+    const cached = getCachedReminders();
+    return !cached || cached.length === 0;
+  });
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [deadlineAt, setDeadlineAt] = useState("");
@@ -66,8 +103,10 @@ export function RemindersModal({ onClose }: { onClose: () => void }) {
       try {
         const res = await fetch("/api/reminders");
         if (res.ok && !cancelled) {
-          const data = await res.json();
+          const data: Reminder[] = await res.json();
           setReminders(data);
+          setCachedReminders(data);
+          onRemindersChange?.(data);
         }
       } catch {
         /* ignore */
@@ -77,7 +116,7 @@ export function RemindersModal({ onClose }: { onClose: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [onRemindersChange]);
 
   async function addReminder(e: React.FormEvent) {
     e.preventDefault();
@@ -90,13 +129,16 @@ export function RemindersModal({ onClose }: { onClose: () => void }) {
       });
       if (res.ok) {
         const newReminder = await res.json();
-        setReminders((prev) =>
-          [...prev, newReminder].sort(
+        setReminders((prev) => {
+          const updated = [...prev, newReminder].sort(
             (a, b) =>
               new Date(a.deadlineAt).getTime() -
               new Date(b.deadlineAt).getTime(),
-          ),
-        );
+          );
+          setCachedReminders(updated);
+          onRemindersChange?.(updated);
+          return updated;
+        });
         setTitle("");
         setDeadlineAt("");
         setType("other");
@@ -114,9 +156,14 @@ export function RemindersModal({ onClose }: { onClose: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, completed: !completed }),
       });
-      setReminders((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, completed: !completed } : r)),
-      );
+      setReminders((prev) => {
+        const updated = prev.map((r) =>
+          r.id === id ? { ...r, completed: !completed } : r,
+        );
+        setCachedReminders(updated);
+        onRemindersChange?.(updated);
+        return updated;
+      });
     } catch {
       /* ignore */
     }
@@ -125,7 +172,12 @@ export function RemindersModal({ onClose }: { onClose: () => void }) {
   async function deleteReminder(id: string) {
     try {
       await fetch(`/api/reminders?id=${id}`, { method: "DELETE" });
-      setReminders((prev) => prev.filter((r) => r.id !== id));
+      setReminders((prev) => {
+        const updated = prev.filter((r) => r.id !== id);
+        setCachedReminders(updated);
+        onRemindersChange?.(updated);
+        return updated;
+      });
     } catch {
       /* ignore */
     }

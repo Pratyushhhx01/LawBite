@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Fragment,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -941,6 +942,24 @@ export default function ChatApp({
     if (typeof window === "undefined") return [];
     try {
       const stored = localStorage.getItem("lawbite-dismissed-notifications");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [allReminders, setAllReminders] = useState<
+    {
+      id: string;
+      title: string;
+      deadlineAt: string;
+      type: string;
+      completed: boolean;
+      createdAt: string;
+    }[]
+  >(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem("lawbite-reminders-cache");
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -3891,49 +3910,81 @@ export default function ChatApp({
     return 7;
   }
 
+  const computeUpcoming = useCallback(
+    (
+      reminders: {
+        id: string;
+        title: string;
+        deadlineAt: string;
+        type: string;
+        completed: boolean;
+      }[],
+      dismissed: { id: string; threshold: number }[],
+    ) => {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      return reminders
+        .filter((r) => {
+          if (r.completed) return false;
+          const deadline = new Date(r.deadlineAt);
+          deadline.setHours(0, 0, 0, 0);
+          const days = Math.round(
+            (deadline.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+          );
+          return days >= 0 && days <= 7;
+        })
+        .map((r) => {
+          const deadline = new Date(r.deadlineAt);
+          deadline.setHours(0, 0, 0, 0);
+          const days = Math.round(
+            (deadline.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+          );
+          return { ...r, daysLeft: days };
+        })
+        .filter((r) => {
+          const threshold = getNotificationThreshold(r.daysLeft);
+          return !dismissed.some(
+            (d) => d.id === r.id && d.threshold === threshold,
+          );
+        })
+        .sort((a, b) => a.daysLeft - b.daysLeft);
+    },
+    [],
+  );
+
+  const handleRemindersUpdate = useCallback(
+    (
+      reminders: {
+        id: string;
+        title: string;
+        deadlineAt: string;
+        type: string;
+        completed: boolean;
+        createdAt: string;
+      }[],
+    ) => {
+      setAllReminders(reminders);
+      setUpcomingReminders(computeUpcoming(reminders, dismissedNotifications));
+    },
+    [computeUpcoming, dismissedNotifications],
+  );
+
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/reminders", { credentials: "include" });
         if (res.ok) {
           const reminders = await res.json();
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-          const upcoming = reminders
-            .filter((r: { completed: boolean; deadlineAt: string }) => {
-              if (r.completed) return false;
-              const deadline = new Date(r.deadlineAt);
-              deadline.setHours(0, 0, 0, 0);
-              const days = Math.round(
-                (deadline.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
-              );
-              return days >= 0 && days <= 7;
-            })
-            .map(
-              (r: {
-                id: string;
-                title: string;
-                deadlineAt: string;
-                type: string;
-              }) => {
-                const deadline = new Date(r.deadlineAt);
-                deadline.setHours(0, 0, 0, 0);
-                const days = Math.round(
-                  (deadline.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
-                );
-                return { ...r, daysLeft: days };
-              },
-            )
-            .filter((r: { id: string; daysLeft: number }) => {
-              const threshold = getNotificationThreshold(r.daysLeft);
-              return !dismissedNotifications.some(
-                (d) => d.id === r.id && d.threshold === threshold,
-              );
-            })
-            .sort(
-              (a: { daysLeft: number }, b: { daysLeft: number }) =>
-                a.daysLeft - b.daysLeft,
+          setAllReminders(reminders);
+          try {
+            localStorage.setItem(
+              "lawbite-reminders-cache",
+              JSON.stringify(reminders),
             );
+          } catch {
+            /* ignore */
+          }
+          const upcoming = computeUpcoming(reminders, dismissedNotifications);
           setUpcomingReminders(upcoming);
           if (upcoming.length > 0) {
             setBellShake(true);
@@ -3944,7 +3995,7 @@ export default function ChatApp({
         /* ignore */
       }
     })();
-  }, [dismissedNotifications]);
+  }, [computeUpcoming, dismissedNotifications]);
 
   useEffect(() => {
     if (!notificationsOpen) return;
@@ -8489,7 +8540,11 @@ export default function ChatApp({
       )}
 
       {remindersOpen && (
-        <RemindersModal onClose={() => setRemindersOpen(false)} />
+        <RemindersModal
+          initialReminders={allReminders}
+          onRemindersChange={handleRemindersUpdate}
+          onClose={() => setRemindersOpen(false)}
+        />
       )}
 
       {settingsOpen && (
