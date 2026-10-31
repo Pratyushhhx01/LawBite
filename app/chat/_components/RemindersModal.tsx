@@ -149,38 +149,40 @@ export function RemindersModal({
     }
   }
 
-  async function toggleComplete(id: string, completed: boolean) {
-    try {
-      await fetch("/api/reminders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, completed: !completed }),
-      });
-      setReminders((prev) => {
-        const updated = prev.map((r) =>
-          r.id === id ? { ...r, completed: !completed } : r,
-        );
-        setCachedReminders(updated);
-        onRemindersChange?.(updated);
-        return updated;
-      });
-    } catch {
-      /* ignore */
-    }
+  function deleteReminder(id: string) {
+    // Optimistic update: remove immediately from UI and local storage for 0ms lag
+    setReminders((prev) => {
+      const updated = prev.filter((r) => r.id !== id);
+      setCachedReminders(updated);
+      onRemindersChange?.(updated);
+      return updated;
+    });
+
+    // Fire network request in background
+    fetch(`/api/reminders?id=${id}`, { method: "DELETE" }).catch(() => {
+      /* ignore background network errors */
+    });
   }
 
-  async function deleteReminder(id: string) {
-    try {
-      await fetch(`/api/reminders?id=${id}`, { method: "DELETE" });
-      setReminders((prev) => {
-        const updated = prev.filter((r) => r.id !== id);
-        setCachedReminders(updated);
-        onRemindersChange?.(updated);
-        return updated;
-      });
-    } catch {
-      /* ignore */
-    }
+  function toggleComplete(id: string, completed: boolean) {
+    // Optimistic update: update immediately on click
+    setReminders((prev) => {
+      const updated = prev.map((r) =>
+        r.id === id ? { ...r, completed: !completed } : r,
+      );
+      setCachedReminders(updated);
+      onRemindersChange?.(updated);
+      return updated;
+    });
+
+    // Fire network request in background
+    fetch("/api/reminders", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, completed: !completed }),
+    }).catch(() => {
+      /* ignore background network errors */
+    });
   }
 
   const active = reminders.filter((r) => !r.completed);
