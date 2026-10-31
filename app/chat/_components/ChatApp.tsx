@@ -1997,13 +1997,121 @@ export default function ChatApp({
     setFormData({});
   }
 
+  /**
+   * Serverless hosts (Vercel) reject request bodies over ~4.5MB before the route
+   * ever runs, and those responses are not JSON — which used to surface as the
+   * useless "Failed to process file" message. Keep uploads under the limit and
+   * always extract a readable error from whatever the server returned.
+   */
+  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+  const MAX_IMAGE_DIMENSION = 1600;
+  const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024;
+
+  function uploadSizeError(file: File): string | null {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      return `"${file.name}" is ${sizeMb} MB, which is over the ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB upload limit. Please compress it or upload a smaller file.`;
+    }
+    return null;
+  }
+
+  /**
+   * Downscale large photos before they are base64-encoded. A raw phone photo
+   * turns into a payload bigger than the chat endpoint accepts, so the upload
+   * would succeed but the first message would fail.
+   */
+  async function prepareFileForUpload(file: File): Promise<File> {
+    if (
+      !file.type.startsWith("image/") ||
+      file.type === "image/gif" ||
+      file.type === "image/svg+xml" ||
+      file.size <= MAX_IMAGE_BYTES
+    ) {
+      return file;
+    }
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(
+        1,
+        MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height),
+      );
+      const width = Math.max(1, Math.round(bitmap.width * scale));
+      const height = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        bitmap.close?.();
+        return file;
+      }
+      // JPEG has no alpha channel: fill white so transparent PNGs don't turn
+      // black when the photo is re-encoded.
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      bitmap.close?.();
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.85),
+      );
+      if (!blob || blob.size >= file.size) return file;
+      const baseName = file.name.replace(/\.[^.]+$/, "") || "image";
+      return new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
+    } catch {
+      // Unsupported image (e.g. HEIC): send the original and let the server
+      // decide instead of failing the whole upload here.
+      return file;
+    }
+  }
+
+  async function readUploadError(res: Response): Promise<string> {
+    const fallback = `Upload failed (HTTP ${res.status}). Please try again in a moment.`;
+    let raw = "";
+    try {
+      raw = await res.text();
+    } catch {
+      return fallback;
+    }
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return res.status === 413
+        ? "That file is too large to upload. Please use a file under 4 MB."
+        : fallback;
+    }
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        error?: unknown;
+        message?: unknown;
+      };
+      const message =
+        typeof parsed?.error === "string"
+          ? parsed.error
+          : typeof parsed?.message === "string"
+            ? parsed.message
+            : "";
+      if (message.trim()) return message.trim();
+    } catch {
+      // Not JSON (e.g. a platform error page) — fall through.
+    }
+    if (res.status === 413) {
+      return "That file is too large to upload. Please use a file under 4 MB.";
+    }
+    // Never surface a raw HTML error page to the user.
+    if (trimmed.startsWith("<")) return fallback;
+    return trimmed.slice(0, 200);
+  }
+
   async function handleReviewFileUpload(
     e: React.ChangeEvent<HTMLInputElement>,
   ) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const selected = e.target.files?.[0];
+    if (!selected) return;
     setReviewFileUploading(true);
     try {
+      const sizeError = uploadSizeError(selected);
+      if (sizeError) throw new Error(sizeError);
+      const file = await prepareFileForUpload(selected);
+
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/review", {
@@ -2012,8 +2120,7 @@ export default function ChatApp({
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || "Failed to process file");
+        throw new Error(await readUploadError(res));
       }
       const data = await res.json();
 
@@ -2043,8 +2150,9 @@ export default function ChatApp({
       setPendingAttachment(doc);
     } catch (err) {
       console.error("File upload error:", err);
-      const errorMsg =
-        err instanceof Error ? err.message : "Failed to process file";
+      const errorMsg = (
+        err instanceof Error ? err.message : "Failed to process file"
+      ).replace(/[.\s]+$/, "");
       const assistantId = newId("a");
       setConversations((prev) =>
         prev.map((c) =>
@@ -2087,10 +2195,14 @@ export default function ChatApp({
     e: React.ChangeEvent<HTMLInputElement>,
     closeMenu?: () => void,
   ) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const selected = e.target.files?.[0];
+    if (!selected) return;
     setFileUploading(true);
     try {
+      const sizeError = uploadSizeError(selected);
+      if (sizeError) throw new Error(sizeError);
+      const file = await prepareFileForUpload(selected);
+
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/review", {
@@ -2099,8 +2211,7 @@ export default function ChatApp({
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || "Failed to process file");
+        throw new Error(await readUploadError(res));
       }
       const data = await res.json();
       if (data.type === "image") {
@@ -2119,8 +2230,9 @@ export default function ChatApp({
       }
     } catch (err) {
       console.error("File upload error:", err);
-      const errorMsg =
-        err instanceof Error ? err.message : "Failed to process file";
+      const errorMsg = (
+        err instanceof Error ? err.message : "Failed to process file"
+      ).replace(/[.\s]+$/, "");
       const assistantId = newId("a");
       setConversations((prev) =>
         prev.map((c) =>

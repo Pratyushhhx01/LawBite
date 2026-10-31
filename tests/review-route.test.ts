@@ -10,6 +10,12 @@ vi.mock("@/lib/auth", () => ({
   },
 }));
 
+// The in-memory limiter is shared across tests in this file; disable it so the
+// assertions exercise parsing behaviour, not the 10-per-minute upload quota.
+vi.mock("@/lib/utils", () => ({
+  checkRateLimit: () => ({ allowed: true, retryAfterMs: 0 }),
+}));
+
 describe("POST /api/review file upload tests", () => {
   it("processes a standard image file (PNG with image/png MIME)", async () => {
     const formData = new FormData();
@@ -126,5 +132,138 @@ describe("POST /api/review file upload tests", () => {
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toContain("Unsupported file type");
+  });
+
+  it("tags PDF responses with type 'pdf' and strips page markers", async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    doc.text("Lease deed clause 4: rent escalation", 10, 10);
+    const arrayBuffer = doc.output("arraybuffer");
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new Blob([arrayBuffer], { type: "application/pdf" }),
+      "lease.pdf",
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/review", {
+      method: "POST",
+      body: formData,
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.type).toBe("pdf");
+    expect(json.text).toContain("rent escalation");
+    expect(json.text).not.toContain("-- 1 of 1 --");
+  });
+
+  it("processes a Word document", async () => {
+    const { Document, Packer, Paragraph, TextRun } = await import("docx");
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({
+              children: [new TextRun("EMPLOYMENT CONTRACT")],
+            }),
+            new Paragraph({
+              children: [new TextRun("Clause 2: Notice period is 60 days.")],
+            }),
+          ],
+        },
+      ],
+    });
+    const buffer = await Packer.toBuffer(doc);
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new Blob([new Uint8Array(buffer)], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      }),
+      "contract.docx",
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/review", {
+      method: "POST",
+      body: formData,
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.type).toBe("pdf");
+    expect(json.text).toContain("Notice period is 60 days");
+  });
+
+  it("rejects a legacy .doc file with clear guidance", async () => {
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new Blob(["legacy word bytes"], { type: "application/msword" }),
+      "old-contract.doc",
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/review", {
+      method: "POST",
+      body: formData,
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain(".docx");
+  });
+
+  it("rejects a scanned PDF that has no text layer with actionable guidance", async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    // 1x1 transparent PNG: a page with an image but no text layer.
+    doc.addImage(
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "PNG",
+      10,
+      10,
+      50,
+      50,
+    );
+    const arrayBuffer = doc.output("arraybuffer");
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new Blob([arrayBuffer], { type: "application/pdf" }),
+      "scan.pdf",
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/review", {
+      method: "POST",
+      body: formData,
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.error).toContain("No readable text was found");
+    expect(json.error).toContain("image");
+  });
+
+  it("reports a corrupt PDF as corrupt instead of a generic failure", async () => {
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new Blob(["%PDF-1.4 not really a pdf"], { type: "application/pdf" }),
+      "broken.pdf",
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/review", {
+      method: "POST",
+      body: formData,
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.error).toMatch(/corrupted|could not be read/i);
   });
 });

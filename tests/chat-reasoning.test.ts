@@ -223,7 +223,9 @@ describe("chat reasoning budget", () => {
     );
     await readSse(res);
 
-    expect(requests[0].body.model).toBe("meta/llama-3.2-11b-vision-instruct");
+    expect(requests[0].body.model).toBe(
+      "meta/llama-3.2-90b-vision-instruct",
+    );
     expect(requests[0].body.reasoning_effort).toBeUndefined();
     expect(requests[0].body.chat_template_kwargs).toBeUndefined();
   });

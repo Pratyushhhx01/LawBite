@@ -476,8 +476,10 @@ describe("vision-required requests", () => {
     );
 
     await readSse(res);
-    expect(calls[0].body.model).toBe("meta/llama-3.2-11b-vision-instruct");
-    expect(VISION_MODEL_ID).toBe("nvidia:meta/llama-3.2-11b-vision-instruct");
+    expect(calls[0].body.model).toBe("meta/llama-3.2-90b-vision-instruct");
+    expect(VISION_MODEL_ID).toBe(
+      "nvidia:meta/llama-3.2-90b-vision-instruct",
+    );
   });
 });
 

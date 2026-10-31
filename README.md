@@ -176,7 +176,8 @@ single-provider outage never takes the assistant down.
 | `nvidia/nemotron-3-super-120b-a12b`     | Primary NVIDIA fallback (fastest measured) |
 | `nvidia/nemotron-3.5-lightning-30b-a3b` | Second-line fallback                       |
 | `meta/muse-glimmer-30b`                 | Last-resort fallback                       |
-| `meta/llama-3.2-11b-vision-instruct`    | Vision model for document review           |
+| `meta/llama-3.2-90b-vision-instruct`    | Vision model for document review           |
+| `nvidia/nemotron-3.5-super-vl-120b-a12b` | Secondary vision model (failover)          |
 
 The order is deliberate: measured on this deployment, Nemotron Super returned
 its first token in roughly 3–5s, while Glimmer and Lightning could stall for

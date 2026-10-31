@@ -198,10 +198,10 @@ export const MODELS: ModelInfo[] = [
     reasoning: true,
   },
   {
-    id: "nvidia:meta/llama-3.2-11b-vision-instruct",
+    id: "nvidia:meta/llama-3.2-90b-vision-instruct",
     provider: "nvidia",
-    apiModel: "meta/llama-3.2-11b-vision-instruct",
-    label: "Llama 3.2 11B Vision (NVIDIA)",
+    apiModel: "meta/llama-3.2-90b-vision-instruct",
+    label: "Llama 3.2 90B Vision (NVIDIA)",
     shortLabel: "Llama 3.2 Vision",
     description:
       "NVIDIA NIM vision model used to review scanned documents and document images.",
@@ -210,10 +210,23 @@ export const MODELS: ModelInfo[] = [
     vision: true,
     reasoning: false,
   },
+  {
+    id: "nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b",
+    provider: "nvidia",
+    apiModel: "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    label: "Nemotron 3.5 VL 120B (NVIDIA)",
+    shortLabel: "Nemotron VL",
+    description:
+      "Secondary NVIDIA vision model, used when the primary vision model is unavailable.",
+    contextLength: 128_000,
+    maxOutput: 4_096,
+    vision: true,
+    reasoning: false,
+  },
 ];
 
 /** The vision model always handles document review, regardless of the requested model. */
-export const VISION_MODEL_ID = "nvidia:meta/llama-3.2-11b-vision-instruct";
+export const VISION_MODEL_ID = "nvidia:meta/llama-3.2-90b-vision-instruct";
 
 const MODEL_BY_ID = new Map(MODELS.map((m) => [m.id, m]));
 
@@ -297,7 +310,13 @@ export function buildCandidateChain(opts: {
   const { needsVision = false, includeUnconfigured = false } = opts;
 
   if (needsVision) {
-    return [getVisionModel()];
+    // Image input can only be served by a vision model. Keep the primary
+    // vision model first, then any other configured vision model, so one
+    // model being disabled for an account does not break image uploads.
+    const visionModels = MODELS.filter(
+      (m) => m.vision && (includeUnconfigured || isProviderConfigured(m.provider)),
+    );
+    return visionModels.length > 0 ? visionModels : [getVisionModel()];
   }
 
   const requested = getModel(opts.requestedModelId) ?? getDefaultModel();

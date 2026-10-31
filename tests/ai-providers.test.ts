@@ -235,8 +235,9 @@ describe("buildCandidateChain", () => {
   it("always routes review/image requests to the vision model", () => {
     configureBoth();
     const chain = buildCandidateChain({ needsVision: true });
-    expect(chain).toHaveLength(1);
+    expect(chain.length).toBeGreaterThan(0);
     expect(chain[0].id).toBe(VISION_MODEL_ID);
+    expect(chain.every((m) => m.vision)).toBe(true);
   });
 
   it("honours an explicit NVIDIA selection and still offers NVIDIA fallbacks first", () => {
