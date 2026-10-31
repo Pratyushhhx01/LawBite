@@ -5181,7 +5181,7 @@ export default function ChatApp({
                               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                             </svg>
                           </button>
-                          {(message.type ?? active?.type) === "draft" && (
+                          {isDraftAssistantDocument && (
                             <>
                               <button
                                 type="button"
