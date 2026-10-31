@@ -19,6 +19,18 @@ const REMINDER_TYPES = [
 ];
 
 function formatDate(dateStr: string): string {
+  try {
+    const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
+    if (year && month && day) {
+      const months = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      return `${day} ${months[month - 1]} ${year}`;
+    }
+  } catch {
+    /* fallback to toLocaleDateString */
+  }
   return new Date(dateStr).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "long",
@@ -92,6 +104,7 @@ export function RemindersModal({
     const cached = getCachedReminders();
     return !cached || cached.length === 0;
   });
+
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [deadlineAt, setDeadlineAt] = useState("");
