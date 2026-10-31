@@ -6,24 +6,79 @@ import mammoth from "mammoth";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_TEXT_LENGTH = 8000;
-const IMAGE_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/jpg",
-  "image/webp",
-  "image/gif",
-];
-const DOCX_TYPES = [
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/msword",
-];
-const ALLOWED_TYPES = ["application/pdf", ...IMAGE_TYPES, ...DOCX_TYPES];
+
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  bmp: "image/bmp",
+  tiff: "image/tiff",
+  svg: "image/svg+xml",
+};
+
+const DOCX_EXTS = [".docx", ".doc"];
+
+function getExtension(fileName: string): string {
+  const lastDot = fileName.lastIndexOf(".");
+  return lastDot !== -1 ? fileName.substring(lastDot + 1).toLowerCase() : "";
+}
+
+function resolveMimeAndCategory(file: File): {
+  category: "pdf" | "image" | "docx" | "unsupported";
+  mimeType: string;
+} {
+  const type = (file.type || "").toLowerCase().trim();
+  const ext = getExtension(file.name);
+
+  // 1. PDF detection
+  if (type === "application/pdf" || ext === "pdf") {
+    return { category: "pdf", mimeType: "application/pdf" };
+  }
+
+  // 2. Image detection
+  if (type.startsWith("image/") || IMAGE_MIME_BY_EXT[ext]) {
+    const mimeType = type.startsWith("image/") ? type : IMAGE_MIME_BY_EXT[ext];
+    return { category: "image", mimeType };
+  }
+
+  // 3. Word document detection
+  if (
+    type ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    type === "application/msword" ||
+    DOCX_EXTS.some((e) => file.name.toLowerCase().endsWith(e))
+  ) {
+    return {
+      category: "docx",
+      mimeType:
+        type ||
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
+  }
+
+  return { category: "unsupported", mimeType: type || "unknown" };
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    let session = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        session = await auth.api.getSession({
+          headers: request.headers,
+        });
+        break;
+      } catch (authErr) {
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 200));
+          continue;
+        }
+        console.error("Auth getSession error in /api/review:", authErr);
+        session = null;
+      }
+    }
 
     if (!session) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,7 +110,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const { category, mimeType } = resolveMimeAndCategory(file);
+
+    if (category === "unsupported") {
       return Response.json(
         {
           error:
@@ -65,7 +122,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (file.type === "application/pdf") {
+    if (category === "pdf") {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const parser = new PDFParse({ data: buffer });
@@ -76,7 +133,9 @@ export async function POST(request: NextRequest) {
         await parser.destroy();
       }
 
-      let text = data.text?.trim() ?? "";
+      // Strip page marker comments like "\n\n-- 1 of 2 --\n\n" produced by PDFParse
+      const rawText = (data.text ?? "").replace(/\n\s*--\s*\d+\s+of\s+\d+\s*--\s*\n/g, "\n");
+      let text = rawText.trim();
       const truncated = text.length > MAX_TEXT_LENGTH;
       if (truncated) {
         text = text.substring(0, MAX_TEXT_LENGTH);
@@ -90,11 +149,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (
-      DOCX_TYPES.includes(file.type) ||
-      file.name.endsWith(".docx") ||
-      file.name.endsWith(".doc")
-    ) {
+    if (category === "docx") {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const result = await mammoth.extractRawText({ buffer });
@@ -110,10 +165,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (IMAGE_TYPES.includes(file.type)) {
+    if (category === "image") {
       const arrayBuffer = await file.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString("base64");
-      const mimeType = file.type;
 
       return Response.json({
         imageBase64: `data:${mimeType};base64,${base64}`,
@@ -129,7 +183,9 @@ export async function POST(request: NextRequest) {
       error instanceof Error &&
       /XRef|PDF|corrupt|invalid|parse|format/i.test(error.message)
         ? "The PDF file is corrupted or could not be read. Please try a different PDF, or convert it to an image (PNG/JPEG) and upload that."
-        : "Failed to process file";
+        : error instanceof Error && error.message
+          ? error.message
+          : "Failed to process file";
     return Response.json({ error: message }, { status: 422 });
   }
 }

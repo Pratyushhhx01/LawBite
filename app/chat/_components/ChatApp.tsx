@@ -2154,7 +2154,7 @@ export default function ChatApp({
       target === "review"
         ? reviewFileInputRef.current
         : target === "analysis"
-          ? analysisFileInputRef.current
+          ? (analysisFileInputRef.current ?? chatFileInputRef.current)
           : chatFileInputRef.current;
     if (input) {
       input.accept =

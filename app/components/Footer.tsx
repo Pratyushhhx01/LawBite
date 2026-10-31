@@ -225,10 +225,12 @@ export default function Footer() {
             <a href="#" className="transition-colors hover:text-white">
               X
             </a>
-            <a href="#" className="transition-colors hover:text-white">
-              LinkedIn
-            </a>
-            <a href="#" className="transition-colors hover:text-white">
+            <a
+              href="https://github.com/Pratyushhhx01/LawBite"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-white"
+            >
               GitHub
             </a>
           </div>
