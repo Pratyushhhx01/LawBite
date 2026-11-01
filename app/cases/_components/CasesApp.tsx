@@ -183,7 +183,8 @@ export default function CasesApp(_props: CasesAppProps) {
     setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const uploadPendingFiles = async (caseId: string) => {
+  const uploadPendingFiles = async (caseId: string): Promise<CaseDoc[]> => {
+    const uploadedDocs: CaseDoc[] = [];
     for (const pf of pendingFiles) {
       try {
         const fd = new FormData();
@@ -196,17 +197,22 @@ export default function CasesApp(_props: CasesAppProps) {
         });
         if (!uploadRes.ok) continue;
         const { fileUrl, fileName, fileType } = await uploadRes.json();
-        await fetch("/api/cases/documents", {
+        const docRes = await fetch("/api/cases/documents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ caseId, fileName, fileType, fileUrl }),
         });
-      } catch {
-        /* skip failed uploads */
+        if (docRes.ok) {
+          const doc = await docRes.json();
+          uploadedDocs.push(doc);
+        }
+      } catch (err) {
+        console.error("Pending file upload error:", err);
       }
     }
     setPendingFiles([]);
+    return uploadedDocs;
   };
 
   const handleCreate = async () => {
@@ -221,15 +227,20 @@ export default function CasesApp(_props: CasesAppProps) {
       });
       if (res.ok) {
         const created = await res.json();
+        let uploadedDocs: CaseDoc[] = [];
+        if (pendingFiles.length > 0) {
+          uploadedDocs = await uploadPendingFiles(created.id);
+        }
         setCases((prev) => [created, ...prev]);
         setShowCreate(false);
         resetForm();
-        setDetail(null);
-        setDetailLoading(true);
+        setDetail({
+          ...created,
+          documents: uploadedDocs,
+          conversations: [],
+        });
+        setDetailLoading(false);
         setSelectedId(created.id);
-        if (pendingFiles.length > 0) {
-          await uploadPendingFiles(created.id);
-        }
       }
     } finally {
       setSaving(false);

@@ -67,16 +67,30 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const body = Buffer.from(arrayBuffer);
 
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: S3_BUCKET,
-        Key: key,
-        Body: body,
-        ContentType: file.type || "application/octet-stream",
-      }),
-    );
+    let fileUrl = "";
 
-    const fileUrl = `https://${S3_BUCKET}.s3.ap-south-1.amazonaws.com/${key}`;
+    // Attempt S3 upload if configured
+    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+      try {
+        await s3Client.send(
+          new PutObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: key,
+            Body: body,
+            ContentType: file.type || "application/octet-stream",
+          }),
+        );
+        fileUrl = `https://${S3_BUCKET}.s3.ap-south-1.amazonaws.com/${key}`;
+      } catch (s3Err) {
+        console.warn("S3 upload failed, falling back to data URI storage:", s3Err);
+      }
+    }
+
+    // Fallback if S3 is unavailable or upload threw an error
+    if (!fileUrl) {
+      const mime = file.type || "application/octet-stream";
+      fileUrl = `data:${mime};base64,${body.toString("base64")}`;
+    }
 
     return NextResponse.json({ fileUrl, fileName: file.name, fileType: ext });
   } catch (err) {
