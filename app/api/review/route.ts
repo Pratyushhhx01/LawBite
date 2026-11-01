@@ -41,6 +41,47 @@ async function extractPdfText(buffer: Buffer): Promise<{
   text: string;
   pageCount: number;
 }> {
+  // Ensure DOMMatrix, Path2D, and ImageData polyfills are present before pdfjs-dist initializes
+  try {
+    const canvas = (await import("@napi-rs/canvas")) as Record<string, unknown>;
+    const g = globalThis as Record<string, unknown>;
+    if (!g.DOMMatrix && canvas.DOMMatrix) {
+      g.DOMMatrix = canvas.DOMMatrix;
+    }
+    if (!g.Path2D && canvas.Path2D) {
+      g.Path2D = canvas.Path2D;
+    }
+    if (!g.ImageData && canvas.ImageData) {
+      g.ImageData = canvas.ImageData;
+    }
+  } catch (e) {
+    console.warn("Could not preload @napi-rs/canvas polyfills:", e);
+  }
+
+  // Pre-load the worker so PDFWorker.#mainThreadWorkerMessageHandler is immediately available
+  // and does not attempt dynamic import('./pdf.worker.mjs') relative to cwd in serverless
+  try {
+    // @ts-expect-error pdfjs-dist worker has no ambient type declarations
+    const workerModule = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    if (workerModule?.WorkerMessageHandler) {
+      (globalThis as unknown as { pdfjsWorker?: { WorkerMessageHandler: unknown } }).pdfjsWorker = {
+        WorkerMessageHandler: workerModule.WorkerMessageHandler,
+      };
+    }
+  } catch {
+    try {
+      // @ts-expect-error pdfjs-dist worker has no ambient type declarations
+      const stdWorkerModule = await import("pdfjs-dist/build/pdf.worker.mjs");
+      if (stdWorkerModule?.WorkerMessageHandler) {
+        (globalThis as unknown as { pdfjsWorker?: { WorkerMessageHandler: unknown } }).pdfjsWorker = {
+          WorkerMessageHandler: stdWorkerModule.WorkerMessageHandler,
+        };
+      }
+    } catch (e) {
+      console.warn("Could not preload pdf.worker.mjs:", e);
+    }
+  }
+
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: buffer });
   try {
