@@ -27,7 +27,7 @@ const stats: Stat[] = [
 ];
 
 function useCountUp(target: number, durationMs = 1600, decimals = 0) {
-  const [value, setValue] = useState(target);
+  const [value, setValue] = useState(0);
   const ref = useRef<HTMLSpanElement | null>(null);
   const startedRef = useRef(false);
 
@@ -35,10 +35,10 @@ function useCountUp(target: number, durationMs = 1600, decimals = 0) {
     const node = ref.current;
     if (!node || startedRef.current) return;
 
-    if (typeof IntersectionObserver === "undefined") return;
-
-    // Reset to 0 on mount in browser before intersection animation starts
-    setValue(0);
+    if (typeof IntersectionObserver === "undefined") {
+      requestAnimationFrame(() => setValue(target));
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
