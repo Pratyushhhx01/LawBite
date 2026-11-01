@@ -1007,6 +1007,18 @@ export default function ChatApp({
   // stopped reply keeps its partial text instead of showing an error.
   const stopRequestedRef = useRef(false);
   const conversationsRef = useRef<Conversation[]>([]);
+  // In-flight share link creation promises to prevent duplicate fetches.
+  const sharePromiseRef = useRef<Map<string, Promise<string | null>>>(new Map());
+  const shareCacheRef = useRef<
+    Map<
+      string,
+      {
+        shareUrl: string;
+        messageCount: number;
+        lastMessageId?: string;
+      }
+    >
+  >(new Map());
   // Conversations that have already asked the server for a title. Prevents a
   // second message (or a re-render) from firing a duplicate generation call.
   const titleRequestedRef = useRef<Set<string>>(new Set());
@@ -3343,40 +3355,75 @@ export default function ChatApp({
     conv: Conversation,
     messageId?: string,
   ): Promise<string | null> {
-    try {
-      // The normal history sync is debounced. Save this conversation first so
-      // sharing a brand-new chat cannot race the sync and 404.
-      const saved = await fetch("/api/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ conversations: [conv] }),
-      });
-      if (!saved.ok) return null;
+    const cacheKey = messageId ? `${conv.id}:${messageId}` : conv.id;
+    const lastMsgId =
+      conv.messages.length > 0
+        ? conv.messages[conv.messages.length - 1]?.id
+        : undefined;
+    const cached = shareCacheRef.current.get(cacheKey);
 
-      const res = await fetch("/api/share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          conversationId: conv.id,
-          ...(messageId ? { messageId } : {}),
-        }),
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (typeof data?.url === "string" && data.url) {
-        return data.url.startsWith("http")
-          ? data.url
-          : `${window.location.origin}${data.url}`;
-      }
-      if (typeof data?.shareId === "string" && data.shareId) {
-        return `${window.location.origin}/shared/${data.shareId}`;
-      }
-      return null;
-    } catch {
-      return null;
+    if (
+      cached &&
+      cached.messageCount === conv.messages.length &&
+      cached.lastMessageId === lastMsgId
+    ) {
+      return cached.shareUrl;
     }
+
+    const inFlight = sharePromiseRef.current.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = (async () => {
+      try {
+        // The normal history sync is debounced. Save this conversation first so
+        // sharing a brand-new chat cannot race the sync and 404.
+        const saved = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ conversations: [conv] }),
+        });
+        if (!saved.ok) return null;
+
+        const res = await fetch("/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            conversationId: conv.id,
+            ...(messageId ? { messageId } : {}),
+          }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        let shareUrl: string | null = null;
+        if (typeof data?.url === "string" && data.url) {
+          shareUrl = data.url.startsWith("http")
+            ? data.url
+            : `${window.location.origin}${data.url}`;
+        } else if (typeof data?.shareId === "string" && data.shareId) {
+          shareUrl = `${window.location.origin}/shared/${data.shareId}`;
+        }
+
+        if (shareUrl) {
+          shareCacheRef.current.set(cacheKey, {
+            shareUrl,
+            messageCount: conv.messages.length,
+            lastMessageId: lastMsgId,
+          });
+        }
+        return shareUrl;
+      } catch {
+        return null;
+      } finally {
+        sharePromiseRef.current.delete(cacheKey);
+      }
+    })();
+
+    sharePromiseRef.current.set(cacheKey, promise);
+    return promise;
   }
 
   async function shareConversation(
@@ -3694,7 +3741,14 @@ export default function ChatApp({
               tabIndex={0}
               onClick={(e) => {
                 e.stopPropagation();
-                setContextMenuId(menuOpen ? null : conv.id);
+                const nextState = !menuOpen;
+                setContextMenuId(nextState ? conv.id : null);
+                if (nextState) {
+                  // Pre-warm the share link cache in the background so when the user clicks
+                  // a share option (or "More..."), the system popup opens immediately
+                  // without waiting on sequential database roundtrips.
+                  void createShareLink(conv);
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter")

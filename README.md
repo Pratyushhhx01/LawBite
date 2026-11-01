@@ -36,6 +36,17 @@ LawBite solves these problems by pairing granular section-level statutory retrie
 
 ---
 
+## Safety, Reliability & Hallucination Prevention
+
+In the legal domain, accuracy is paramount. A single hallucinated section number, wrong statute reference, or fictitious precedent can invalidate legal advice or procedural filings. LawBite integrates a comprehensive, multi-layer verification framework designed to deliver safe, transparent, and provably reliable responses:
+
+- 🛡️ **Real-Time Statutory Citation Verification:** Model-generated citations are parsed on the fly by an automated verification engine (`lib/citation-verifier.ts`). Rather than trusting LLM memory, every referenced Section, Article, or Order is deterministically checked against official, authoritative bare acts.
+- 🚫 **Active Hallucination Prevention:** The engine prevents section invention (fabricating non-existent sections) and statute anachronism (e.g., misattributing old IPC numbers to the new Bharatiya Nyaya Sanhita). If an LLM hallucinates an invalid provision, the system explicitly flags it with an unambiguous warning (`Not found in named act`) instead of silently misleading the user.
+- ⚖️ **Rigorous Legal Benchmark Testing:** Regression and accuracy testing are continuously measured across curated legal QA benchmarks (`npm run eval:legal`), testing complex Indian statutory transitions (BNS, BNSS, BSA vs. IPC, CrPC), procedural limitation periods, and constitutional case law.
+- 🔍 **Full Transparency & Source Attribution:** Users are never shown a black-box response. Citations are color-coded and badged (`Verified`, `Not found in named act`, `Uncheckable`, or `Web Source`). Users can inspect the exact statutory source, read the underlying section text, or view the verified legal web domain (restricted to trusted official sources like `sci.gov.in`, `indiankanoon.org`, and government portals).
+
+---
+
 ## Key Features
 
 - **Grounded Statutory Retrieval (157+ Bare Acts):** Instant retrieval across modern criminal codes (BNS, BNSS, BSA), historical codes (IPC, CrPC), Constitutional provisions, and commercial/civil enactments.
