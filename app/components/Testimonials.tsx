@@ -51,11 +51,14 @@ export default function Testimonials() {
       <div className="mx-auto max-w-6xl px-6">
         <Reveal>
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-white/50">
-            / Testimonials
+            / Early Feedback
           </p>
           <h2 className="mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
-            Words from the people who use it.
+            Feedback from early advocates &amp; researchers.
           </h2>
+          <p className="mt-3 text-sm text-white/50">
+            Observations from beta testing sessions with legal practitioners and law students.
+          </p>
         </Reveal>
 
         <div className="mt-16 grid items-stretch gap-6 lg:grid-cols-5">
