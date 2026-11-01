@@ -1,397 +1,240 @@
 # LawBite
 
 [![CI](https://github.com/Pratyushhhx01/LawBite/actions/workflows/ci.yml/badge.svg)](https://github.com/Pratyushhhx01/LawBite/actions/workflows/ci.yml)
+[![Node Version](https://img.shields.io/badge/node-%3E%3D20.9.0-brightgreen.svg)](.nvmrc)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://www.typescriptlang.org/)
+[![Database](https://img.shields.io/badge/Database-PostgreSQL%20(Neon)-blueviolet.svg)](https://neon.tech/)
 
-An AI legal assistant for Indian law. Ask questions in plain language and get
-answers grounded in 157+ Indian bare acts (BNS/IPC, BNSS/CrPC, the Constitution
-and more), with optional real-time web search and document drafting/review.
+**LawBite** is an AI-powered legal assistant engineered specifically for Indian statutory and procedural law. It bridges the gap between complex legal statutes and everyday inquiries by providing fast, conversational answers grounded directly in **157+ Indian bare acts** (including the Bharatiya Nyaya Sanhita, BNSS, BSA, IPC, CrPC, and the Constitution of India), augmented with automated statutory citation verification, document review, and multi-provider AI failover.
 
-For a reviewer-facing summary of what is tested, what is still blocked, and how
-to reproduce each claim, see [`docs/evidence.md`](docs/evidence.md).
+---
 
-## Requirements
+## Technical Documentation
 
-- Node.js 20.9 or newer (see `.nvmrc`)
-- A PostgreSQL database (Neon) plus the environment variables listed in
-  [`.env.example`](.env.example)
-- At least one AI provider API key: **Inception Labs** (default) and/or **NVIDIA** (fallback)
+Detailed architectural specifications, API signatures, evaluation criteria, and operational runbooks are available in the [`docs/`](docs/) directory:
 
-## Getting Started
+- 🏛️ [**System Architecture**](docs/architecture.md) — Comprehensive architecture overview, component interactions, data flow, and Mermaid diagrams.
+- ⚖️ [**Citation Verification Engine**](docs/citation-verification.md) — How legal hallucinations are prevented, section candidate extraction, and validation against primary statutory texts.
+- 📚 [**Legal Knowledge Base**](docs/knowledge-base.md) — Statutory corpus structure, granular $O(1)$ section lookups, PostgreSQL `legal_chunks` hybrid retrieval, and S3 storage layout.
+- 🔌 [**API Reference**](docs/api-reference.md) — Complete endpoint documentation for `/api/chat`, `/api/citations/verify`, `/api/review`, conversations, cases, and utility routes.
+- 🧪 [**Testing & Benchmarking**](docs/testing.md) — Test suites, V8 coverage enforcement, legal QA benchmarks (`npm run eval:legal`), and metric definitions.
+- 🚀 [**Deployment Guide**](docs/deployment.md) — Production setup on Vercel/Node.js, Neon PostgreSQL configuration, S3 permissions, and deployment smoke verification.
+- 📋 [**Reviewer Evidence & Status**](docs/evidence.md) — Reviewer-facing summary of verified claims, tested paths, and known blockers.
+- 🛠️ [**S3 Operational Runbook**](docs/runbook-s3.md) — Remediation steps for credential rotations, bucket access, and diagnostic checks.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
+## Problem Statement
+
+Navigating Indian law is notoriously challenging for citizens and advocates alike:
+- **Massive Criminal Law Transition:** In July 2024, India transitioned from colonial-era criminal statutes (IPC 1860, CrPC 1973, Indian Evidence Act 1872) to modern enactments (Bharatiya Nyaya Sanhita, Bharatiya Nagarik Suraksha Sanhita, and Bharatiya Sakshya Adhiniyam). Standard LLMs routinely confuse old and new section numbers.
+- **Catastrophic AI Hallucinations:** Generic models frequently invent statutory section numbers or attribute offences to the wrong enactments (e.g., citing Section 302 of BNS for murder, when Section 302 covers snatching and Section 103 defines murder).
+- **Prohibitive Context Overhead:** Feeding entire 500-section statutes into LLM prompts introduces extreme latency, overflows context limits, and degrades precision.
+
+LawBite solves these problems by pairing granular section-level statutory retrieval with a deterministic **Citation Verification Engine** that checks every cited provision against primary statutory texts before showing it to the user.
+
+---
+
+## Key Features
+
+- **Grounded Statutory Retrieval (157+ Bare Acts):** Instant retrieval across modern criminal codes (BNS, BNSS, BSA), historical codes (IPC, CrPC), Constitutional provisions, and commercial/civil enactments.
+- **Automated Citation Verification:** Citations generated in model responses are parsed in real time and verified against official bare acts. Each reference is visually badged (`Verified`, `Not found in named act`, or `Uncheckable`).
+- **Diffusion-Powered Low Latency:** Powered by **Mercury 2.5** from Inception Labs (a diffusion LLM that denoises output tokens in parallel), achieving typical end-to-end responses in ~0.8–1.5 seconds.
+- **Multi-Provider Automatic Failover:** If Inception Labs encounters rate limits (HTTP 429) or timeouts, the request transparently fails over to **NVIDIA NIM** (`nvidia/nemotron-3-super-120b-a12b` $\rightarrow$ `lightning-30b` $\rightarrow$ `muse-glimmer-30b`).
+- **Specialized Conversation Modes:**
+  - **Default Chat:** Concise 2-line direct answers.
+  - **Deep Analysis:** Structured 10–12 line breakdowns with statutory comparison tables.
+  - **Talk to AI:** Conversational legal guidance with streaming Markdown.
+  - **AI Lawyer (Grill):** Interactive cross-examination mode asking probing procedural questions.
+  - **Document Drafter / Reviewer:** Drafts legal notices and analyzes uploaded agreements/PDFs for legal risks.
+- **Real-Time Legal Web Search:** Augments answers with recent case judgments, government circulars, and amendments via the Tavily Search API.
+- **Read-Only Consultation Sharing:** Authenticated users can share consultation snapshots via unique links (`/shared/<id>`), allowing recipients to import conversations into their own history idempotently.
+
+---
+
+## Technology Stack
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Frontend** | [Next.js 16](https://nextjs.org/) (App Router), [React 19](https://react.dev/), [Tailwind CSS 4](https://tailwindcss.com/) |
+| **Backend & Routing** | Next.js Server Handlers, Server-Sent Events (SSE) streaming transport |
+| **Authentication** | [Better Auth](https://www.better-auth.com/) with PostgreSQL adapter, OAuth 2.0 (Google, GitHub) |
+| **Database & ORM** | PostgreSQL on [Neon](https://neon.tech/), [Kysely](https://kysely.dev/) query builder, `pg` connection pool |
+| **Knowledge Base & Search**| AWS S3 (`@aws-sdk/client-s3`), PostgreSQL `legal_chunks` (`pgvector` + `tsvector`), Tavily API |
+| **Primary AI Inference** | [Inception Labs](https://inceptionlabs.ai/) (Mercury 2.5 dLLM) with mode-specific reasoning tiers |
+| **Fallback & Vision AI** | [NVIDIA NIM](https://build.nvidia.com/) (Nemotron-3 Super 120B, Nemotron-3.5 Lightning, Llama 3.2 90B Vision) |
+| **Document Processing** | `pdf-parse`, `mammoth` (docx), `docx`, `jspdf` |
+| **Testing & CI** | [Vitest 4](https://vitest.dev/) (V8 coverage), GitHub Actions CI pipeline |
+
+---
+
+## System Architecture Overview
+
+```mermaid
+flowchart LR
+    Client["Browser Client (React 19 / SSE)"] <-->|"SSE / JSON"| AppServer["Next.js Server (app/api/chat)"]
+    
+    AppServer <-->|"Auth & Sessions"| NeonDB[("Neon PostgreSQL")]
+    AppServer <-->|"Direct Section Lookups"| S3[("AWS S3 Bare Acts")]
+    AppServer <-->|"Vector & Text Chunks"| PostgresKB[("legal_chunks (pgvector)")]
+    AppServer <-->|"Live Web Search"| Tavily["Tavily Search API"]
+    
+    AppServer -->|"1. Primary dLLM"| Inception["Inception Labs (Mercury 2.5)"]
+    Inception -.->|"Failover on 429/Error"| Nvidia["NVIDIA NIM (Nemotron 120B)"]
+    
+    AppServer -->|"Verify Citations"| Verifier["Citation Verifier (lib/citation-verifier.ts)"]
+    Verifier <-->|"Grounding Check"| S3
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+For the comprehensive architectural breakdown and module boundaries, see [`docs/architecture.md`](docs/architecture.md).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-## Scripts
+## Installation & Local Setup
+
+### Prerequisites
+- **Node.js:** `>= 20.9.0` (managed via `.nvmrc`)
+- **Package Manager:** `npm` (lockfile v3)
+- **PostgreSQL Database:** Neon instance with `vector` extension enabled
+- **API Keys:** At least one AI provider key (`INCEPTION_API_KEY` or `NVIDIA_API_KEY`)
+
+### Quickstart
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Pratyushhhx01/LawBite.git
+   cd LawBite
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment Variables:**
+   ```bash
+   cp .env.example .env.local
+   ```
+   Edit `.env.local` with your database credentials and API keys.
+
+4. **Run Database Migrations (PostgreSQL & pgvector):**
+   ```bash
+   node scripts/migrate-legal-kb.mjs
+   ```
+
+5. **Start the Development Server:**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## Environment Variables
+
+| Variable | Required? | Purpose |
+| :--- | :---: | :--- |
+| `DATABASE_URL` | **Yes** | Neon PostgreSQL connection string (`?sslmode=require`). |
+| `BETTER_AUTH_SECRET` | **Yes** | 32-byte secret for session tokens (`openssl rand -base64 32`). |
+| `BETTER_AUTH_URL` | **Yes** | Server URL (`http://localhost:3000` locally). |
+| `NEXT_PUBLIC_APP_URL` | **Yes** | Canonical public origin for share links. |
+| `GOOGLE_CLIENT_ID` / `_SECRET` | **Yes** | Google OAuth credentials for user login. |
+| `GITHUB_CLIENT_ID` / `_SECRET` | **Yes** | GitHub OAuth credentials for user login. |
+| `INCEPTION_API_KEY` | Recommended | Primary AI provider (Mercury 2.5 diffusion LLM). |
+| `NVIDIA_API_KEY` | Recommended | Fallback AI provider and vision document reviewer. |
+| `AWS_REGION` | Optional | AWS region for statutory S3 storage (e.g. `ap-south-1`). |
+| `AWS_ACCESS_KEY_ID` | Optional | IAM key with read-only access to bare acts. |
+| `AWS_SECRET_ACCESS_KEY` | Optional | IAM secret for bare acts storage. |
+| `S3_BUCKET_NAME` | Optional | S3 bucket name (default: `lawbite-app-storage`). |
+| `TAVILY_API_KEY` | Optional | API key for live Indian legal web search. |
+
+For detailed configuration options and optional tuning parameters, see [`docs/deployment.md`](docs/deployment.md).
+
+---
+
+## Testing & Quality Assurance
+
+LawBite includes a test suite with 30+ test files and 600+ automated test assertions:
 
 ```bash
-npm run dev            # Start dev server (localhost:3000)
-npm run build          # Production build
-npm run typecheck      # tsc --noEmit
-npm run lint           # ESLint (flat config, eslint-config-next)
-npm run audit          # Fail on high/critical dependency advisories
-npm run test           # Vitest single run
-npm run test:watch     # Vitest in watch mode
-npm run test:coverage  # Vitest with V8 coverage + thresholds
-npm run check:s3       # Diagnose S3 credentials, bucket, region, and read access
-npm run eval:legal     # Legal accuracy benchmark (needs a running app)
-```
+# Run unit and route tests
+npm test
 
-## CI
+# Run tests in watch mode
+npm run test:watch
 
-GitHub Actions runs a dependency audit, typecheck, lint, tests with coverage, and
-a production build on every push to `main` and every pull request. The workflow
-uses build-time placeholder environment variables and does not connect to the
-database, AI providers, or S3. Coverage thresholds are enforced for `lib/` and
-API routes, and the HTML report is uploaded as a workflow artifact. The audit
-step fails on high or critical advisories; the lockfile currently resolves with
-zero known vulnerabilities.
+# Run tests with V8 coverage enforcement
+npm run test:coverage
 
-The legal accuracy benchmark is run manually because it needs a deployed app, a
-real database, and working S3 credentials. See [`docs/benchmark.md`](docs/benchmark.md).
+# Run TypeScript typecheck
+npm run typecheck
 
-A separate **Deployed smoke** workflow runs `tests/deployed` against a live URL
-on demand. It signs up a throwaway account and exercises the real streaming
-`/api/chat` path, so it catches deployment, auth, and SSE regressions that unit
-tests cannot.
+# Run ESLint validation
+npm run lint
 
-## Legal accuracy benchmark
+# Check for dependency vulnerabilities
+npm run audit
 
-`npm run eval` measures readability. `npm run eval:legal` measures legal
-correctness: it sends a seeded set of Indian-law questions to the real chat
-endpoint, then checks every cited section against the S3 bare acts through
-`/api/citations/verify`.
+# Diagnose S3 bare acts connectivity
+npm run check:s3
 
-```bash
+# Run the legal accuracy benchmark
 npm run eval:legal
-npm run eval:legal -- --limit 10
-npm run eval:legal -- --reviewed-only
-npm run eval:legal -- --base https://law-bite.vercel.app
 ```
 
-The runner reports section recall, citation precision, hallucination rate,
-refusal accuracy, and p95 latency, and writes a markdown + JSON report under
-`test-results/`.
+See [`docs/testing.md`](docs/testing.md) for full benchmark documentation, coverage thresholds, and evaluation datasets.
 
-The current 50-question seed set is **draft and not advocate-reviewed**. Do not
-publish its score as a legal-accuracy claim until the review status is updated.
-See [`docs/benchmark.md`](docs/benchmark.md) for the dataset schema, metrics,
-and review process.
+---
 
-### S3 knowledge-base check
+## Security & Privacy
 
-`npm run check:s3` reads the BNS full text object with the same credentials and
-region the app uses. It prints the bucket, key, credential shape (never the
-secret), and an actionable hint for `InvalidAccessKeyId`, `SignatureDoesNotMatch`,
-`AccessDenied`, wrong region, and timeout failures. Run it locally before a
-benchmark and after rotating production credentials. See
-[`docs/runbook-s3.md`](docs/runbook-s3.md) for the full rotation and verification
-procedure.
+LawBite enforces a zero-trust, defense-in-depth security model:
+- **Strict HTTP Headers:** Centrally configured via `lib/security-headers.ts` (HSTS preload, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, COOP `same-origin`).
+- **Server-Side Secret Isolation:** AI keys, S3 credentials, database URLs, and auth secrets are isolated server-side and never exposed to the client bundle.
+- **Transient Document Processing:** Files uploaded for document review (`/api/review`) are processed in transient request memory scope and are never written to the public knowledge base bucket.
+- **In-Memory Rate Limiting:** Sliding-window rate limiting guards chat and verification routes against abuse and denial-of-wallet vectors.
+- **Zero-Vulnerability Posture:** `npm run audit` runs on every pull request, enforcing zero high or critical advisories.
 
-## Reliability and verified citations
+For further security details, see [`docs/security.md`](docs/security.md).
 
-- **Multi-tiered verification pipeline:** Citations generated by the AI are not assumed to be correct; they are programmatically parsed, checked, and validated against authoritative primary sources.
-- **Provider failover.** The chat route tries configured providers in order (Inception Labs Mercury 2.5 dLLM $\rightarrow$ NVIDIA NIM models) with strict connect and first-token timeouts, retries HTTP 429 with exponential backoff, and degrades gracefully instead of delivering blank responses.
-- **Grounded Sources & Live Verification Panel.** Every legal response provides structured citations. In parallel with model SSE token streams, citations are resolved against 157+ indexed Indian Bare Acts and statutes stored in AWS S3 as structured JSON, plus live Tavily web search. The UI visually flags each citation as:
-  - `Verified`: Grounded and matched against genuine statutory section text.
-  - `Not found in named act`: Explicitly flagged to the user if the section does not match the act.
-  - `Uncheckable`: Clearly designated if the knowledge base is temporarily unreachable (preventing false hallucination flags).
-- **Zero Hallucination Tolerance:** The system prompt and retrieval engine prevent fabricated section numbers, hallucinated article numbers, or fictional case law citations.
-- **Graceful degradation.** A missing S3 object, Tavily network failure, or provider outage cannot strip statutory disclaimers or crash streams; the engine falls back safely to internal grounding.
-- **Health probe.** `GET /api/health` continuously monitors and returns `200` with active booleans for database connection, auth state, AI provider availability, S3 knowledge base, and search APIs.
-- **Fail-safe configuration.** `lib/env.ts` strictly validates all required environment configurations at startup with fail-fast assertions.
+---
 
-## Enterprise Security & Compliance
+## Known Limitations
 
-LawBite implements a zero-trust, defense-in-depth security model across authentication, session handling, network communication, and database access:
+- **Legal Advice Disclaimer:** LawBite is an informational AI legal assistant and does not constitute formal legal representation or an attorney-client relationship. Responses should always be verified by an advocate before filing in court.
+- **S3 Connectivity Dependency:** If S3 credentials are unavailable, the assistant falls back to database or internal grounding, explicitly marking citations as `Uncheckable` rather than claiming verification.
+- **Draft Benchmark Status:** The 50 questions in `benchmarks/legal-qa.jsonl` serve as an engineering regression test and are marked `draft` pending formal advocate review sign-off.
 
-- **Strict HTTP Hardening & Browser Security:** Centrally configured via `lib/security-headers.ts` and enforced at both proxy and Next.js layers:
-  - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` (HSTS enforced)
-  - `X-Frame-Options: DENY` (Complete clickjacking prevention)
-  - `X-Content-Type-Options: nosniff` (MIME sniffing disabled)
-  - `Referrer-Policy: strict-origin-when-cross-origin`
-  - `Cross-Origin-Opener-Policy: same-origin` (COOP protection)
-  - `Permissions-Policy: camera=(), microphone=(), geolocation=()` (Sensitive device APIs locked)
-  - `Content-Security-Policy: frame-ancestors 'none'`
-- **Zero-Vulnerability Dependency Posture:**
-  - `npm run audit` runs in every CI pipeline on GitHub Actions, rejecting any build with high or critical CVE advisories.
-  - Package dependencies are actively audited, with the lockfile resolving with **zero known vulnerabilities**.
-  - Better Auth is pinned to patched versions (fixing GHSA-44jh-23m7-hpcf for concurrent PostgreSQL rate limiting).
-- **Authentication & Authorization Boundaries:**
-  - Powered by Better Auth with OAuth 2.0 (Google & GitHub) with server-side cryptographic session verification.
-  - Zero Client Secret Exposure: All AI provider keys, AWS S3 secrets, database connection strings, and SMTP credentials exist purely server-side in secure runtime environments and are never bundled, sent, or exposed to the client.
-- **Abuse Prevention & Rate Limiting:**
-  - In-memory rate limiting applied per user/IP (30 req/min for chat routes, 60 req/min for citation verification).
-  - Strict payload validation: Caps message count (100 msgs) and body size (10,000 chars per message) to prevent buffer overflows or denial-of-wallet vectors.
-- **Privacy & Transient Data Processing:**
-  - Uploaded legal documents (PDFs/images for analysis) are processed transiently in request memory scope without being stored permanently in the public knowledge base bucket.
-  - Full details available in [`docs/security.md`](docs/security.md).
+---
 
-## Architecture
+## Future Roadmap
 
-The chat route is an orchestration layer: classification, S3 retrieval, optional
-web search, prompt selection, provider failover, and SSE transport. Prompts,
-act-key mappings, pure query filters, the provider registry, and citation
-verification live in separate modules with their own tests. See
-[`docs/architecture.md`](docs/architecture.md) for the request flow, module
-boundaries, and the next client-side refactor target.
+- [ ] Complete formal advocate review for all benchmark dataset questions.
+- [ ] Expand hybrid dense vector indexing across all regional High Court judgments.
+- [ ] Implement bilingual chat support (Hindi and regional Indian languages).
+- [ ] Add court filing packet generator for district and High Court e-filing portals.
+- [ ] Split `ChatApp.tsx` client component into modular UI components (composer, message list, citations strip).
 
-## AI providers and models
+---
 
-LawBite is provider-agnostic. Every provider is an OpenAI-compatible
-`/v1/chat/completions` endpoint, and `lib/ai-providers.ts` is the single source
-of truth for the provider list, the model catalogue, request shaping, and the
-failover order. Model choice is entirely server-side: the chat client never
-sends a model, so the route always starts at the default and walks the failover
-chain on its own.
+## Contributing
 
-### Default provider: Inception Labs (Mercury 2.5)
+Contributions are welcome! Please adhere to the following workflow:
 
-The default model is **Mercury 2.5** from [Inception Labs](https://inceptionlabs.ai).
-Mercury is a _diffusion_ large language model (dLLM): instead of emitting one
-token at a time, it denoises the whole response in parallel, which makes replies
-noticeably faster for the short, high-turnover replies the chat UI produces.
+1. Fork the repository and create a feature branch (`git checkout -b feature/amazing-feature`).
+2. Verify all checks pass locally:
+   ```bash
+   npm run typecheck
+   npm run lint
+   npm test
+   npm run audit
+   ```
+3. Commit your changes with clear, descriptive commit messages.
+4. Push to your branch and open a Pull Request.
 
-| Property        | Value                                                              |
-| --------------- | ------------------------------------------------------------------ |
-| API model id    | `mercury-2.5`                                                      |
-| Endpoint        | `https://api.inceptionlabs.ai/v1/chat/completions`                 |
-| Context window  | 260,000 tokens                                                     |
-| Max output      | 65,536 tokens                                                      |
-| Env var         | `INCEPTION_API_KEY`                                                |
-| Sampling params | `temperature`, `stop`, `reasoning_effort`, `max_completion_tokens` |
-| Modalities      | text                                                               |
+---
 
-Inception also offers `mercury-2` and `mercury-decide`. Mercury 2 stays in the
-catalogue for explicit legacy selections but is **not** used automatically:
-accuracy testing showed it inventing old IPC section numbers and misnaming the
-new statutes. Mercury Decide is a typed-decision preview that uses a different
-endpoint and is intentionally not listed.
+## License
 
-### Fallback provider: NVIDIA
-
-NVIDIA NIM is the automatic fallback. If Inception is unavailable — missing key,
-HTTP error, rate limit, connection timeout, a stalled stream, or an SSE error
-frame — the request is transparently retried against the NVIDIA chain, so a
-single-provider outage never takes the assistant down.
-
-| Model id                                | Role                                       |
-| --------------------------------------- | ------------------------------------------ |
-| `nvidia/nemotron-3-super-120b-a12b`     | Primary NVIDIA fallback (fastest measured) |
-| `nvidia/nemotron-3.5-lightning-30b-a3b` | Second-line fallback                       |
-| `meta/muse-glimmer-30b`                 | Last-resort fallback                       |
-| `meta/llama-3.2-90b-vision-instruct`    | Vision model for document review           |
-| `nvidia/nemotron-3.5-super-vl-120b-a12b` | Secondary vision model (failover)          |
-
-The order is deliberate: measured on this deployment, Nemotron Super returned
-its first token in roughly 3–5s, while Glimmer and Lightning could stall for
-20s+. Putting Super first keeps an Inception outage from turning into a
-half-minute wait.
-
-### Behaviour
-
-- **Default:** Inception Mercury 2.5.
-- **Failover chain:** default model → its provider's other models → the other
-  provider's models. Providers without a configured API key are skipped, so a
-  local checkout with only one key still works. For short chat modes, Mercury
-  2.5 is retried a few times before NVIDIA: a free-tier 429 returns in a few
-  hundred milliseconds, so another attempt is much faster than waiting on the
-  slow fallback.
-- **Bare legal acronyms:** IPC, CrPC, BNS, BNSS, BSA and CPC are expanded in the
-  prompt, so a one-word question like `what is ipc` is answered as an Indian-law
-  question instead of being refused as an unknown abbreviation.
-- **Vision:** document review (`review` mode) and any message carrying an image
-  are pinned to the NVIDIA vision model, whatever the failover chain would have
-  picked.
-- **Reasoning budget:** Mercury emits hidden reasoning tokens that count against
-  the completion budget. The route enforces a floor
-  (`MIN_REASONING_MAX_TOKENS = 4096`) so a small budget can never be consumed
-  entirely by reasoning and return an empty reply.
-- **Request shaping:** each provider gets only the parameters it accepts.
-  `top_p` is NVIDIA-only; `max_completion_tokens` is preferred over the
-  deprecated `max_tokens` where supported.
-
-### Latency tuning (Mercury is fast only if you ask it to be)
-
-Mercury 2.5 is a diffusion model, so its speed comes from generating tokens in
-parallel — but **`reasoning_effort` defaults to `medium` when omitted**, which
-costs several seconds of _hidden_ reasoning before the first visible token.
-Measured on a representative legal question:
-
-| `reasoning_effort`           | Time to first visible token | Total   |
-| ---------------------------- | --------------------------- | ------- |
-| omitted → `medium` (default) | ~8.8 s                      | ~11.3 s |
-| `instant`                    | ~0.7 s                      | ~3.0 s  |
-| `low`                        | ~0.9 s                      | ~3.3 s  |
-| `high`                       | ~6.9 s                      | ~10.2 s |
-
-So the route always sends an explicit `reasoning_effort`, chosen per mode:
-
-| Mode                                        | Effort                                                        |
-| ------------------------------------------- | ------------------------------------------------------------- |
-| Talk to AI, AI Lawyer (grill), default chat | `instant`                                                     |
-| Deep Analysis                               | `low`                                                         |
-| Document Drafter                            | `medium`                                                      |
-| Document Reviewer (vision)                  | omitted — the vision model is not a reasoning model           |
-| NVIDIA fallback                             | `instant` is downgraded to `low` (NVIDIA has no instant tier) |
-
-Override every mode with an env var:
-
-```bash
-CHAT_REASONING_EFFORT=instant   # instant | low | medium | high
-```
-
-Two further knobs:
-
-- `CHAT_REALTIME` sends Inception's latency hint. It is **on by default** for
-  Inception requests because measurements showed roughly half the
-  time-to-first-token and a better chance of getting through a busy free tier.
-  Set `CHAT_REALTIME=0` to disable it.
-- `CHAT_RATE_LIMIT_RETRIES` / `CHAT_RATE_LIMIT_BACKOFF_MS` tune the HTTP 429
-  retry policy for deep modes (default 3 retries at 300/800/1600 ms). Short
-  modes skip the same-model backoff and retry Mercury 2.5 a few times instead.
-
-**Why retries matter:** the Inception free tier is capacity-limited and returned
-`429 free tier is at capacity` on a large share of requests during testing.
-Because 429 is recoverable, short modes retry the accurate Mercury 2.5 several
-times before walking to NVIDIA — so a capacity blip costs a few hundred
-milliseconds instead of a slow fallback answer.
-
-The route also logs its own timings so you can see where a request spends time:
-
-```
-[ChatAPI] convType=talk-to-ai, model=inception:mercury-2.5, effort=instant,
-  sysPromptLen=4863, sessionMs=0, contextMs=210, buffered=false
-[ChatAPI] model inception:mercury-2.5 streaming directly to client (firstTokenMs=734)
-[ChatAPI] first client frame flushed at +735ms
-```
-
-Where the milliseconds actually go on a warm request:
-
-| Phase                | Typical                             | Notes                                                                                                                                              |
-| -------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sessionMs`          | ~0 warm, ~500 warm-miss, ~1900 cold | `auth.api.getSession` is a Postgres round trip. Now cached per session cookie for 60s, which took typical chat from ~1.5s to **~0.8s** end to end. |
-| `contextMs`          | ~400-600                            | S3 bare-acts lookup + optional Tavily search, run in parallel. `0` when the query needs no lookup.                                                 |
-| `firstTokenMs`       | ~0.5-1.8s                           | The model. `reasoning_effort` and the `realtime` flag control this.                                                                                |
-| `first client frame` | ≈ `firstTokenMs`                    | Proof the server is not buffering — the reply leaves as soon as the model produces it.                                                             |
-
-For reference, the same question measured **~8-11s** end to end before the
-`reasoning_effort` fix and **~0.8-1.5s** after, for a plain chat reply.
-
-### Known upstream variance
-
-Two things are outside the app's control and show up as occasional slowness:
-
-- **Inception free-tier capacity.** The tier is rate-limited per minute and
-  returned `429 free tier is at capacity` on a large share of rapid test
-  requests. Short modes therefore use `realtime` by default and retry Mercury 2.5
-  several times before falling back; a 429 costs only a few hundred
-  milliseconds. Set `CHAT_REALTIME=0` to disable the latency hint.
-- **NVIDIA fallback is markedly slower.** When Inception fails after its retries,
-  the reply is served by NVIDIA. The fallback order now starts with Nemotron
-  Super, which measured 3–5s to first token; Glimmer and Lightning are kept only
-  as last resorts because they can take 20s or more. The failover is automatic
-  and silent in the UI, so a slow reply usually means it fell back rather than
-  that the request was lost.
-
-Deep Analysis is the only buffered mode: it holds the whole answer because the
-reply is repaired afterwards (blank table cells, missing section references), so
-the server sends one frame at the end and the chat UI reveals it word by word.
-The reveal runs at ~60 words/s and catches up on a buffered block in about a
-second.
-
-Table-shaped `talk-to-ai` replies stream as they are generated. The same checks
-run at the end, but the route sends a `replace` frame only when a requested
-section was actually omitted or a cell was left blank. The common case has no
-extra wait and no visible rewrite; a genuine repair is applied to the already
-visible table.
-
-While a reply is pending, the chat shows a short staged status
-(thinking → searching legal resources → generating → finalizing), one label at a
-time. The card is held back for a moment so fast replies appear directly without
-a status flash, and it is removed the instant real content starts arriving.
-
-### Model selection
-
-Model choice is automatic and server-side. The chat client never sends a model,
-so every request starts at Mercury 2.5 and the route walks the failover chain on
-its own: same-provider siblings first, then the NVIDIA fallback. Document review
-and image attachments always use the vision model. Because there is no model
-picker in the chat UI, all users get the same default-first behaviour.
-
-### Sharing conversations
-
-Each saved conversation can be shared from its context menu or from the share
-button under an assistant reply. The link points at the canonical public origin
-(`NEXT_PUBLIC_APP_URL`, falling back to the request origin) and opens
-`/shared/<id>`.
-
-A shared page is a read-only public snapshot: it needs no login and shows only
-that conversation's messages, the sender's display name, and a **Continue to
-chat** action. Continuing sends the visitor through sign-in, then the server
-imports the snapshot into their own history exactly once under a deterministic
-id. The imported copy is a normal chat they can keep using, and the sender's
-original conversation is never modified.
-
-```text
-Share button -> POST /api/share -> /shared/<id>
-                                    |
-                                    +-- Continue to chat -> /chat?shareId=<id>
-                                                           (sign-in if needed)
-                                                           -> server-side import
-                                                           -> /chat?conversation=<id>
-```
-
-### Environment variables
-
-```bash
-# Inception Labs — default provider
-INCEPTION_API_KEY="sk_..."
-
-# NVIDIA — automatic fallback
-NVIDIA_API_KEY="nvapi-..."
-
-# Optional latency tuning (see "Latency tuning" above)
-# CHAT_REASONING_EFFORT="instant"     # instant | low | medium | high
-# CHAT_REALTIME="1"
-# CHAT_RATE_LIMIT_RETRIES="3"
-# CHAT_RATE_LIMIT_BACKOFF_MS="300,800,1600"
-```
-
-At least one is required. Setting both gives you the full failover ladder.
-`lib/env.ts` warns at startup when a key is missing rather than silently
-degrading.
-
-### Testing the providers
-
-Hermetic unit and route tests run with the normal suite:
-
-```bash
-npm run test                       # includes ai-providers + chat-providers tests
-```
-
-A live integration test hits the real Inception API. It is opt-in because it
-needs network access and a funded key (the free tier is frequently
-rate-limited):
-
-```bash
-# PowerShell
-$env:LIVE_AI_TESTS = "1"; npx vitest run tests/inception-live.test.ts
-```
-
-It verifies a plain completion, SSE streaming, BNS-grounded legal answers, and a
-401 on an invalid key.
-
-## Learn More
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Inception Labs documentation](https://docs.inceptionlabs.ai) - Mercury API reference.
-- [NVIDIA NIM](https://build.nvidia.com) - fallback model catalogue.
-
-See `AGENTS.md` for project structure, stack, and conventions.
+LawBite is currently maintained as an open-source project. If a formal open-source license (such as MIT or Apache 2.0) is added to the repository, its terms will apply here.
