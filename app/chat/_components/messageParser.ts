@@ -211,14 +211,14 @@ export function parseContent(text: string): ContentBlockType[] {
     }
 
     const summaryMatch = line.match(
-      /^\*{0,2}(Key Takeaways|Summary|To Summarize|In Summary|Conclusion)\*{0,2}\s*[:\u2013\u2014\-]?\s*(.*)/i,
+      /^\*{0,2}(Key Takeaways|Summary|To Summarize|In Summary|Conclusion|Top 3 Recommendations|Top \d+ Recommendations|Recommendations)\*{0,2}\s*[:\u2013\u2014\-]?\s*(.*)/i,
     );
     if (summaryMatch) {
       const points: string[] = [];
       if (summaryMatch[2]) {
         const s = summaryMatch[2]
           .trim()
-          .replace(/^\s*[-*+>]\s*/, "")
+          .replace(/^\s*(?:[-*+>]|\d+[\.)])\s*/, "")
           .trim();
         if (/[a-zA-Z0-9]/.test(s)) points.push(summaryMatch[2].trim());
       }
@@ -229,9 +229,51 @@ export function parseContent(text: string): ContentBlockType[] {
           i++;
           continue;
         }
+        // Stop if a new markdown section or table starts
         if (/^[*#|]/.test(next)) break;
-        if (/[a-zA-Z0-9]/.test(next.replace(/^\s*[-*+>]\s*/, "")))
+        // Stop if a new known plain section header starts
+        if (
+          /^(Document Type Identification|Parties Involved|Key Dates and Duration|Clause-by-Clause Analysis|Overall Risk Score|One-Line Summary):?$/i.test(
+            next,
+          )
+        ) {
+          break;
+        }
+
+        // If it's a bare number on its own line like "1" or "2", grab following text as that item's content
+        if (/^\d+$/.test(next)) {
+          let itemText = "";
+          i++;
+          while (i < lines.length) {
+            const following = lines[i].trim();
+            if (!following) {
+              if (itemText) {
+                i++;
+                break;
+              }
+              i++;
+              continue;
+            }
+            if (/^\d+$/.test(following) || /^[*#|]/.test(following)) break;
+            if (
+              /^(Document Type Identification|Parties Involved|Key Dates and Duration|Clause-by-Clause Analysis|Overall Risk Score|One-Line Summary):?$/i.test(
+                following,
+              )
+            ) {
+              break;
+            }
+            itemText += (itemText ? " " : "") + following;
+            i++;
+          }
+          if (itemText) {
+            points.push(`${next}. ${itemText}`);
+          }
+          continue;
+        }
+
+        if (/[a-zA-Z0-9]/.test(next.replace(/^\s*(?:[-*+>]|\d+[\.)])\s*/, ""))) {
           points.push(next);
+        }
         i++;
       }
       if (points.length === 0) {
@@ -267,7 +309,12 @@ export function parseContent(text: string): ContentBlockType[] {
   return blocks;
 }
 
-export type SegmentVariant = "lead" | "takeaway" | "warning" | "plain";
+export type SegmentVariant =
+  | "lead"
+  | "takeaway"
+  | "warning"
+  | "score"
+  | "plain";
 
 export type TextSegment = { heading: string | null; lines: string[] };
 
@@ -284,12 +331,13 @@ export function sectionVariant(title: string): SegmentVariant {
     .replace(/[:\s]+$/, "");
   if (/^(short answer|answer|in short)$/.test(t)) return "lead";
   if (
-    /^(bottom line|the bottom line|practical takeaway|key takeaways?|takeaways?|summary|conclusion|in summary|to summarize|final word|what this means)$/.test(
+    /^(bottom line|the bottom line|practical takeaway|key takeaways?|takeaways?|summary|conclusion|in summary|to summarize|final word|what this means|one-line summary|top 3 recommendations?|top recommendations?)$/.test(
       t,
     )
   )
     return "takeaway";
   if (/^(warning|important|note|caution|disclaimer)$/.test(t)) return "warning";
+  if (/^(overall risk score|risk score|overall risk)$/.test(t)) return "score";
   return "plain";
 }
 
@@ -309,7 +357,18 @@ export function splitTextSegments(lines: string[]): TextSegment[] {
       flush();
       current = { heading: headingMatch[1].trim(), lines: [] };
     } else {
-      current.lines.push(l);
+      // Check for standalone review section titles like "Document Type Identification", "Parties Involved", etc.
+      const trimmed = l.trim();
+      const isPlainReviewSection =
+        /^(Document Type Identification|Parties Involved|Key Dates and Duration|Clause-by-Clause Analysis|Overall Risk Score|Top 3 Recommendations|One-Line Summary):?$/i.test(
+          trimmed,
+        );
+      if (isPlainReviewSection) {
+        flush();
+        current = { heading: trimmed.replace(/:$/, "").trim(), lines: [] };
+      } else {
+        current.lines.push(l);
+      }
     }
   }
   flush();

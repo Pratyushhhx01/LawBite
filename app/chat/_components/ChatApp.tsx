@@ -105,6 +105,7 @@ type Message = {
    */
   documentText?: string;
   documentTruncated?: boolean;
+  documentImageBase64?: string;
   citations?: Citation[];
   verification?: CitationVerificationSummary;
 };
@@ -1081,6 +1082,11 @@ export default function ChatApp({
     imageBase64?: string;
     truncated?: boolean;
   } | null>(null);
+  const [activeDocPreview, setActiveDocPreview] = useState<{
+    fileName: string;
+    text?: string;
+    imageBase64?: string;
+  } | null>(null);
   const reviewFileInputRef = useRef<HTMLInputElement | null>(null);
   const reviewAttachMenuRef = useRef<HTMLDivElement | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1382,6 +1388,46 @@ export default function ChatApp({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [analysisAttachOpen]);
 
+  function renderRiskBadge(text: string): ReactNode {
+    // Matches [HIGH RISK], [MEDIUM RISK], [LOW RISK], [SAFE], or similar risk tags
+    const riskMatch = text.match(
+      /^\[?(HIGH RISK|CRITICAL RISK|MEDIUM RISK|MODERATE RISK|LOW RISK|SAFE|NO RISK)\]?$/i,
+    );
+    if (!riskMatch) return null;
+    const tag = riskMatch[1].toUpperCase();
+
+    if (tag.includes("HIGH") || tag.includes("CRITICAL")) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-rose-500/30 bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-rose-300 shadow-xs">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" />
+          [{tag}]
+        </span>
+      );
+    }
+    if (tag.includes("MEDIUM") || tag.includes("MODERATE")) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-amber-300 shadow-xs">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          [{tag}]
+        </span>
+      );
+    }
+    if (tag.includes("LOW")) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/30 bg-sky-500/15 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-sky-300 shadow-xs">
+          <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+          [{tag}]
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-emerald-300 shadow-xs">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        [{tag}]
+      </span>
+    );
+  }
+
   function renderBold(text: string): ReactNode {
     // An unclosed bold marker should still render as bold, not leak "**".
     if (text.startsWith("**") && !text.slice(2).includes("**")) {
@@ -1389,15 +1435,22 @@ export default function ChatApp({
         <strong className="font-semibold text-white">{text.slice(2)}</strong>
       );
     }
-    // Support **bold** and *italic*. Models occasionally use single asterisks
-    // for emphasis even when told not to; render them as italics so raw
-    // asterisks never reach the user.
-    const parts = text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*)/g);
+    // Support **bold**, *italic*, and risk tags like [HIGH RISK], [MEDIUM RISK], [LOW RISK], [SAFE]
+    const parts = text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*|\[(?:HIGH RISK|CRITICAL RISK|MEDIUM RISK|MODERATE RISK|LOW RISK|SAFE|NO RISK)\])/gi);
     return parts.map((part, i) => {
+      const riskBadge = renderRiskBadge(part);
+      if (riskBadge) {
+        return <span key={i} className="inline-block align-middle mx-1">{riskBadge}</span>;
+      }
       if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+        const inner = part.slice(2, -2);
+        const innerBadge = renderRiskBadge(inner);
+        if (innerBadge) {
+          return <span key={i} className="inline-block align-middle mx-1">{innerBadge}</span>;
+        }
         return (
           <strong key={i} className="font-semibold text-white">
-            {part.slice(2, -2)}
+            {inner}
           </strong>
         );
       }
@@ -1453,6 +1506,24 @@ export default function ChatApp({
             strokeLinejoin="round"
           >
             <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
+          </svg>
+        ),
+      },
+      score: {
+        box: "border-amber-400/30 bg-gradient-to-br from-amber-500/[0.12] via-amber-500/[0.04] to-transparent",
+        icon: "bg-amber-400/20 text-amber-300",
+        label: "text-amber-300 font-bold",
+        glyph: (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
         ),
       },
@@ -1586,7 +1657,11 @@ export default function ChatApp({
             );
           }
           const bulletClass =
-            variant === "takeaway" ? "bg-emerald-400/60" : "bg-amber-400/60";
+            variant === "takeaway"
+              ? "bg-emerald-400/60"
+              : variant === "score"
+                ? "bg-amber-400/80"
+                : "bg-amber-400/60";
           return (
             <div key={si} className={si > 0 ? "mt-4" : ""}>
               {renderCallout(
@@ -1795,9 +1870,9 @@ export default function ChatApp({
           return (
             <div
               key={bi}
-              className="my-3 rounded-lg border border-emerald-400/15 bg-emerald-400/[0.04] px-4 py-3"
+              className="my-3 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-3.5"
             >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400/70">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300/90">
                 <svg
                   viewBox="0 0 24 24"
                   className="h-4 w-4"
@@ -1807,14 +1882,11 @@ export default function ChatApp({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
                 </svg>
-                Key Takeaways
+                Key Takeaways &amp; Recommendations
               </div>
-              <div className="mt-2 space-y-1.5">
+              <div className="mt-2.5 space-y-2">
                 {block.content
                   .filter((point) =>
                     /[a-zA-Z0-9]/.test(
@@ -1824,6 +1896,20 @@ export default function ChatApp({
                   .map((point, pi) => {
                     const trimmed = point.trim();
                     const text = trimmed.replace(/^\s*[-*+>]{1,2}\s*/, "");
+                    const numMatch = text.match(/^(\d+)[.)]\s*(.*)$/);
+                    if (numMatch) {
+                      return (
+                        <div
+                          key={pi}
+                          className="flex items-start gap-2.5 text-sm leading-relaxed text-white/85"
+                        >
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-[11px] font-bold text-emerald-300 mt-0.5">
+                            {numMatch[1]}
+                          </span>
+                          <span className="min-w-0">{renderBold(numMatch[2])}</span>
+                        </div>
+                      );
+                    }
                     return (
                       <div
                         key={pi}
@@ -1845,13 +1931,31 @@ export default function ChatApp({
           if (numMatch) {
             const num = numMatch[1];
             const text = textContent.trim().replace(/^\d+\.?\s*/, "");
+            const hasHighRisk = /\[HIGH RISK\]/i.test(text);
+            const hasMedRisk = /\[MEDIUM RISK\]/i.test(text);
+            const hasLowRisk = /\[LOW RISK\]/i.test(text);
+            const borderAccent = hasHighRisk
+              ? "border-rose-500/30 bg-rose-500/[0.04]"
+              : hasMedRisk
+                ? "border-amber-500/25 bg-amber-500/[0.03]"
+                : hasLowRisk
+                  ? "border-sky-500/20 bg-sky-500/[0.02]"
+                  : "border-white/[0.08] bg-white/[0.03]";
+            const badgeAccent = hasHighRisk
+              ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+              : hasMedRisk
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                : hasLowRisk
+                  ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                  : "bg-white/[0.08] text-white/80";
+
             return (
               <div
                 key={bi}
-                className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3"
+                className={`rounded-lg border px-4 py-3 transition-colors ${borderAccent}`}
               >
                 <div className="flex gap-3">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xs font-bold text-white/80">
+                  <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${badgeAccent}`}>
                     {num}
                   </span>
                   <div className="whitespace-pre-wrap leading-relaxed">
@@ -2547,6 +2651,8 @@ export default function ChatApp({
       documentText: attachment?.type === "pdf" ? attachment.text : undefined,
       documentTruncated:
         attachment?.type === "pdf" ? attachment.truncated : undefined,
+      documentImageBase64:
+        attachment?.type === "image" ? attachment.imageBase64 : undefined,
     };
     const assistantId = newId("a");
 
@@ -4783,33 +4889,70 @@ export default function ChatApp({
                           : "border border-white/10 bg-white/[0.03] text-white/85"
                       }`}
                     >
-                      {message.role === "user" && message.documentName ? (
-                        <div className="flex items-center gap-2">
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-5 w-5 shrink-0 text-black/60"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                          </svg>
-                          <span className="text-sm font-medium">
-                            {message.documentName}
-                          </span>
-                        </div>
-                      ) : message.role === "user" ? (
-                        <div className="whitespace-pre-wrap leading-relaxed">
-                          {typeof message.content === "string"
-                            ? message.content.split(/\n\n+/).map((para, i) => (
-                                <p key={i} className={i > 0 ? "mt-3" : ""}>
-                                  {renderBold(para)}
-                                </p>
-                              ))
-                            : JSON.stringify(message.content)}
+                      {message.role === "user" ? (
+                        <div className="space-y-2">
+                          {message.documentName && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const previewData = {
+                                  fileName: message.documentName!,
+                                  text: message.documentText,
+                                  imageBase64: message.documentImageBase64,
+                                };
+                                setActiveDocPreview(previewData);
+                              }}
+                              className={`group/doc flex items-center gap-2.5 rounded-xl border border-black/10 bg-black/[0.04] px-3 py-2 text-left transition-all hover:bg-black/[0.08] hover:border-black/20 cursor-pointer ${message.content && message.content.trim() ? "mb-2" : ""}`}
+                              title="Click to view document"
+                            >
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-black/10 text-black/70 group-hover/doc:bg-black group-hover/doc:text-white transition-colors">
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="block truncate text-xs font-semibold text-black/90 group-hover/doc:text-black">
+                                  {message.documentName}
+                                </span>
+                                <span className="block text-[10px] text-black/50">
+                                  Click to view document
+                                </span>
+                              </div>
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="h-3.5 w-3.5 shrink-0 text-black/40 group-hover/doc:text-black/80 transition-colors"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                <polyline points="15 3 21 3 21 9" />
+                                <line x1="10" y1="14" x2="21" y2="3" />
+                              </svg>
+                            </button>
+                          )}
+                          {message.content && message.content.trim() && (
+                            <div className="whitespace-pre-wrap leading-relaxed">
+                              {typeof message.content === "string"
+                                ? message.content.split(/\n\n+/).map((para, i) => (
+                                    <p key={i} className={i > 0 ? "mt-3" : ""}>
+                                      {renderBold(para)}
+                                    </p>
+                                  ))
+                                : JSON.stringify(message.content)}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="flex flex-col gap-2">
@@ -9110,6 +9253,146 @@ export default function ChatApp({
                 className="rounded-lg bg-white/[0.06] px-4 py-2 text-sm text-white/70 transition-colors hover:bg-white/[0.1] hover:text-white"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeDocPreview && (
+        <div
+          className="animate-overlay-in fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
+          onClick={() => setActiveDocPreview(null)}
+        >
+          <div
+            className="animate-modal-in flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-white/10 bg-[#0d0d0d] shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-400/10 text-amber-300">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-semibold text-white">
+                    {activeDocPreview.fileName}
+                  </h2>
+                  <p className="text-[11px] text-white/40">
+                    {activeDocPreview.imageBase64
+                      ? "Attached Image"
+                      : "Document Content"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {activeDocPreview.text && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      import("@/lib/export").then((mod) =>
+                        mod.exportAsPdf(
+                          activeDocPreview.text ?? "",
+                          activeDocPreview.fileName.replace(/\.[^.]+$/, "") || "Document",
+                        ),
+                      );
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                    title="Print or Save as PDF"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span>Download</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveDocPreview(null)}
+                  className="rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="Close"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Document Content */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+              {activeDocPreview.imageBase64 ? (
+                <div className="flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={activeDocPreview.imageBase64}
+                    alt={activeDocPreview.fileName}
+                    className="max-h-[65vh] w-auto rounded-xl object-contain shadow-lg"
+                  />
+                </div>
+              ) : activeDocPreview.text ? (
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5 font-mono text-xs leading-relaxed text-white/85 select-text sm:text-sm whitespace-pre-wrap">
+                  {activeDocPreview.text}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-white/40">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-10 w-10 text-white/20 mb-3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  <p className="text-sm font-medium">Text extraction preview not available</p>
+                  <p className="text-xs text-white/30 mt-1">This document was processed directly for AI review.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-white/10 px-5 py-3 flex items-center justify-between text-xs text-white/40 bg-white/[0.01]">
+              <span>LawBite Document Viewer</span>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setActiveDocPreview(null)}
+                className="rounded-lg bg-white/10 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20"
+              >
+                Done
               </button>
             </div>
           </div>

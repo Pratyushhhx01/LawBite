@@ -228,10 +228,6 @@ export default function Showcase() {
                         Talk to AI
                       </div>
                     </div>
-                    <div className="hidden items-center gap-1.5 sm:flex">
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      <span className="text-xs text-white/40">Online</span>
-                    </div>
                   </div>
 
                   <div className="flex-1 overflow-hidden px-5 py-6 sm:px-8">
