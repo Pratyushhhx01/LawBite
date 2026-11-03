@@ -974,6 +974,24 @@ export default function CasesApp(_props: CasesAppProps) {
                   <h3 className="text-sm font-semibold text-white/60">
                     Linked Conversations ({detail.conversations?.length ?? 0})
                   </h3>
+                  <a
+                    href={`/chat?caseId=${encodeURIComponent(detail.id)}`}
+                    className="flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                  >
+                    <svg
+                      aria-hidden
+                      viewBox="0 0 24 24"
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Start new conversation
+                  </a>
                 </div>
                 {(detail.conversations?.length ?? 0) === 0 ? (
                   <div className="rounded-xl border border-dashed border-white/10 p-6 text-center">

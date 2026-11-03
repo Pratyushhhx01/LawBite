@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { claimSharedChat } from "@/lib/shares";
+import { db } from "@/lib/db";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import ChatApp from "./_components/ChatApp";
@@ -52,6 +53,23 @@ export default async function ChatPage({
     );
   }
 
+  let caseName: string | null = null;
+  if (caseId) {
+    try {
+      const folder = await db
+        .selectFrom("case_folder")
+        .select(["name"])
+        .where("id", "=", caseId)
+        .where("userId", "=", session.user.id)
+        .executeTakeFirst();
+      if (folder) {
+        caseName = folder.name;
+      }
+    } catch (e) {
+      console.error("Failed to fetch case name:", e);
+    }
+  }
+
   // A shared link is claimed on the server before the chat shell renders. That
   // makes the import idempotent and guarantees the conversation is in the
   // normal history fetch instead of racing it in the browser.
@@ -85,6 +103,7 @@ export default async function ChatPage({
       sessionId={session.session.id}
       initialConversationId={params.conversation ?? null}
       initialCaseId={caseId}
+      initialCaseName={caseName}
       initialTool={tool}
       initialItem={item}
     />
