@@ -7321,51 +7321,39 @@ export default function ChatApp({
                   )}
                 </div>
               ) : mode === "review" ? (
-                <div className="animate-fade-up mx-auto flex h-full max-w-4xl flex-col items-center justify-center px-4 py-6 sm:py-0">
-                  <div className="rounded-full border border-emerald-400/30 bg-emerald-400/[0.06] px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs uppercase tracking-[0.3em] text-emerald-400/70">
+                <div className="animate-fade-up mx-auto flex h-full max-w-2xl flex-col items-center justify-center px-4 py-4 sm:py-6">
+                  <div className="rounded-full border border-emerald-400/30 bg-emerald-400/[0.06] px-3 py-1 text-[11px] uppercase tracking-[0.25em] text-emerald-400/70">
                     Document Reviewer
                   </div>
-                  <h2 className="mt-3 sm:mt-6 text-xl sm:text-2xl lg:text-3xl font-semibold tracking-tight text-center">
+                  <h2 className="mt-3 text-xl sm:text-2xl font-semibold tracking-tight text-center">
                     Review legal documents for risky clauses
                   </h2>
-                  <p className="mt-2 sm:mt-3 max-w-md text-center text-xs sm:text-sm leading-relaxed text-white/55">
-                    <span className="sm:hidden">
-                      Upload a PDF or image of your agreement, contract, or legal document for a clause-by-clause risk analysis.
-                    </span>
-                    <span className="hidden sm:inline">
-                      Upload a PDF or image — rental agreement, employment
-                      contract, sale deed, or any legal document — and get a
-                      clause-by-clause risk analysis with plain-language
-                      explanations. After uploading, ask follow-up questions about
-                      any clause and every answer stays grounded in your document.
-                    </span>
+                  <p className="mt-2 max-w-lg text-center text-xs sm:text-sm leading-relaxed text-white/55">
+                    Upload a PDF or image of your agreement, contract, or legal document for a clause-by-clause risk analysis with plain-language explanations.
                   </p>
-                  <div className="mt-4 sm:mt-8 flex flex-wrap justify-center gap-2 sm:gap-3">
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 sm:px-4 sm:py-2 text-[11px] sm:text-xs text-white/50">
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] sm:text-xs text-white/50">
                       Risk ratings per clause
                     </span>
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 sm:px-4 sm:py-2 text-[11px] sm:text-xs text-white/50">
-                      Plain-language explanations
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] sm:text-xs text-white/50">
+                      Plain explanations
                     </span>
-                    <span className="hidden sm:inline-block rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/50">
-                      Indian law references
-                    </span>
-                    <span className="hidden sm:inline-block rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/50">
-                      Overall risk score
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] sm:text-xs text-white/50">
+                      Risk score
                     </span>
                   </div>
-                  <div className="mt-4 sm:mt-8 flex flex-col gap-2.5 sm:gap-3 sm:flex-row w-full max-w-md sm:max-w-none justify-center">
-                    <label className="group flex cursor-pointer items-center gap-3 sm:gap-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-5 text-left transition-all hover:border-white/20 hover:bg-white/[0.05]">
+                  <div className="mt-5 flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center">
+                    <label className="group flex flex-1 cursor-pointer items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-4 text-left transition-all hover:border-white/20 hover:bg-white/[0.05]">
                       <input
                         type="file"
                         accept=".pdf,.docx,.doc"
                         className="hidden"
                         onChange={handleReviewFileUpload}
                       />
-                      <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full border border-white/10 text-white/50 transition-colors duration-300 group-hover:border-white/20 group-hover:text-white">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-white/50 transition-colors duration-300 group-hover:border-white/20 group-hover:text-white">
                         <svg
                           viewBox="0 0 24 24"
-                          className="h-5 w-5 sm:h-6 sm:w-6"
+                          className="h-5 w-5"
                           fill="none"
                           stroke="currentColor"
                           strokeWidth="1.5"
@@ -7380,22 +7368,22 @@ export default function ChatApp({
                         <span className="block text-sm font-medium text-white">
                           PDF Document
                         </span>
-                        <span className="mt-0.5 block text-[11px] sm:text-xs text-white/40">
-                          Contracts, agreements, notices
+                        <span className="mt-0.5 block text-[11px] text-white/40">
+                          Agreements, contracts
                         </span>
                       </div>
                     </label>
-                    <label className="group flex cursor-pointer items-center gap-3 sm:gap-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-5 text-left transition-all hover:border-white/20 hover:bg-white/[0.05]">
+                    <label className="group flex flex-1 cursor-pointer items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-4 text-left transition-all hover:border-white/20 hover:bg-white/[0.05]">
                       <input
                         type="file"
                         accept=".png,.jpg,.jpeg,.webp,.gif"
                         className="hidden"
                         onChange={handleReviewFileUpload}
                       />
-                      <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full border border-white/10 text-white/50 transition-colors duration-300 group-hover:border-white/20 group-hover:text-white">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-white/50 transition-colors duration-300 group-hover:border-white/20 group-hover:text-white">
                         <svg
                           viewBox="0 0 24 24"
-                          className="h-5 w-5 sm:h-6 sm:w-6"
+                          className="h-5 w-5"
                           fill="none"
                           stroke="currentColor"
                           strokeWidth="1.5"
@@ -7418,7 +7406,7 @@ export default function ChatApp({
                         <span className="block text-sm font-medium text-white">
                           Image
                         </span>
-                        <span className="mt-0.5 block text-[11px] sm:text-xs text-white/40">
+                        <span className="mt-0.5 block text-[11px] text-white/40">
                           Photos of documents
                         </span>
                       </div>
