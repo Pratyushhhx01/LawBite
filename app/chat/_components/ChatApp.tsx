@@ -123,6 +123,8 @@ type ChatAppProps = {
   sessionId?: string | null;
   /** Conversation to open after a shared chat has been imported server-side. */
   initialConversationId?: string | null;
+  /** Case folder to attach any newly started conversation to. */
+  initialCaseId?: string | null;
   initialTool?: "templates" | "filing" | null;
   initialItem?: string | null;
 };
@@ -854,13 +856,15 @@ export default function ChatApp({
   user: initialUser,
   sessionId = null,
   initialConversationId = null,
+  initialCaseId = null,
   initialTool = null,
   initialItem = null,
 }: ChatAppProps) {
   const router = useRouter();
   const [user, setUser] = useState<ChatUser>(initialUser);
+  const [mode, setMode] = useState<ConversationType>("chat");
   const [conversations, setConversations] = useState<Conversation[]>(() => [
-    freshConversation,
+    initialCaseId ? { ...freshConversation, folderId: initialCaseId } : freshConversation,
   ]);
   const [activeId, setActiveId] = useState<string>(
     initialConversationId ?? freshConversation.id,
@@ -887,7 +891,11 @@ export default function ChatApp({
           setConversations((prev) => {
             const currentActiveId = activeIdRef.current;
             const activeInServer = server.some((c) => c.id === currentActiveId);
-            if (activeInServer) return server;
+            if (activeInServer) {
+              const target = server.find((c) => c.id === currentActiveId);
+              if (target) setMode(target.type);
+              return server;
+            }
             const currentActive = prev.find((c) => c.id === currentActiveId);
             if (currentActive && currentActive.messages.length === 0) {
               return [currentActive, ...server];
@@ -898,6 +906,9 @@ export default function ChatApp({
           const local = loadConversations();
           if (local && local.length > 0) {
             setConversations(local);
+            const currentActiveId = activeIdRef.current;
+            const target = local.find((c) => c.id === currentActiveId);
+            if (target) setMode(target.type);
           }
         }
       } catch {
@@ -905,6 +916,9 @@ export default function ChatApp({
         const local = loadConversations();
         if (local && local.length > 0) {
           setConversations(local);
+          const currentActiveId = activeIdRef.current;
+          const target = local.find((c) => c.id === currentActiveId);
+          if (target) setMode(target.type);
         }
       } finally {
         if (!cancelled) setSyncStatus("synced");
@@ -993,7 +1007,6 @@ export default function ChatApp({
   const [newFolderName, setNewFolderName] = useState("");
   const lastTalkIdRef = useRef<string | null>(null);
   const lastAnalysisIdRef = useRef<string | null>(null);
-  const [mode, setMode] = useState<ConversationType>("chat");
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const plusMenuRef = useRef<HTMLDivElement | null>(null);
   const mobileModeSheetRef = useRef<HTMLDivElement | null>(null);

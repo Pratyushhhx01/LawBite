@@ -981,7 +981,7 @@ export default function CasesApp(_props: CasesAppProps) {
                       No conversations linked yet
                     </p>
                     <a
-                      href="/chat"
+                      href={`/chat?caseId=${encodeURIComponent(detail.id)}`}
                       className="mt-2 inline-block text-xs text-blue-400 hover:text-blue-300"
                     >
                       Start a conversation
@@ -992,7 +992,7 @@ export default function CasesApp(_props: CasesAppProps) {
                     {detail.conversations.map((conv) => (
                       <a
                         key={conv.id}
-                        href={`/chat`}
+                        href={`/chat?conversation=${encodeURIComponent(conv.id)}&caseId=${encodeURIComponent(detail.id)}`}
                         className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 transition-colors hover:bg-white/[0.06]"
                       >
                         <div className="min-w-0 flex-1">

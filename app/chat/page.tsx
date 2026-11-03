@@ -17,6 +17,7 @@ export default async function ChatPage({
   searchParams: Promise<{
     shareId?: string;
     conversation?: string;
+    caseId?: string;
     tool?: string;
     item?: string;
   }>;
@@ -27,6 +28,7 @@ export default async function ChatPage({
       ? params.tool
       : null;
   const item = params.item ?? null;
+  const caseId = params.caseId ?? null;
 
   let session;
   try {
@@ -41,6 +43,7 @@ export default async function ChatPage({
     const qs = new URLSearchParams();
     if (params.shareId) qs.set("shareId", params.shareId);
     if (params.conversation) qs.set("conversation", params.conversation);
+    if (caseId) qs.set("caseId", caseId);
     if (tool) qs.set("tool", tool);
     if (item) qs.set("item", item);
     const query = qs.toString();
@@ -65,6 +68,7 @@ export default async function ChatPage({
     }
 
     const qs = new URLSearchParams({ conversation: importedId });
+    if (caseId) qs.set("caseId", caseId);
     if (tool) qs.set("tool", tool);
     if (item) qs.set("item", item);
     redirect(`/chat?${qs.toString()}`);
@@ -80,6 +84,7 @@ export default async function ChatPage({
       }}
       sessionId={session.session.id}
       initialConversationId={params.conversation ?? null}
+      initialCaseId={caseId}
       initialTool={tool}
       initialItem={item}
     />
