@@ -95,22 +95,6 @@ export const AUTHORITIES: Record<string, Authority> = {
     jurisdiction: "All India — cyber crimes only",
     feeStructure: [{ range: "All complaints", fee: "Free" }],
   },
-  police: {
-    id: "police",
-    name: "Local Police Station",
-    portalUrl: "https://police.gov.in",
-    portalName: "State Police Portal",
-    filingSteps: [
-      "Identify the correct police station based on jurisdiction (where the offence occurred)",
-      "Visit the police station in person or use your State's online FIR portal",
-      "Provide: your details, incident details, suspect details (if any)",
-      "Submit any evidence you have",
-      "Get the FIR copy with FIR number",
-      "If police refuse to file FIR, complain to the SP or approach Magistrate under Section 156(3) CrPC",
-    ],
-    jurisdiction: "Based on where the offence occurred",
-    feeStructure: [{ range: "FIR filing", fee: "Free" }],
-  },
 };
 
 export function getAuthorityForComplaint(

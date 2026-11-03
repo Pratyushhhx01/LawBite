@@ -6360,7 +6360,7 @@ export default function ChatApp({
                               Filing Assistance
                             </span>
                             <span className="mt-0.5 block text-xs text-white/40">
-                              Guides for cyber crime, RTI, FIR &amp; consumer
+                              Guides for cyber crime, RTI &amp; consumer
                               complaints
                             </span>
                           </div>
@@ -8705,7 +8705,7 @@ export default function ChatApp({
                     Filing Assistance
                   </span>
                   <span className="mt-0.5 block text-xs text-white/40">
-                    Guides for cyber crime, RTI, FIR &amp; consumer complaints
+                    Guides for cyber crime, RTI &amp; consumer complaints
                   </span>
                 </div>
               </button>

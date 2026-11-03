@@ -93,9 +93,9 @@ export const resourceCategories: ResourceCategory[] = [
         description: "Consumer forum complaints",
       },
       {
-        label: "FIR Draft",
-        href: "/filing#fir",
-        description: "Police complaint drafts",
+        label: "Consumer Grievance (NCH)",
+        href: "/filing#nch-grievance",
+        description: "National Consumer Helpline grievance",
       },
     ],
   },

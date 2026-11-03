@@ -422,7 +422,11 @@ export function TemplatesModal({
               onClick={() =>
                 exportAsWord(selected.generate(formData), selected.name)
               }
-              className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-white/20 disabled:opacity-40"
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                allRequiredFilled
+                  ? "bg-blue-600 text-white hover:bg-blue-500 cursor-pointer"
+                  : "bg-white/10 text-white/40 cursor-not-allowed opacity-40"
+              }`}
             >
               Download Word
             </button>
@@ -431,7 +435,11 @@ export function TemplatesModal({
               onClick={() =>
                 exportAsPdf(selected.generate(formData), selected.name)
               }
-              className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-white/20 disabled:opacity-40"
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                allRequiredFilled
+                  ? "bg-rose-600 text-white hover:bg-rose-500 cursor-pointer"
+                  : "border border-white/10 bg-white/5 text-white/40 cursor-not-allowed opacity-40"
+              }`}
             >
               Download PDF
             </button>
@@ -535,41 +543,6 @@ const FILING_GUIDES: FilingGuide[] = [
     ],
     generateDocument: (d) =>
       `CONSUMER COMPLAINT\n\nDate: ${formatDate()}\n\nTo,\nThe District Consumer Disputes Redressal Commission\n\nIn the matter of:\n${d["Complainant Name"] || "[Complainant]"} — Complainant\nVs.\n${d["Opposite Party Name"] || "[Opposite Party]"} — Opposite Party\n\nSubject: Complaint regarding ${d["Product/Service"] || "[Product/Service]"} under the Consumer Protection Act, 2019\n\n1. The complainant purchased/availed ${d["Product/Service"]} for Rs. ${d["Amount Paid"] || "[Amount]"}.\n2. The deficiency: ${d["Deficiency Details"] || "[Describe the deficiency]"}\n3. Despite repeated requests, the opposite party has failed to address the grievance.\n\nThe complainant prays for: (a) Relief sought, (b) Compensation, (c) Cost of litigation.\n\n${d["Complainant Name"] || "[Name]"}\n\n[DISCLAIMER: AI-generated draft for reference only.]`,
-  },
-  {
-    id: "fir",
-    authorityId: "police",
-    name: "FIR Draft",
-    icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
-    steps: [
-      {
-        title: "Identify Police Station",
-        detail:
-          "File at the police station under whose jurisdiction the offence occurred. Zero FIR can be filed at any station.",
-        tip: "Under BNSS 2023, Zero FIR is available for all cognizable offences.",
-      },
-      {
-        title: "Draft the FIR",
-        detail:
-          "Write facts clearly: what happened, when, where, who was involved.",
-        tip: "Stick to facts. Do not embellish.",
-      },
-      {
-        title: "Submit to SHO",
-        detail:
-          "The SHO is duty-bound to register the FIR for cognizable offences under BNSS 2023.",
-        tip: "If refused, approach the SP or file online.",
-      },
-    ],
-    docFields: [
-      { label: "Complainant Name", required: true },
-      { label: "Police Station", required: true },
-      { label: "Incident Date", required: true },
-      { label: "Incident Place", required: true },
-      { label: "Incident Details", required: true },
-    ],
-    generateDocument: (d) =>
-      `FIR DRAFT\n\nDate: ${formatDate()}\n\nTo,\nThe SHO,\n${d["Police Station"] || "[Police Station]"}\n\nSubject: Information regarding offence under the Bharatiya Nyaya Sanhita, 2023\n\nSir/Madam,\n\n1. I, ${d["Complainant Name"] || "[Name]"}, wish to lodge this complaint regarding a cognizable offence on ${d["Incident Date"] || "[Date]"} at ${d["Incident Place"] || "[Place]"}.\n\n2. Details: ${d["Incident Details"] || "[Describe the incident]"}\n\n3. I request you to register an FIR under the relevant provisions of BNS 2023.\n\nYours faithfully,\n${d["Complainant Name"] || "[Name]"}\n\n[DISCLAIMER: AI-generated draft for reference only.]`,
   },
   {
     id: "cybercrime",
@@ -920,7 +893,11 @@ export function FilingModal({
               onClick={() =>
                 exportAsWord(selected.generateDocument(formData), selected.name)
               }
-              className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-white/20 disabled:opacity-40"
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                allRequiredFilled
+                  ? "bg-blue-600 text-white hover:bg-blue-500 cursor-pointer"
+                  : "bg-white/10 text-white/40 cursor-not-allowed opacity-40"
+              }`}
             >
               Download Word
             </button>
@@ -929,15 +906,24 @@ export function FilingModal({
               onClick={() =>
                 exportAsPdf(selected.generateDocument(formData), selected.name)
               }
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/50 transition-colors hover:text-white/70 disabled:opacity-40"
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                allRequiredFilled
+                  ? "bg-rose-600 text-white hover:bg-rose-500 cursor-pointer"
+                  : "border border-white/10 bg-white/5 text-white/40 cursor-not-allowed opacity-40"
+              }`}
             >
               Download PDF
             </button>
             {selected.authorityId && (
               <button
                 type="button"
+                disabled={!allRequiredFilled}
                 onClick={handleOpenSend}
-                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  allRequiredFilled
+                    ? "bg-emerald-600 text-white hover:bg-emerald-500 cursor-pointer"
+                    : "bg-white/10 text-white/40 cursor-not-allowed opacity-40"
+                }`}
               >
                 <svg
                   viewBox="0 0 24 24"
