@@ -950,7 +950,7 @@ export default function CasesApp(_props: CasesAppProps) {
                           </div>
                         </div>
                         <a
-                          href={doc.fileUrl}
+                          href={`/api/cases/documents/${doc.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-white/40 hover:text-white/60"
