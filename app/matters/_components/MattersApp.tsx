@@ -552,13 +552,23 @@ export default function MattersApp({ initialMatterId = null }: MattersAppProps) 
                 Legal Matters
               </h1>
             </div>
-            <Link
-              href="/amendments"
-              className="text-[11px] font-medium text-amber-400 hover:text-amber-300"
-              title="Track Indian statutory amendments"
-            >
-              Amendments ↗
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/cases"
+                className="text-[11px] font-medium text-white/60 hover:text-white"
+                title="Case Tracker"
+              >
+                Cases
+              </Link>
+              <span className="text-white/20">|</span>
+              <Link
+                href="/amendments"
+                className="text-[11px] font-medium text-amber-400 hover:text-amber-300"
+                title="Track Indian statutory amendments"
+              >
+                Amendments ↗
+              </Link>
+            </div>
           </div>
 
           <button

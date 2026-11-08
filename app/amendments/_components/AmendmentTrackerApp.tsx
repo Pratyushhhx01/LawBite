@@ -93,8 +93,14 @@ export default function AmendmentTrackerApp() {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/matters"
+              href="/cases"
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition-all hover:bg-white/10 hover:text-white"
+            >
+              Case Tracker
+            </Link>
+            <Link
+              href="/matters"
+              className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300 transition-all hover:bg-amber-400/20"
             >
               Matters Workspace
             </Link>

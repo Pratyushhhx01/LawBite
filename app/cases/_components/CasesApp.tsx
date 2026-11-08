@@ -485,28 +485,56 @@ export default function CasesApp({ user: _user, initialCaseId = null }: CasesApp
         className={`${showListOnMobile ? "flex" : "hidden"} w-full flex-col border-r border-white/10 bg-black/50 md:flex md:w-80`}
       >
         <div className="border-b border-white/10 p-4">
-          <div className="mb-3 flex items-center gap-3">
-            <Link
-              href="/chat"
-              aria-label="Back to chat"
-              title="Back to Chat"
-              className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white/40 transition-all duration-200 hover:bg-white/10 hover:text-white/70"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Link
+                href="/chat"
+                aria-label="Back to chat"
+                title="Back to Chat"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white/40 transition-all duration-200 hover:bg-white/10 hover:text-white/70"
               >
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </Link>
+              <h1 className="text-sm font-semibold text-white/80">
+                Case Tracker
+              </h1>
+            </div>
+            <Link
+              href="/matters"
+              className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-400/20"
+              title="Full Legal Matter Management Workspace"
+            >
+              Matters ↗
             </Link>
-            <h1 className="text-sm font-semibold text-white/80">
-              Case Tracker
-            </h1>
+          </div>
+
+          {/* Module Switcher Tabs */}
+          <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1 text-center text-xs">
+            <span className="rounded-lg bg-white/10 py-1 font-semibold text-white">
+              Cases
+            </span>
+            <Link
+              href="/matters"
+              className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              Matters
+            </Link>
+            <Link
+              href="/amendments"
+              className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              Amendments
+            </Link>
           </div>
           <button
             onClick={() => startEdit()}
@@ -588,18 +616,60 @@ export default function CasesApp({ user: _user, initialCaseId = null }: CasesApp
       <main
         className={`${showListOnMobile ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex`}
       >
-        {!showListOnMobile && (
-          <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3 md:hidden">
-            <MobileBackButton onClick={backToList} />
-            <span className="ml-auto max-w-[55%] truncate text-xs font-medium text-white/50">
-              {showCreate
-                ? "New Case"
-                : editMode
-                  ? "Edit Case"
-                  : detail?.name || "Case"}
-            </span>
+        {/* Top App Navigation Bar */}
+        <header className="flex items-center justify-between border-b border-white/10 bg-black/40 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            {!showListOnMobile && (
+              <MobileBackButton onClick={backToList} />
+            )}
+            <nav className="flex items-center gap-1.5 text-xs text-white/50">
+              <Link
+                href="/chat"
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                AI Chat
+              </Link>
+              <span>/</span>
+              <span className="rounded-lg bg-white/10 px-2.5 py-1 font-semibold text-white">
+                Case Tracker
+              </span>
+              <span>/</span>
+              <Link
+                href="/matters"
+                className="flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 font-medium text-amber-300 transition-colors hover:bg-amber-400/20"
+                title="Switch to full Legal Matter Workspace"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                </svg>
+                Matter Management
+              </Link>
+              <span>/</span>
+              <Link
+                href="/amendments"
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+                title="Statutory Amendment Tracker"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                </svg>
+                Amendment Tracker
+              </Link>
+            </nav>
           </div>
-        )}
+          <div className="hidden items-center gap-2 sm:flex">
+            <Link
+              href="/matters"
+              className="text-[11px] font-medium text-amber-400/90 transition-colors hover:text-amber-300"
+            >
+              Matter Workspaces →
+            </Link>
+          </div>
+        </header>
         {!selectedId && !showCreate && !editMode ? (
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
@@ -618,13 +688,39 @@ export default function CasesApp({ user: _user, initialCaseId = null }: CasesApp
                   />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-white/50">
+              <h2 className="text-xl font-semibold text-white/70">
                 Case Tracker
               </h2>
-              <p className="mt-2 max-w-xs text-sm text-white/30">
-                Select a case from the sidebar or create a new one to get
-                started
+              <p className="mt-2 max-w-md text-sm text-white/40">
+                Select a case from the sidebar or navigate to advanced legal workflows:
               </p>
+              <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
+                <Link
+                  href="/matters"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs font-semibold text-amber-300 transition-all hover:bg-amber-400/20"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  </svg>
+                  Matter Management
+                </Link>
+                <Link
+                  href="/amendments"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white/80 transition-all hover:bg-white/10 hover:text-white"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                  </svg>
+                  Amendment Tracker
+                </Link>
+                <Link
+                  href="/chat"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-black transition-all hover:bg-white/90"
+                >
+                  AI Chat →
+                </Link>
+              </div>
             </div>
           </div>
         ) : showCreate || editMode ? (
