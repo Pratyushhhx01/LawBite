@@ -1,0 +1,392 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import type { LegalAmendment, AmendmentCategory } from "@/lib/amendment-tracker";
+import { AUTHORITATIVE_AMENDMENTS } from "@/lib/amendment-tracker";
+
+const CATEGORY_COLORS: Record<AmendmentCategory, string> = {
+  Criminal: "bg-red-500/10 text-red-400 border-red-500/20",
+  Commercial: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  Procedural: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  "Consumer & Civil": "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  "Tech & Data": "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+};
+
+export default function AmendmentTrackerApp() {
+  const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [expandedId, setExpandedId] = useState<string | null>("amend-bns-2023");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const categories: string[] = [
+    "all",
+    "Criminal",
+    "Commercial",
+    "Procedural",
+    "Consumer & Civil",
+    "Tech & Data",
+  ];
+
+  const filteredAmendments = useMemo(() => {
+    return AUTHORITATIVE_AMENDMENTS.filter((item) => {
+      if (selectedCategory !== "all" && item.category !== selectedCategory) {
+        return false;
+      }
+      if (!search.trim()) return true;
+      const q = search.toLowerCase().trim();
+      return (
+        item.actName.toLowerCase().includes(q) ||
+        item.amendmentActName.toLowerCase().includes(q) ||
+        item.gazetteNumber.toLowerCase().includes(q) ||
+        item.originalProvisionSummary.toLowerCase().includes(q) ||
+        item.amendedProvisionSummary.toLowerCase().includes(q) ||
+        item.practicalSignificance.toLowerCase().includes(q) ||
+        item.affectedSections.some((s) => s.toLowerCase().includes(q))
+      );
+    });
+  }, [search, selectedCategory]);
+
+  const copyCitation = (item: LegalAmendment) => {
+    const text = `${item.amendmentActName} (${item.gazetteNumber}), enacted ${item.enactmentDate}, effective ${item.effectiveDate}. India Code: ${item.authoritativeSourceUrl}`;
+    navigator.clipboard.writeText(text);
+    setCopiedId(item.id);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white selection:bg-amber-400/30 selection:text-white">
+      {/* Top Navigation */}
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white/60 transition-all hover:bg-white/10 hover:text-white"
+              title="Back to Home"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+            </Link>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-semibold text-white">
+                  Legal Amendment Tracker
+                </span>
+                <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-400 border border-amber-400/20">
+                  INDIA CODE & GAZETTE VERIFIED
+                </span>
+              </div>
+              <p className="text-xs text-white/40">
+                Track Central & State legislative amendments, effective dates, and statutory shifts.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/matters"
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition-all hover:bg-white/10 hover:text-white"
+            >
+              Matters Workspace
+            </Link>
+            <Link
+              href="/chat"
+              className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-black transition-all hover:scale-105"
+            >
+              Ask AI Assistant
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero / Filter Bar */}
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent p-6">
+          <div className="max-w-2xl">
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              Indian Legislative Amendments & Transition Registry
+            </h1>
+            <p className="mt-2 text-sm text-white/60 leading-relaxed">
+              Explore pivotal amendments to Indian statutes including the new criminal laws (BNS, BSA, BNSS 2023),
+              mandatory specific performance in commercial contracts, cheque bounce interim compensation,
+              and digital data privacy frameworks.
+            </p>
+          </div>
+
+          {/* Search Input */}
+          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <svg
+                className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by Act, Section (e.g. Sec 103, Sec 143A), Gazette number or keyword..."
+                className="w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/40 outline-none transition-all focus:border-white/30 focus:bg-white/[0.08]"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40 hover:text-white"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="text-xs text-white/50 whitespace-nowrap">
+              Showing <span className="font-semibold text-white">{filteredAmendments.length}</span> verified amendments
+            </div>
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="mt-4 flex flex-wrap items-center gap-1.5">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                  selectedCategory === cat
+                    ? "bg-white text-black font-semibold shadow-md"
+                    : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-white/5"
+                }`}
+              >
+                {cat === "all" ? "All Domains" : cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Results */}
+        {filteredAmendments.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-12 text-center">
+            <p className="text-sm font-medium text-white/60">No statutory amendments matched your search</p>
+            <p className="mt-1 text-xs text-white/40">Try searching for &quot;BNS&quot;, &quot;Section 10&quot;, &quot;Specific Relief&quot;, or &quot;Cheque&quot;</p>
+            <button
+              onClick={() => {
+                setSearch("");
+                setSelectedCategory("all");
+              }}
+              className="mt-4 rounded-lg bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15"
+            >
+              Reset Filters
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredAmendments.map((item) => {
+              const isExpanded = expandedId === item.id;
+              const isCopied = copiedId === item.id;
+
+              return (
+                <article
+                  key={item.id}
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:border-white/20"
+                >
+                  {/* Card Header */}
+                  <div className="p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                              CATEGORY_COLORS[item.category]
+                            }`}
+                          >
+                            {item.category}
+                          </span>
+                          <span className="text-xs text-white/40">•</span>
+                          <span className="text-xs text-white/60">
+                            Effective from:{" "}
+                            <strong className="text-emerald-400 font-semibold">
+                              {new Date(item.effectiveDate).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </strong>
+                          </span>
+                          <span className="text-xs text-white/40">•</span>
+                          <span className="text-xs text-white/50">
+                            Enacted: {item.enactmentDate}
+                          </span>
+                        </div>
+                        <h2 className="mt-2 text-lg font-semibold text-white">
+                          {item.actName}
+                        </h2>
+                        <p className="mt-0.5 text-xs text-white/50">
+                          {item.amendmentActName}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => copyCitation(item)}
+                          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white"
+                          title="Copy official citation"
+                        >
+                          {isCopied ? (
+                            <>
+                              <svg className="h-3.5 w-3.5 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span className="text-emerald-400 font-medium">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                              </svg>
+                              <span>Cite</span>
+                            </>
+                          )}
+                        </button>
+                        <a
+                          href={item.authoritativeSourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-amber-400/90 hover:bg-white/10 hover:text-amber-300"
+                        >
+                          <span>India Code</span>
+                          <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Gazette details */}
+                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-white/[0.02] border border-white/5 px-3 py-1.5 text-[11px] text-white/50">
+                      <svg className="h-3.5 w-3.5 text-amber-400/70 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span className="truncate">{item.gazetteNumber}</span>
+                    </div>
+
+                    {/* Sections impacted */}
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-white/40 mr-1">Impacted Sections:</span>
+                      {item.affectedSections.map((sec) => (
+                        <span
+                          key={sec}
+                          className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[11px] font-mono text-white/80"
+                        >
+                          {sec}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Practical significance highlight */}
+                    <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-3.5">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-400">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Litigation & Commercial Impact
+                      </div>
+                      <p className="mt-1 text-xs text-white/80 leading-relaxed">
+                        {item.practicalSignificance}
+                      </p>
+                    </div>
+
+                    {/* Toggle Historical Comparison */}
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                      className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-white/60 hover:text-white transition-colors"
+                    >
+                      <svg
+                        className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                      {isExpanded ? "Hide Provision Comparison" : "View Original vs Amended Provision Comparison"}
+                    </button>
+                  </div>
+
+                  {/* Expanded Comparative View */}
+                  {isExpanded && (
+                    <div className="border-t border-white/10 bg-black/40 p-6">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {/* Original */}
+                        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                          <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
+                              Prior / Original Provision
+                            </span>
+                            <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-white/40">
+                              Earlier Law
+                            </span>
+                          </div>
+                          <p className="mt-3 text-xs text-white/70 leading-relaxed">
+                            {item.originalProvisionSummary}
+                          </p>
+                        </div>
+
+                        {/* Amended */}
+                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.03] p-4">
+                          <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                              Amended / Current Provision
+                            </span>
+                            <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                              In Force
+                            </span>
+                          </div>
+                          <p className="mt-3 text-xs text-emerald-100/90 leading-relaxed">
+                            {item.amendedProvisionSummary}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Detailed historical provisions if present */}
+                      {item.historicalVersions && item.historicalVersions.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-white/5">
+                          <h4 className="text-xs font-semibold text-white/60 mb-2">Statutory Text Excerpts:</h4>
+                          <div className="space-y-2">
+                            {item.historicalVersions.map((hv, idx) => (
+                              <div key={idx} className="rounded-lg bg-black/60 border border-white/5 p-3 text-xs">
+                                <div className="flex items-center justify-between text-[11px] text-white/40 mb-1">
+                                  <span className="font-semibold text-white/70">{hv.versionTitle}</span>
+                                  <span>{hv.era}</span>
+                                </div>
+                                <p className="font-mono text-[11px] text-white/70 leading-relaxed">
+                                  {hv.provisionText}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
