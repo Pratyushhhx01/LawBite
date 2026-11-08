@@ -3,59 +3,37 @@ import type { MetadataRoute } from "next";
 const BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   process.env.BETTER_AUTH_URL ||
-  "https://lawbite.ai";
+  "https://law-bite.vercel.app";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
-  return [
-    {
-      url: BASE_URL,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 1,
-    },
-    {
-      url: `${BASE_URL}/signin`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: `${BASE_URL}/legal/terms`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-    {
-      url: `${BASE_URL}/legal/privacy`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-    {
-      url: `${BASE_URL}/legal/disclaimer`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-    {
-      url: `${BASE_URL}/legal/cookies`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-    {
-      url: `${BASE_URL}/legal/refund`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-    {
-      url: `${BASE_URL}/legal/risk-closure`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
+  const publicRoutes = [
+    { path: "", changeFrequency: "weekly" as const, priority: 1.0 },
+    { path: "/amendments", changeFrequency: "weekly" as const, priority: 0.9 },
+    { path: "/tools", changeFrequency: "monthly" as const, priority: 0.8 },
+    { path: "/about", changeFrequency: "monthly" as const, priority: 0.8 },
+    { path: "/calculators", changeFrequency: "monthly" as const, priority: 0.7 },
+    { path: "/calculators/interest", changeFrequency: "monthly" as const, priority: 0.7 },
+    { path: "/calculators/limitations", changeFrequency: "monthly" as const, priority: 0.7 },
+    { path: "/guides", changeFrequency: "monthly" as const, priority: 0.7 },
+    { path: "/documents", changeFrequency: "monthly" as const, priority: 0.7 },
+    { path: "/templates", changeFrequency: "monthly" as const, priority: 0.6 },
+    { path: "/news", changeFrequency: "weekly" as const, priority: 0.6 },
+    { path: "/contact", changeFrequency: "yearly" as const, priority: 0.4 },
+    { path: "/signin", changeFrequency: "yearly" as const, priority: 0.3 },
+    { path: "/legal/terms", changeFrequency: "yearly" as const, priority: 0.2 },
+    { path: "/legal/privacy", changeFrequency: "yearly" as const, priority: 0.2 },
+    { path: "/legal/disclaimer", changeFrequency: "yearly" as const, priority: 0.2 },
+    { path: "/legal/cookies", changeFrequency: "yearly" as const, priority: 0.2 },
+    { path: "/legal/refund", changeFrequency: "yearly" as const, priority: 0.2 },
+    { path: "/legal/risk-closure", changeFrequency: "yearly" as const, priority: 0.2 },
   ];
+
+  return publicRoutes.map((route) => ({
+    url: `${BASE_URL}${route.path}`,
+    lastModified: now,
+    changeFrequency: route.changeFrequency,
+    priority: route.priority,
+  }));
 }

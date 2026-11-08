@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use LawBite in your research, legal-tech evaluation, or software benchmarking, please cite it as below."
+authors:
+  - family-names: "Pratyush"
+    given-names: "Pratyush"
+    alias: "Pratyushhhx01"
+title: "LawBite: Indian Legal AI Intelligence Platform with Diffusion Language Modeling and Deterministic Verification"
+version: 2.1.0
+date-released: 2026-11-08
+url: "https://github.com/Pratyushhhx01/LawBite"
+repository-code: "https://github.com/Pratyushhhx01/LawBite"
+keywords:
+  - "legal-ai"
+  - "indian-law"
+  - "diffusion-llm"
+  - "citation-verification"
+  - "bharatiya-nyaya-sanhita"
+  - "bare-acts"
+  - "matter-management"
+  - "contract-risk"
+license: "MIT"

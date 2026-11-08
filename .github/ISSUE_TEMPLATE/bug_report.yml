@@ -1,0 +1,49 @@
+name: "🐛 Bug Report"
+description: "File a bug report for an unexpected error, incorrect citation, or UI failure in LawBite"
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve LawBite! Please check existing issues before submitting.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: "e.g., Citation verification failed to recognize Section 479 of BNSS 2023..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Navigate to '/chat'
+        2. Set mode to 'Deep Analysis'
+        3. Enter query: '...'
+        4. See error or incorrect citation badge
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen according to Indian statutory law or application behavior.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, OS, or Node version where the issue was observed.
+      placeholder: "Chrome 130 on Windows 11 / Node 20.9.0"
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: "I have confirmed this issue is not already reported in another open issue."
+          required: true

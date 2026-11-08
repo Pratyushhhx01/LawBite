@@ -1,0 +1,36 @@
+name: "💡 Feature Request"
+description: "Suggest a new Indian statutory enactment, legal workflow tool, or platform enhancement"
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggest an idea or new feature to make LawBite even more powerful for Indian legal practitioners.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a specific legal research or workflow problem?
+      placeholder: "e.g., When drafting consumer complaints before NCDRC, advocates need..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution or workflow you would like to see implemented.
+    validations:
+      required: true
+  - type: textarea
+    id: legal_sources
+    attributes:
+      label: Relevant Indian Statutes or Authoritative Sources
+      description: List relevant Bare Acts, sections, or official gazette notifications.
+      placeholder: "e.g., Consumer Protection Act 2019, Sections 34-39..."
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: "I am interested in helping implement or test this feature."

@@ -1,0 +1,32 @@
+# LawBite — Indian Legal AI Platform
+
+> LawBite is an AI-powered legal intelligence platform tailored specifically for Indian Jurisprudence, statutory law, and case research. It runs on a low-latency diffusion LLM (Inception Mercury 2.5 dLLM) with NVIDIA NIM failover and deterministic statutory verification.
+
+## Core Capabilities
+
+- **Indian Bare Acts Knowledge Base**: Deterministic section lookups and semantic vector retrieval across 157+ Indian Acts (including Bharatiya Nyaya Sanhita 2023, Bharatiya Nagarik Suraksha Sanhita 2023, Bharatiya Sakshya Adhiniyam 2023, IPC 1860, CrPC 1973, Indian Evidence Act 1872, Companies Act 2013, Arbitration & Conciliation Act 1996, IBC 2016, IT Act 2000, and Constitution of India).
+- **Statutory Transition Engine**: Bidirectional cross-mapping between legacy penal statutes and 2023 criminal codes with verbatim text diffs and transitional scope guidance.
+- **Indian Case-Law Research Engine**: Query Supreme Court of India and High Court precedent with preserved paragraph citations, bench details, and original source records.
+- **Good-Law Precedent Checker**: Deterministic subsequent treatment verification (Followed, Distinguished, Overruled, Reversed, Affirmed, Referred to). Does not hallucinate or guess precedent status.
+- **Legal Matter Management**: End-to-end workspace for litigation and advisory matters, parties, stages, key dates, documents, and cross-feature reports with multi-tenant isolation.
+- **Contract Risk Analyzer**: Indian Contract Act 1872 compliance, stamp duty and registration alerts, unilateral termination warnings, and unfair indemnity flags.
+- **Document Comparison Engine**: Redline analysis, risk escalation, and statutory change impact between contractual versions.
+- **Courtroom Preparation Mode**: Witness cross-examination outlines, impeachment material with contradictory exhibits, and judicial preference summaries.
+- **Statutory Amendment Tracker**: Historical amendments, gazette notifications, and enforcement timelines for Indian statutes.
+
+## Technical Architecture
+
+- **Frontend & App Framework**: Next.js 16 (App Router), React 19, TypeScript 5, Tailwind CSS 4.
+- **Database**: PostgreSQL on Neon (Serverless), Kysely query builder, pgvector semantic search.
+- **AI Inference**: Inception Labs Mercury 2.5 dLLM (diffusion architecture, non-autoregressive token generation) with tiered reasoning effort (`instant`, `low`, `medium`), automatically failing over to NVIDIA NIM (Llama 3.3 70B Instruct).
+- **Authentication**: Better Auth with Google & GitHub OAuth and session validation.
+- **Verification**: Deterministic citation verification against verified statutory sections.
+
+## Key URLs
+
+- Live Platform: https://law-bite.vercel.app
+- Source Repository: https://github.com/Pratyushhhx01/LawBite
+- Documentation: https://github.com/Pratyushhhx01/LawBite/tree/main/docs
+- Statutory Amendment Tracker: https://law-bite.vercel.app/amendments
+- Legal Calculators: https://law-bite.vercel.app/calculators
+- Matter Management: https://law-bite.vercel.app/matters (Authentication required)
