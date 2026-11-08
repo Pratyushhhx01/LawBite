@@ -47,7 +47,7 @@ export default function Testimonials() {
   }, []);
 
   return (
-    <section className="relative border-t border-white/10 py-28 sm:py-36">
+    <section id="feedback" className="relative border-t border-white/10 py-28 sm:py-36">
       <div className="mx-auto max-w-6xl px-6">
         <Reveal>
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-white/50">
