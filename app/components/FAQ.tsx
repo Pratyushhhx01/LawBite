@@ -7,28 +7,32 @@ type Item = { q: string; a: string };
 
 const items: Item[] = [
   {
-    q: "What Indian laws does Lawbite cover?",
-    a: "Lawbite has knowledge of 157+ Indian bare acts including the IPC, BNS, CrPC, BNSS, Constitution, Indian Contract Act, Evidence Act, and many more. It retrieves information at the section and article level for precise legal references.",
+    q: "What Indian laws does LawBite cover?",
+    a: "LawBite indexes 157+ Indian bare acts including the new criminal codes (Bharatiya Nyaya Sanhita 2023, Bharatiya Nagarik Suraksha Sanhita 2023, Bharatiya Sakshya Adhiniyam 2023), historical codes (IPC 1860, CrPC 1973, Indian Evidence Act 1872), the Constitution of India, Companies Act 2013, Arbitration Act 1996, IBC 2016, and IT Act 2000. It retrieves information at the granular section and sub-section level.",
   },
   {
-    q: "Is Lawbite a replacement for a lawyer?",
-    a: "No. Lawbite is a research and analysis tool — it helps you understand legal provisions, explore your options, and prepare better questions for your lawyer. It does not provide legal advice or represent you in any proceeding.",
+    q: "How does LawBite handle the transition from IPC to BNS?",
+    a: "LawBite includes a dedicated statutory transition engine that provides bidirectional cross-mapping between legacy sections (IPC/CrPC/IEA) and 2023 codes (BNS/BNSS/BSA). It generates exact word-level diffs, highlights newly criminalized acts (e.g., snatching, organized crime, terrorism), and alerts you to the correct transitional scope based on the date of offence.",
   },
   {
-    q: "How does the AI Lawyer mode work?",
-    a: "AI Lawyer asks only the questions that matter for your specific problem, one at a time, and never repeats one you have already answered. Once it has the facts it needs, it delivers tailored Indian legal analysis.",
+    q: "What is the Good-Law Precedent Checker?",
+    a: "Our precedent engine analyzes subsequent judicial treatment across Supreme Court and High Court judgments to determine whether a ruling remains good law (Followed, Distinguished, Overruled, Reversed, Affirmed, or Referred to). Unlike generic LLMs that guess precedent status, LawBite requires authoritative judicial records and explicitly marks citations as 'Unknown / Unverified' if subsequent treatment cannot be deterministically proven.",
   },
   {
-    q: "Is my data secure?",
-    a: "Your conversations are protected and never shared with third parties. Authentication is handled through secure OAuth (Google/GitHub), and all data is encrypted in transit.",
+    q: "What is Legal Matter Management in LawBite?",
+    a: "Matter Management provides dedicated workspaces for litigation and advisory cases. You can organize case details, client information, court stages (Pre-litigation, Pleadings, Evidence, Arguments, Judgment, Appeal), key filing deadlines, hearing reminders, and attach Contract Risk audits, Document Comparisons, and Courtroom Prep outlines directly to the matter dossier.",
   },
   {
-    q: "Is it free to use?",
-    a: "Yes — Lawbite is free to start. You can ask questions across all four AI modes without any payment. A Plus plan with additional features is available for power users.",
+    q: "How does citation verification prevent AI hallucinations?",
+    a: "Every statutory section cited in an AI response is deterministically parsed and checked in real-time against verified statutory texts. If a section does not exist in the cited act, LawBite badges it with a red warning ('Not found in named act') rather than silently misleading you with a fabricated citation.",
   },
   {
-    q: "Does it search the web for current legal developments?",
-    a: "Yes. When your query requires up-to-date information — such as recent judgments, amendments, or notifications — Lawbite automatically searches the web and incorporates current results into its response.",
+    q: "Is my case data and uploaded documents private?",
+    a: "Yes. LawBite enforces strict multi-tenant isolation with row-level parameterization in PostgreSQL. Documents uploaded for contract analysis or review are processed in transient request memory scope, are never saved to public storage, and are never used to train third-party foundation models.",
+  },
+  {
+    q: "Is LawBite a substitute for an advocate?",
+    a: "No. LawBite is an AI-powered legal intelligence, research, and drafting platform designed for legal research and preliminary workflow preparation. It does not constitute legal representation or create an advocate-client relationship under the Advocates Act, 1961.",
   },
 ];
 
@@ -46,7 +50,7 @@ export default function FAQ() {
             / FAQ
           </p>
           <h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
-            Quick answers.
+            Frequently asked questions.
           </h2>
         </Reveal>
 

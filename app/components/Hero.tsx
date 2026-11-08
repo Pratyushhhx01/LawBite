@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import GridBackground from "./GridBackground";
 import Reveal from "./Reveal";
 
@@ -35,14 +36,14 @@ export default function Hero() {
         <Reveal delay={2}>
           <p className="mt-7 max-w-2xl text-balance text-base leading-relaxed text-white/65 sm:text-lg">
             Ask any Indian legal question in plain language. Get instant answers
-            backed by 157+ bare acts, structured legal analysis, and real-time
-            web search &mdash; all in one place.
+            backed by 157+ bare acts, Supreme Court precedents, contract risk
+            auditing, and complete legal matter workspaces &mdash; all in one place.
           </p>
         </Reveal>
 
         <Reveal delay={3}>
           <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
-            <a
+            <Link
               href="/chat"
               className="btn-shine group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-white px-6 py-3 text-sm font-medium text-black transition-transform duration-300 hover:scale-[1.03]"
             >
@@ -53,26 +54,26 @@ export default function Hero() {
               >
                 →
               </span>
-            </a>
-            <a
-              href="#features"
+            </Link>
+            <Link
+              href="/matters"
               className="group inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.02] px-6 py-3 text-sm text-white/80 transition-all duration-300 hover:border-white/30 hover:bg-white/[0.06] hover:text-white"
             >
-              See how it works
+              Legal Matter Workspace
               <span
                 aria-hidden
-                className="inline-block translate-y-0 transition-transform duration-300 group-hover:translate-y-0.5"
+                className="inline-block transition-transform duration-300 group-hover:translate-x-0.5"
               >
-                ↓
+                →
               </span>
-            </a>
+            </Link>
           </div>
         </Reveal>
 
         <Reveal delay={4} className="w-full">
           <div className="relative mt-28 w-full">
             <div className="grid grid-cols-2 items-center gap-6 sm:grid-cols-4">
-              {["IPC / BNS", "CrPC / BNSS", "Constitution", "157+ Acts"].map(
+              {["IPC \u2194 BNS", "CrPC \u2194 BNSS", "Precedent Checker", "157+ Bare Acts"].map(
                 (name, i) => (
                   <span
                     key={name}

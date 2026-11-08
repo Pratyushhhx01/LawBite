@@ -15,11 +15,15 @@ import Verification from "./components/Verification";
 
 const marqueeItems = [
   "157+ Indian Bare Acts",
-  "Instant Legal Answers",
-  "IPC \u00b7 BNS \u00b7 CrPC \u00b7 BNSS",
-  "AI-Powered Legal Research",
-  "Section-Level Retrieval",
-  "Free to Start",
+  "Matter Management Workspaces",
+  "Case-Law & Good-Law Checker",
+  "IPC \u2194 BNS Transition Diffs",
+  "Contract Risk Analyzer",
+  "Courtroom Prep Mode",
+  "Statutory Amendment Tracker",
+  "Deterministic Citation Verification",
+  "Diffusion LLM (Mercury 2.5)",
+  "Zero Legal Hallucinations",
 ];
 
 export default function Home() {

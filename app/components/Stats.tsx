@@ -6,23 +6,20 @@ import Reveal from "./Reveal";
 type Stat = {
   value: number;
   suffix?: string;
-  /** Animated number rendered after the slash (e.g. the 7 in 24/7). */
   suffixValue?: number;
   label: string;
   decimals?: number;
-  /** Render the suffix at the number's size (e.g. "24/7"). */
   suffixSameSize?: boolean;
 };
 
 const stats: Stat[] = [
   { value: 157, suffix: "+", label: "Indian bare acts covered" },
-  { value: 1000, suffix: "+", label: "Statutory provisions & cases indexed" },
-  { value: 5, suffix: "", label: "AI conversation modes" },
+  { value: 12, suffix: "+", label: "Specialized legal tools & workflows" },
+  { value: 712, suffix: "", label: "Automated test assertions passing" },
   {
-    value: 24,
-    suffixValue: 7,
-    label: "Legal assistance, anytime",
-    suffixSameSize: true,
+    value: 100,
+    suffix: "%",
+    label: "Deterministic statutory citation checks",
   },
 ];
 
@@ -71,7 +68,6 @@ function StatItem({ stat, index }: { stat: Stat; index: number }) {
   const decimals = stat.decimals ?? 0;
   const duration = 1600 + index * 150;
   const { value, ref } = useCountUp(stat.value, duration, decimals);
-  // The 7 in 24/7 gets its own count-up so both halves animate together.
   const { value: suffixValue, ref: suffixRef } = useCountUp(
     stat.suffixValue ?? 0,
     duration,
@@ -82,7 +78,7 @@ function StatItem({ stat, index }: { stat: Stat; index: number }) {
     : "text-2xl font-medium text-white/70 sm:text-3xl";
 
   return (
-    <Reveal delay={((index % 3) + 1) as 1 | 2 | 3} className="h-full">
+    <Reveal delay={((index % 4) + 1) as 1 | 2 | 3 | 4} className="h-full">
       <div className="group relative flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-white/[0.015] p-7 transition-all duration-500 hover:border-white/25 hover:bg-white/[0.03] sm:p-9">
         <div
           aria-hidden
@@ -102,17 +98,20 @@ function StatItem({ stat, index }: { stat: Stat; index: number }) {
               ref={ref}
               className="text-5xl font-semibold tracking-tight text-white sm:text-6xl"
             >
-              {Math.round(value).toLocaleString('en-IN')}
+              {decimals > 0 ? value.toFixed(decimals) : value}
             </span>
             {stat.suffixValue !== undefined ? (
-              <span ref={suffixRef} className={suffixClass}>
-                /{suffixValue.toFixed(0)}
-              </span>
+              <>
+                <span className={suffixClass}>/</span>
+                <span ref={suffixRef} className={suffixClass}>
+                  {suffixValue}
+                </span>
+              </>
             ) : stat.suffix ? (
               <span className={suffixClass}>{stat.suffix}</span>
             ) : null}
           </div>
-          <p className="mt-3 text-sm leading-relaxed text-white/55">
+          <p className="mt-3 text-sm leading-relaxed text-white/60">
             {stat.label}
           </p>
         </div>
@@ -123,18 +122,30 @@ function StatItem({ stat, index }: { stat: Stat; index: number }) {
 
 export default function Stats() {
   return (
-    <section className="relative border-t border-white/10 py-28 sm:py-32">
+    <section
+      id="stats"
+      className="relative isolate border-t border-white/10 py-28 sm:py-36"
+    >
       <div className="mx-auto max-w-6xl px-6">
-        <Reveal>
-          <p className="text-xs font-medium uppercase tracking-[0.3em] text-white/50">
-            / By the numbers
-          </p>
-          <h2 className="mt-5 max-w-3xl text-balance text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl md:text-5xl">
-            Built for Indian legal research.
-          </h2>
-        </Reveal>
+        <div className="grid items-end gap-10 md:grid-cols-2">
+          <Reveal>
+            <p className="text-xs font-medium uppercase tracking-[0.3em] text-white/50">
+              / Verified Grounding
+            </p>
+            <h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
+              Backed by verified data.
+            </h2>
+          </Reveal>
+          <Reveal delay={1}>
+            <p className="max-w-md text-base leading-relaxed text-white/60">
+              No hallucinated citations or unverified guesswork. Every statutory
+              reference is parsed, verified against primary law, and validated by
+              automated test suites.
+            </p>
+          </Reveal>
+        </div>
 
-        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, i) => (
             <StatItem key={stat.label} stat={stat} index={i} />
           ))}

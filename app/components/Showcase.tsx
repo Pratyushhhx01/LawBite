@@ -10,48 +10,48 @@ const leftFeatures = [
   },
   {
     label: "Deep Analysis",
-    desc: "Deep case breakdown",
+    desc: "10–12 point case breakdown",
     iconPath:
       "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
   },
   {
-    label: "Document Drafter",
-    desc: "Notices, FIRs, contracts",
+    label: "Matter Workspaces",
+    desc: "Litigation & dossier tracking",
     iconPath:
-      "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
+      "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4",
   },
   {
-    label: "Reminders",
-    desc: "Never miss a deadline",
+    label: "Courtroom Prep",
+    desc: "Cross-examination & traps",
     iconPath:
-      "M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0",
+      "M4 26h24M6 14h20M8 14v12M24 14v12M16 6v8",
   },
 ];
 
 const rightFeatures = [
   {
-    label: "Document Review",
-    desc: "Analyze uploaded docs",
+    label: "Contract Risk Analyzer",
+    desc: "Clause-by-clause audit",
     iconPath:
-      "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+      "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
   },
   {
-    label: "Calculators",
-    desc: "Limitation & interest",
+    label: "Case-Law & Precedents",
+    desc: "Good-law status checking",
     iconPath:
-      "M4 4h16v16H4zM8 8h.01M12 8h.01M16 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h8",
+      "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253",
   },
   {
-    label: "Filing Assistance",
-    desc: "Cyber, RTI & complaints online",
+    label: "Document Comparison",
+    desc: "Revision redlining & shifts",
     iconPath:
-      "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z M9 12h6m-6 4h6",
+      "M8 7v10M8 7l4-4m-4 4l-4-4m12 14V7m0 10l4 4m-4-4l-4 4",
   },
   {
-    label: "AI Lawyer",
-    desc: "Track your active matters",
+    label: "Amendment Tracker",
+    desc: "Gazettes & effective dates",
     iconPath:
-      "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z",
+      "M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25",
   },
 ];
 
@@ -95,7 +95,7 @@ export default function Showcase() {
               </h2>
             </div>
             <p className="max-w-sm text-sm leading-relaxed text-white/60">
-              Ask a question, pick a mode, get an answer grounded in Indian law.
+              Ask a question, analyze risk, or prepare your courtroom strategy.
               Here&apos;s what it looks like.
             </p>
           </div>
@@ -150,27 +150,27 @@ export default function Showcase() {
                       >
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                       </svg>
-                      AI Lawyer
+                      Legal Matters
                     </div>
                   </div>
 
                   <div className="mt-4 flex flex-col gap-0.5">
                     {[
                       {
-                        label: "History",
-                        icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+                        label: "Matters Dashboard",
+                        icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4",
+                      },
+                      {
+                        label: "Case Law Search",
+                        icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253",
                       },
                       {
                         label: "Calculators",
                         icon: "M4 4h16v16H4zM8 8h.01M12 8h.01M16 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h8",
                       },
                       {
-                        label: "Filing",
-                        icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z M9 12h6m-6 4h6",
-                      },
-                      {
-                        label: "Reminders",
-                        icon: "M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0",
+                        label: "Amendments",
+                        icon: "M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25",
                       },
                     ].map((item) => (
                       <div
@@ -199,7 +199,7 @@ export default function Showcase() {
                         U
                       </div>
                       <span className="flex-1 truncate text-xs text-white/50">
-                        user
+                        advocate.user
                       </span>
                       <svg
                         viewBox="0 0 24 24"
@@ -222,10 +222,10 @@ export default function Showcase() {
                   <div className="flex items-center justify-between border-b border-white/10 px-5 py-3 sm:px-8">
                     <div>
                       <div className="text-sm font-semibold text-white">
-                        Tenant eviction rights
+                        Tenant eviction rights & Notice validity
                       </div>
                       <div className="text-[11px] uppercase tracking-[0.2em] text-white/40">
-                        Talk to AI
+                        Deep Analysis &bull; Verified Statutory Grounding
                       </div>
                     </div>
                   </div>
@@ -234,61 +234,54 @@ export default function Showcase() {
                     <div className="mx-auto flex max-w-3xl flex-col gap-5">
                       <div className="flex justify-end">
                         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-white px-4 py-3 text-sm leading-relaxed text-black">
-                          What are my rights if my landlord wants to evict me
-                          without notice?
+                          What are my rights if my landlord wants to evict me without notice?
                         </div>
                       </div>
 
                       <div className="flex justify-start">
                         <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white/85">
                           <p className="mb-2">
-                            Under Indian law, a landlord{"'"}s right to evict a
-                            tenant is governed by{" "}
+                            Under Indian law, tenant eviction is governed by{" "}
                             <span className="font-medium text-white/95">
-                              state-specific rent control acts
+                              state rent control enactments
                             </span>{" "}
-                            and the{" "}
+                            and Section 106 of the{" "}
                             <span className="font-medium text-white/95">
                               Transfer of Property Act, 1882
                             </span>
                             .
                           </p>
-                          <p className="mb-2">Key protections you have:</p>
+                          <p className="mb-2">Key legal protections:</p>
                           <ol className="mb-2 list-decimal pl-5 text-white/75">
                             <li className="mb-1">
                               <span className="font-medium text-white/90">
-                                Notice period
+                                Statutory Notice Period:
                               </span>{" "}
-                              — Landlord must give proper written notice
-                              (typically 1-3 months depending on the state)
+                              Mandatory 15-day or monthly written notice under TPA §106.
                             </li>
                             <li className="mb-1">
                               <span className="font-medium text-white/90">
-                                Valid ground required
+                                Prohibition on Self-Help:
                               </span>{" "}
-                              — Eviction requires a legally recognized ground
-                              (non-payment, subletting, personal use, etc.)
+                              Supreme Court held in <em>Bishandas v. State of Punjab</em> that forceful eviction without due process of law is illegal.
                             </li>
                             <li className="mb-1">
                               <span className="font-medium text-white/90">
-                                Court order mandatory
+                                Judicial Decree Mandatory:
                               </span>{" "}
-                              — Self-help eviction is illegal; only a court can
-                              order eviction
+                              Only a competent Rent Controller or Civil Court can order eviction on specific statutory grounds.
                             </li>
                           </ol>
-                          <p>
-                            Would you like me to analyze your specific situation
-                            in detail? I can check the rent control act for your
-                            state.
+                          <p className="text-xs text-emerald-400 mt-2 flex items-center gap-1.5">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            Verified against Transfer of Property Act 1882 &sect;106
                           </p>
                         </div>
                       </div>
 
                       <div className="flex justify-end">
                         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-white px-4 py-3 text-sm leading-relaxed text-black">
-                          I live in Maharashtra. What does the Rent Control Act
-                          say?
+                          Can we save this analysis directly into my Matter workspace?
                         </div>
                       </div>
                     </div>
