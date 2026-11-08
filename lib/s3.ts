@@ -1,5 +1,6 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import {
   lookupSectionExact,
   searchLegalChunksText,
@@ -17,8 +18,21 @@ import {
 
 const KB_ROOT = join(process.cwd(), "knowledge-base");
 
-export const S3_BUCKET = process.env.S3_BUCKET_NAME || "lawbite-app-storage";
-export const s3Client: { send: (command: unknown) => Promise<unknown> } | null = null;
+const AWS_REGION = process.env.AWS_REGION || "ap-south-1";
+const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID?.trim();
+const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY?.trim();
+export const S3_BUCKET = process.env.S3_BUCKET_NAME?.trim() || "lawbite-app-storage";
+
+export const s3Client =
+  AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY
+    ? new S3Client({
+        region: AWS_REGION,
+        credentials: {
+          accessKeyId: AWS_ACCESS_KEY_ID,
+          secretAccessKey: AWS_SECRET_ACCESS_KEY,
+        },
+      })
+    : null;
 
 // In-memory LRU cache
 const CACHE_MAX = 500;
@@ -56,6 +70,22 @@ async function getJson<T>(key: string): Promise<T | null> {
   const cached = cacheGet<T>(key);
   if (cached !== null) return cached;
 
+  if (s3Client) {
+    try {
+      const res = (await s3Client.send(
+        new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }),
+      )) as { Body?: { transformToString: () => Promise<string> } };
+      const str = await res.Body?.transformToString();
+      if (str) {
+        const parsed = JSON.parse(str) as T;
+        cacheSet(key, parsed);
+        return parsed;
+      }
+    } catch {
+      /* Fallback to local files */
+    }
+  }
+
   const content = await readKbFile(key);
   if (!content) return null;
 
@@ -71,6 +101,21 @@ async function getJson<T>(key: string): Promise<T | null> {
 async function getText(key: string): Promise<string | null> {
   const cached = cacheGet<string>(key);
   if (cached !== null) return cached;
+
+  if (s3Client) {
+    try {
+      const res = (await s3Client.send(
+        new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }),
+      )) as { Body?: { transformToString: () => Promise<string> } };
+      const str = await res.Body?.transformToString();
+      if (str) {
+        cacheSet(key, str);
+        return str;
+      }
+    } catch {
+      /* Fallback to local files */
+    }
+  }
 
   const content = await readKbFile(key);
   if (content !== null) {

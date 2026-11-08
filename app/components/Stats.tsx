@@ -16,6 +16,7 @@ type Stat = {
 
 const stats: Stat[] = [
   { value: 157, suffix: "+", label: "Indian bare acts covered" },
+  { value: 1000, suffix: "+", label: "Statutory provisions & cases indexed" },
   { value: 5, suffix: "", label: "AI conversation modes" },
   {
     value: 24,
@@ -23,7 +24,6 @@ const stats: Stat[] = [
     label: "Legal assistance, anytime",
     suffixSameSize: true,
   },
-  { value: 0, suffix: "", label: "Cost to get started", decimals: 0 },
 ];
 
 function useCountUp(target: number, durationMs = 1600, decimals = 0) {
@@ -102,7 +102,7 @@ function StatItem({ stat, index }: { stat: Stat; index: number }) {
               ref={ref}
               className="text-5xl font-semibold tracking-tight text-white sm:text-6xl"
             >
-              {value.toFixed(decimals)}
+              {Math.round(value).toLocaleString('en-IN')}
             </span>
             {stat.suffixValue !== undefined ? (
               <span ref={suffixRef} className={suffixClass}>

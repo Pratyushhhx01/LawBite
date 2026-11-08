@@ -41,11 +41,11 @@ export async function searchStatutesTool(
       }
     }
 
-    // Otherwise perform full-text search across legal_chunks
-    const results = await searchLegalChunksText(query, limit);
+    // Otherwise perform full-text search across legal_chunks with pushdown act filter
+    const results = await searchLegalChunksText(query, limit, actId);
     return {
       success: true,
-      data: actId ? results.filter((r) => r.act_id === actId) : results,
+      data: results,
       source: "postgres_kb",
     };
   } catch (error) {

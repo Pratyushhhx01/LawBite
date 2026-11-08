@@ -175,19 +175,22 @@ export async function getFullTextFromDb(actId: string): Promise<string | null> {
 export async function searchLegalChunksText(
   queryText: string,
   limit = 5,
+  actId?: string,
 ): Promise<LegalChunk[]> {
+  const candidateActIds = actId ? getCanonicalActIds(actId) : null;
   const query = `
     SELECT id, category, act_id, act_title, provision, title, year, court, content,
            ts_rank(tsv_content, plainto_tsquery('english', $1)) as rank
     FROM legal_chunks
-    WHERE tsv_content @@ plainto_tsquery('english', $1)
+    WHERE ($3::text[] IS NULL OR act_id = ANY($3::text[]))
+      AND (tsv_content @@ plainto_tsquery('english', $1)
        OR title ILIKE '%' || $1 || '%'
-       OR content ILIKE '%' || $1 || '%'
+       OR content ILIKE '%' || $1 || '%')
     ORDER BY rank DESC
     LIMIT $2;
   `;
   try {
-    const res = await pool.query(query, [queryText, limit]);
+    const res = await pool.query(query, [queryText, limit, candidateActIds]);
     return res.rows as LegalChunk[];
   } catch (error) {
     console.error("[pgvector] Error in searchLegalChunksText:", error);

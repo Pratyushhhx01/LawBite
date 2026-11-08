@@ -5228,6 +5228,26 @@ export default function ChatApp({
                                           </svg>
                                         </span>
                                       )}
+                                       {cit.verification === "unavailable" && (
+                                         <span
+                                           title="Knowledge base was unavailable — could not be checked"
+                                           aria-label="Citation could not be checked"
+                                           className="shrink-0 text-white/40"
+                                         >
+                                           <svg
+                                             viewBox="0 0 24 24"
+                                             className="h-3 w-3"
+                                             fill="none"
+                                             stroke="currentColor"
+                                             strokeWidth="2.5"
+                                             strokeLinecap="round"
+                                             strokeLinejoin="round"
+                                           >
+                                             <circle cx="12" cy="12" r="9" />
+                                             <path d="M12 8v5M12 16h.01" />
+                                           </svg>
+                                         </span>
+                                       )}
                                       <span className="truncate">
                                         {cit.label}
                                       </span>
