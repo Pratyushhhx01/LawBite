@@ -5,7 +5,10 @@ import {
   compareTransitionTool,
 } from "@/lib/legal-tools";
 
-describe("Legal Tools Suite", () => {
+const describeDb =
+  process.env.CI_SKIP_DB_TESTS === "1" ? describe.skip : describe;
+
+describeDb("Legal Tools Suite", () => {
   it("searchStatutesTool: looks up exact IPC section in PostgreSQL KB", async () => {
     const res = await searchStatutesTool("420", "indian-penal-code");
     expect(res.success).toBe(true);

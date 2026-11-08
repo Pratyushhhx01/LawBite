@@ -10,7 +10,10 @@ import { checkPrecedentStatus } from "@/lib/good-law";
 import { compareIpcToBns } from "@/lib/ipc-bns-compare";
 import { parseCitationCandidates, resolveAct, verifyCitations, type SectionLookup } from "@/lib/citation-verifier";
 
-describe("END-TO-END VERIFICATION & AUDIT SUITE", () => {
+const describeDb =
+  process.env.CI_SKIP_DB_TESTS === "1" ? describe.skip : describe;
+
+describeDb("END-TO-END VERIFICATION & AUDIT SUITE", () => {
   let testUserId = "jwTZtuR4rFVuNuh6hf1IOUHD1ivqkXBf";
   const unauthorizedUserId = "unauthorized-user-victim-id";
   let createdMatterId = "";

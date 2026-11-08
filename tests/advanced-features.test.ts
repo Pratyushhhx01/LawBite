@@ -10,7 +10,10 @@ import {
 } from "@/lib/amendment-tracker";
 import { db } from "@/lib/db";
 
-describe("FEATURE 1: Legal Matter Management Service", () => {
+const describeDb =
+  process.env.CI_SKIP_DB_TESTS === "1" ? describe.skip : describe;
+
+describeDb("FEATURE 1: Legal Matter Management Service", () => {
   let testUserId = "jwTZtuR4rFVuNuh6hf1IOUHD1ivqkXBf";
   let createdMatterId = "";
 
