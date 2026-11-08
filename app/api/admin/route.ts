@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     const email = session.user.email?.toLowerCase() || "";
-    if (!ADMIN_EMAILS.includes(email) && ADMIN_EMAILS.length > 0) {
+    if (ADMIN_EMAILS.length === 0 || !ADMIN_EMAILS.includes(email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

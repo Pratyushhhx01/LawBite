@@ -1,6 +1,11 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
-import { lookupSectionExact, searchLegalChunksText } from "./legal-kb-db";
+import {
+  lookupSectionExact,
+  searchLegalChunksText,
+  getSectionListFromDb,
+  getFullTextFromDb,
+} from "./legal-kb-db";
 
 /**
  * Legal Knowledge Base Access Layer
@@ -116,10 +121,18 @@ export const s3kb = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return getJson<any[]>("bare-acts/_index.json");
   },
-  getSectionList(actName: string) {
-    return getJson<Array<{ section: string; title: string }>>(
+  async getSectionList(actName: string) {
+    const local = await getJson<Array<{ section: string; title: string }>>(
       `bare-acts/${actName}/_sections.json`,
     );
+    if (local) return local;
+    try {
+      const dbList = await getSectionListFromDb(actName);
+      if (dbList && dbList.length > 0) return dbList;
+    } catch {
+      /* Fallback */
+    }
+    return null;
   },
   async searchActs(
     query: string,
@@ -179,7 +192,15 @@ export const s3kb = {
   getReference<T>(key: string) {
     return getJson<T>(`reference/${key}.json`);
   },
-  getFullText(actName: string) {
-    return getText(`bare-acts/${actName}/full.txt`);
+  async getFullText(actName: string) {
+    const local = await getText(`bare-acts/${actName}/full.txt`);
+    if (local) return local;
+    try {
+      const dbFull = await getFullTextFromDb(actName);
+      if (dbFull) return dbFull;
+    } catch {
+      /* Fallback */
+    }
+    return null;
   },
 };
