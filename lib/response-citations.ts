@@ -11,7 +11,7 @@ import type { CitationVerificationSummary } from "@/lib/citation-verifier";
  * the Sources strip can show a verified badge instead of an unqualified claim.
  *
  * State rules:
- * - `verified`    the section exists in the named bare act (or a trusted web source)
+ * - `verified`    the section exists in the named bare act (or a trusted web/case source)
  * - `not_found`   a section was named but the bare act does not contain it
  * - `unavailable` the knowledge base lookup failed; this is NOT a hallucination
  * - `undefined`   the citation is an act reference without a section, or was not
@@ -22,7 +22,9 @@ import type { CitationVerificationSummary } from "@/lib/citation-verifier";
  */
 
 export type CitationVerificationState =
-  "verified" | "not_found" | "unavailable";
+  | "verified"
+  | "not_found"
+  | "unavailable";
 
 export type DisplayCitation = Citation & {
   verification?: CitationVerificationState;
@@ -34,7 +36,7 @@ export type CitationPayload = {
 };
 
 type VerifierResult = {
-  type: "act" | "web";
+  type: "act" | "web" | "case";
   label: string;
   url?: string;
   verified: boolean;
@@ -50,7 +52,7 @@ export type CitationVerifier = (input: { citations: Citation[] }) => Promise<{
 /** Verification must never delay the end of a response by more than this. */
 export const DEFAULT_CITATION_VERIFY_TIMEOUT_MS = 4_000;
 
-function citationKey(type: "act" | "web", label: string, url?: string): string {
+function citationKey(type: "act" | "web" | "case", label: string, url?: string): string {
   return `${type}|${label}|${url ?? ""}`.toLowerCase();
 }
 
@@ -65,13 +67,11 @@ export function annotateCitations(
   const byKey = new Map<string, VerifierResult>();
 
   for (const result of results) {
-    if (result.source !== "structured" || result.type !== "act") continue;
+    if (result.source !== "structured") continue;
     byKey.set(citationKey(result.type, result.label, result.url), result);
   }
 
   return citations.map((citation) => {
-    if (citation.type !== "act") return citation;
-
     const match = byKey.get(
       citationKey(citation.type, citation.label, citation.url),
     );
@@ -110,7 +110,7 @@ async function withTimeout<T>(
 }
 
 /**
- * Verify structured citations against the bare acts.
+ * Verify structured citations against the bare acts and case-law database.
  *
  * The real verifier is imported lazily so importing this module never
  * initialises AWS credentials, and tests can inject a fake verifier.
@@ -123,7 +123,7 @@ export async function verifyResponseCitations(
     onError?: (error: unknown) => void;
   } = {},
 ): Promise<CitationPayload> {
-  if (!citations.some((citation) => citation.type === "act")) {
+  if (!citations.some((citation) => citation.type === "act" || citation.type === "case")) {
     return { citations, summary: null };
   }
 

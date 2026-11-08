@@ -1,5 +1,5 @@
 export type Citation = {
-  type: "act" | "web";
+  type: "act" | "web" | "case";
   label: string;
   snippet: string;
   url?: string;
@@ -49,89 +49,108 @@ const ACT_YEARS: Record<string, string> = {
   "Special Marriage Act": "1954",
   "Hindu Adoption and Maintenance Act": "1956",
   "Hindu Minority and Guardianship Act": "1956",
+  "Muslim Personal Law Application Act": "1937",
   "Dissolution of Muslim Marriages Act": "1939",
-  "Indian Divorce Act": "1869",
-  "Indian Christian Marriage Act": "1872",
-  "Parsi Marriage and Divorce Act": "1936",
-  "Prohibition of Child Marriage Act": "2006",
+  "Mussalman Wakf Act": "1923",
+  "Wakf Act": "1995",
   "Guardians and Wards Act": "1890",
-  "Maintenance and Welfare of Parents and Senior Citizens Act": "2007",
+  "Foreign Marriage Act": "1969",
 
-  // Police & Procedure
-  "Police Act": "1861",
-  "National Investigation Agency Act": "2008",
-
-  // Human Rights & Social Welfare
-  "Protection of Human Rights Act": "1993",
-  "Sexual Harassment of Women at Workplace Act": "2013",
-  "Maternity Benefit Act": "1961",
-  "Mental Healthcare Act": "2017",
-  "National Food Security Act": "2013",
-  "Rights of Persons with Disabilities Act": "2016",
-  "Child Labour Prohibition and Regulation Act": "1986",
-
-  // Cyber Law & IT
-  "Information Technology Act": "2000",
-  "Digital Personal Data Protection Act": "2023",
-  "Aadhaar Act": "2016",
-  "Right to Information Act": "2005",
-
-  // Corporate & Business Law
+  // Commercial Law
   "Companies Act": "2013",
+  "Insolvency and Bankruptcy Code": "2016",
   "Competition Act": "2002",
-  "Securities and Exchange Board of India Act": "1992",
   "Foreign Exchange Management Act": "1999",
+  "Securitisation and Reconstruction of Financial Assets and Enforcement of Security Interest Act":
+    "2002",
+  "SARFAESI Act": "2002",
+  "Recovery of Debts and Bankruptcy Act": "1993",
   "Micro Small and Medium Enterprises Development Act": "2006",
-  "Benami Transactions Prohibition Act": "1988",
-  "Black Money Act": "2015",
-  "Securitisation and Reconstruction of Financial Assets Act": "2002",
+  "Real Estate Regulation and Development Act": "2016",
+  "RERA": "2016",
+  "Securities and Exchange Board of India Act": "1992",
+  "SEBI Act": "1992",
 
-  // Labour & Employment
-  "Minimum Wages Act": "1948",
-  "Payment of Wages Act": "1936",
+  // Labour & Service Law
   "Industrial Disputes Act": "1947",
-  "Trade Unions Act": "1926",
   "Factories Act": "1948",
-  "Essential Commodities Act": "1955",
+  "Employees Provident Funds Act": "1952",
+  "Payment of Gratuity Act": "1972",
+  "Payment of Wages Act": "1936",
+  "Minimum Wages Act": "1948",
+  "Maternity Benefit Act": "1961",
+  "Equal Remuneration Act": "1976",
+  "Trade Unions Act": "1926",
+  "Sexual Harassment of Women at Workplace Act": "2013",
+  "POSH Act": "2013",
+  "Apprentices Act": "1961",
+  "Contract Labour Act": "1970",
 
-  // Taxation
-  "Income Tax Act": "1961",
-  "Central Goods and Services Tax Act": "2017",
-  "Customs Act": "1962",
-  "Central Excise Act": "1944",
+  // IP & Tech Law
+  "Information Technology Act": "2000",
+  "IT Act": "2000",
+  "Copyright Act": "1957",
+  "Patents Act": "1970",
+  "Trade Marks Act": "1999",
+  "Design Act": "2000",
+  "Geographical Indications Act": "1999",
+  "Digital Personal Data Protection Act": "2023",
+  "DPDP Act": "2023",
 
-  // Land & Environment
-  "Right to Fair Compensation and Transparency in Land Acquisition Act": "2013",
-  "Lokpal and Lokayuktas Act": "2013",
-  "Wildlife Protection Act": "1972",
-  "Forest Conservation Act": "1980",
+  // Environmental Law
+  "Environment Protection Act": "1986",
   "Water Prevention and Control of Pollution Act": "1974",
   "Air Prevention and Control of Pollution Act": "1981",
+  "Forest Conservation Act": "1980",
+  "Wild Life Protection Act": "1972",
   "National Green Tribunal Act": "2010",
+  "NGT Act": "2010",
   "Biological Diversity Act": "2002",
-  "Environment Protection Act": "1986",
+  "Public Liability Insurance Act": "1991",
 
-  // Consumer & Food
-  "Food Safety and Standards Act": "2006",
-  "Drugs and Cosmetics Act": "1940",
+  // Taxation & Revenue
+  "Income Tax Act": "1961",
+  "Central Goods and Services Tax Act": "2017",
+  "CGST Act": "2017",
+  "Integrated Goods and Services Tax Act": "2017",
+  "IGST Act": "2017",
+  "Customs Act": "1962",
+  "Central Excise Act": "1944",
+  "Black Money Act": "2015",
+  "Fugitive Economic Offenders Act": "2018",
 
-  // Intellectual Property
-  "Patents Act": "1970",
-  "Copyright Act": "1957",
-  "Trade Marks Act": "1999",
-  "Geographical Indications of Goods Act": "1999",
-
-  // Banking & Finance
-  "Reserve Bank of India Act": "1934",
-  "Banking Regulation Act": "1949",
-  "Insurance Regulatory and Development Authority Act": "1999",
+  // Administrative & Public Law
+  "Right to Information Act": "2005",
+  "RTI Act": "2005",
+  "Lokpal and Lokayuktas Act": "2013",
+  "Central Vigilance Commission Act": "2003",
+  "CVC Act": "2003",
+  "Commissions of Inquiry Act": "1952",
+  "Disaster Management Act": "2005",
+  "National Investigation Agency Act": "2008",
+  "NIA Act": "2008",
+  "Right to Fair Compensation and Transparency in Land Acquisition Act":
+    "2013",
+  "Land Acquisition Act": "2013",
   "Motor Vehicles Act": "1988",
-
-  // Miscellaneous
-  "Contempt of Courts Act": "1971",
-  "Official Secrets Act": "1923",
-  "Passport Act": "1967",
-  "Indian Telegraph Act": "1885",
+  "Electricity Act": "2003",
+  "Telecom Regulatory Authority of India Act": "1997",
+  "TRAI Act": "1997",
+  "Food Safety and Standards Act": "2006",
+  "FSSAI Act": "2006",
+  "Drugs and Cosmetics Act": "1940",
+  "Medical Termination of Pregnancy Act": "1971",
+  "MTP Act": "1971",
+  "Surrogacy Regulation Act": "2021",
+  "Assisted Reproductive Technology Regulation Act": "2021",
+  "Mental Healthcare Act": "2017",
+  "Rights of Persons with Disabilities Act": "2016",
+  "RPWD Act": "2016",
+  "Citizenship Act": "1955",
+  "Passports Act": "1967",
+  "Foreigners Act": "1946",
+  "Extradition Act": "1962",
+  "Emigration Act": "1983",
   "Census Act": "1948",
   "Epidemic Diseases Act": "1897",
   "Scheduled Castes and Scheduled Tribes Prevention of Atrocities Act": "1989",
@@ -140,6 +159,10 @@ const ACT_YEARS: Record<string, string> = {
 export function formatCitation(cit: Citation): string {
   if (cit.type === "web") {
     return cit.url ? cit.label : `${cit.label} (web source)`;
+  }
+
+  if (cit.type === "case") {
+    return cit.label;
   }
 
   const label = cit.label

@@ -16,7 +16,7 @@ export type CitationCandidateKind = "section" | "reference" | "web";
 
 export type CitationCandidate = {
   kind: CitationCandidateKind;
-  type: "act" | "web";
+  type: "act" | "web" | "case";
   raw: string;
   label: string;
   snippet?: string;
@@ -678,6 +678,22 @@ function structuredCandidates(citations: Citation[]): CitationCandidate[] {
     const label = citation.label || "";
     const snippet = citation.snippet || "";
 
+        if (citation.type === "case") {
+      candidates.push({
+        kind: "reference",
+        type: "case",
+        raw: label || snippet.slice(0, 120),
+        label: label || "Case Law Precedent",
+        snippet,
+        url: citation.url,
+        actKey: null,
+        actName: "Case Law",
+        section: null,
+        source: "structured",
+      });
+      continue;
+    }
+
     if (citation.type === "web") {
       candidates.push({
         kind: "web",
@@ -719,6 +735,10 @@ function candidateKey(candidate: CitationCandidate): string {
   if (candidate.kind === "web") {
     return `web:${candidate.url ?? candidate.label}`.toLowerCase();
   }
+  if (candidate.type === "case") {
+    return `case:${candidate.label}`.toLowerCase();
+  }
+
   if (candidate.kind === "reference") {
     return `reference:${candidate.label}`.toLowerCase();
   }

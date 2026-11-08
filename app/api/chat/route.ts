@@ -9,6 +9,10 @@ import {
 } from "@/lib/legal-terminology";
 import { SECTION_MAPPINGS, mappingPromptBlock } from "@/lib/section-mapping";
 import { ACT_MAP } from "@/lib/act-map";
+import { CaseLawService } from "@/lib/case-law-service";
+import { checkPrecedentStatus } from "@/lib/good-law";
+import { compareIpcToBns } from "@/lib/ipc-bns-compare";
+
 import {
   DRAFT_DISCLAIMER,
   DRAFT_SCOPE_REFUSAL,
@@ -330,7 +334,7 @@ const MAX_MESSAGES = 100;
 const MAX_MESSAGE_LENGTH = 10000;
 
 type Citation = {
-  type: "act" | "web";
+  type: "act" | "web" | "case";
   label: string;
   snippet: string;
   url?: string;
@@ -594,13 +598,80 @@ async function getLegalKnowledge(
     const parts: string[] = [];
     const lower = query.toLowerCase();
 
+        // --- Case Law Research Engine Integration ---
+    try {
+      const caseMatches = await CaseLawService.hybridSearch(query, 3);
+      for (const c of caseMatches) {
+        const paraText = c.relevantParagraphs && c.relevantParagraphs.length > 0
+          ? c.relevantParagraphs.map((p) => `  [Para ${p.paraNumber}] ${p.text}`).join("\n")
+          : "";
+
+        parts.push(
+          `[CASE PRECEDENT: ${c.title} (${c.year})]\n` +
+          `Citation: ${c.citations.join(", ")}\n` +
+          `Court: ${c.court} | Bench: ${c.bench}\n` +
+          `Precedent Status: ${c.precedentStatus.toUpperCase()}\n` +
+          `Holding: ${c.summary}\n` +
+          (paraText ? `Key Numbered Paragraphs:\n${paraText}\n` : "") +
+          `Authoritative Source: ${c.sourceUrl}`
+        );
+
+        citations.push({
+          type: "case",
+          label: `${c.title} [${c.citations[0] || c.court}]`,
+          snippet: `${c.summary} (Precedent Status: ${c.precedentStatus})`,
+          url: c.sourceUrl,
+        });
+      }
+
+      // Check for Good-Law / Overruled Precedent status
+      const precedentCheck = checkPrecedentStatus(query);
+      if (precedentCheck.status !== "Unverified") {
+        if (!precedentCheck.isGoodLaw && precedentCheck.overrulingDetails) {
+          parts.push(
+            `[CRITICAL PRECEDENT ALERT: OVERRULED]\n` +
+            `Case: ${precedentCheck.caseTitle} (${precedentCheck.citation || ""})\n` +
+            `STATUS: OVERRULED by the ${precedentCheck.overrulingDetails.overruledByCourt} in ${precedentCheck.overrulingDetails.overruledByTitle} (${precedentCheck.overrulingDetails.overruledByCitation}) [${precedentCheck.overrulingDetails.paraRef}].\n` +
+            `Overruling Ground: ${precedentCheck.overrulingDetails.overrulingGround}\n` +
+            `MANDATE: Under no circumstances cite ${precedentCheck.caseTitle} as binding good law. Always explain that it was overruled.`
+          );
+        } else if (precedentCheck.isGoodLaw) {
+          parts.push(
+            `[PRECEDENT STATUS: BINDING GOOD LAW]\n` +
+            `Case: ${precedentCheck.caseTitle} (${precedentCheck.citation || ""})\n` +
+            `STATUS: GOOD LAW. Binding precedent of the ${precedentCheck.court || "Supreme Court of India"}.\n` +
+            `Subsequent Treatments: ${precedentCheck.verifiedTreatments.map((t) => `${t.citingCaseTitle} [${t.treatment} at ${t.paraRef}]`).join("; ")}`
+          );
+        }
+      }
+
+
+    } catch (caseErr) {
+      console.error("[Chat] Case law integration error:", caseErr);
+    }
+
     const { sections: sectionMatches, articles: articleMatches } =
       extractRefNumbers(query);
 
     // Cross-act section mapping: if a cited section matches a known old→new
     // law mapping (IPC→BNS, CrPC→BNSS, Evidence Act→BSA), fetch BOTH the old
     // and the new equivalent so the answer is grounded in actual statute text.
-    const mappingParts: string[] = [];
+        const mappingParts: string[] = [];
+    if (sectionMatches.length > 0) {
+      for (const secNum of sectionMatches) {
+        const comp = compareIpcToBns(secNum);
+        if (comp) {
+          mappingParts.push(
+            `[STATUTORY TRANSITION COMPARISON: IPC ${comp.oldSection} ↔ BNS ${comp.newSection || "No direct equivalent"}]\n` +
+            `Effective Date: ${comp.effectiveDate} (${comp.commencementInfo})\n` +
+            `Old Law: IPC ${comp.oldSection} (${comp.oldTitle}): ${comp.oldSummary}\n` +
+            `New Law: BNS ${comp.newSection || "None"} (${comp.newTitle || "No direct equivalent"}): ${comp.newSummary || ""}\n` +
+            `Wording & Penal Differences: ${comp.wordingDifferences.join("; ")}\n` +
+            `Temporal Rule: ${comp.temporalRule}`
+          );
+        }
+      }
+    }
     if (sectionMatches.length > 0) {
       const oldActKeys = new Set(SECTION_MAPPINGS.map((m) => m.actKey));
       const mappingPromises: Promise<void>[] = [];

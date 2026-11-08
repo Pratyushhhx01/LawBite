@@ -55,7 +55,7 @@ import {
 type Role = "user" | "assistant";
 
 type Citation = {
-  type: "act" | "web";
+  type: "act" | "web" | "case";
   label: string;
   snippet: string;
   url?: string;
@@ -88,7 +88,7 @@ type CitationVerificationSummary = {
 function visibleCitations(citations: Citation[] | undefined): Citation[] {
   if (!citations) return [];
   return citations.filter(
-    (citation) => citation.type === "act" || isTrustedLegalSource(citation.url),
+    (citation) => citation.type === "act" || citation.type === "case" || isTrustedLegalSource(citation.url),
   );
 }
 
@@ -9272,7 +9272,7 @@ export default function ChatApp({
                   )}
                 </svg>
                 <h2 className="text-sm font-semibold tracking-tight text-white">
-                  {citationOpen.type === "web" ? "Web source" : "Legal source"}
+                  {citationOpen.type === "web" ? "Web source" : citationOpen.type === "case" ? "Case Law Precedent" : "Legal source"}
                 </h2>
               </div>
               <button
