@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 
 interface CaseDoc {
   id: string;
@@ -35,6 +36,7 @@ interface CaseDetail extends CaseFolder {
 
 interface CasesAppProps {
   user: { id: string; name: string; email: string; image: string | null };
+  initialCaseId?: string | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -76,11 +78,22 @@ function MobileBackButton({
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function CasesApp(_props: CasesAppProps) {
+export default function CasesApp({ user: _user, initialCaseId = null }: CasesAppProps) {
   const [cases, setCases] = useState<CaseFolder[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [prevInitialCaseId, setPrevInitialCaseId] = useState(initialCaseId);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialCaseId ?? null
+  );
   const [detail, setDetail] = useState<CaseDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(Boolean(initialCaseId));
+
+  if (initialCaseId !== prevInitialCaseId) {
+    setPrevInitialCaseId(initialCaseId);
+    setSelectedId(initialCaseId ?? null);
+    if (initialCaseId) {
+      setDetailLoading(true);
+    }
+  }
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -106,6 +119,40 @@ export default function CasesApp(_props: CasesAppProps) {
   useEffect(() => {
     casesRef.current = cases;
   }, [cases]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const sp = new URLSearchParams(window.location.search);
+      const urlCaseId = sp.get("caseId") || sp.get("id");
+      setSelectedId(urlCaseId || null);
+      if (urlCaseId) {
+        setDetailLoading(true);
+      } else {
+        setDetail(null);
+      }
+      setEditMode(false);
+      setShowCreate(false);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const selectCase = (id: string) => {
+    if (id !== selectedId) {
+      setDetail(null);
+      setDetailLoading(true);
+      setSelectedId(id);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("caseId", id);
+        url.searchParams.delete("id");
+        window.history.pushState(null, "", url.toString());
+      }
+    }
+    setEditMode(false);
+    setShowCreate(false);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -241,6 +288,12 @@ export default function CasesApp(_props: CasesAppProps) {
         });
         setDetailLoading(false);
         setSelectedId(created.id);
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.set("caseId", created.id);
+          url.searchParams.delete("id");
+          window.history.pushState(null, "", url.toString());
+        }
       }
     } finally {
       setSaving(false);
@@ -292,6 +345,16 @@ export default function CasesApp(_props: CasesAppProps) {
         setSelectedId(null);
         setDetail(null);
         setDetailLoading(false);
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("caseId");
+          url.searchParams.delete("id");
+          window.history.pushState(
+            null,
+            "",
+            url.pathname + (url.search ? url.search : ""),
+          );
+        }
       }
     }
   };
@@ -404,6 +467,16 @@ export default function CasesApp(_props: CasesAppProps) {
     setEditMode(false);
     resetForm();
     setPendingFiles([]);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("caseId");
+      url.searchParams.delete("id");
+      window.history.pushState(
+        null,
+        "",
+        url.pathname + (url.search ? url.search : ""),
+      );
+    }
   };
 
   return (
@@ -413,9 +486,10 @@ export default function CasesApp(_props: CasesAppProps) {
       >
         <div className="border-b border-white/10 p-4">
           <div className="mb-3 flex items-center gap-3">
-            <button
-              onClick={() => window.history.back()}
-              aria-label="Go back"
+            <Link
+              href="/chat"
+              aria-label="Back to chat"
+              title="Back to Chat"
               className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white/40 transition-all duration-200 hover:bg-white/10 hover:text-white/70"
             >
               <svg
@@ -429,7 +503,7 @@ export default function CasesApp(_props: CasesAppProps) {
               >
                 <path d="M19 12H5M12 19l-7-7 7-7" />
               </svg>
-            </button>
+            </Link>
             <h1 className="text-sm font-semibold text-white/80">
               Case Tracker
             </h1>
@@ -481,15 +555,7 @@ export default function CasesApp(_props: CasesAppProps) {
             cases.map((c) => (
               <button
                 key={c.id}
-                onClick={() => {
-                  if (c.id !== selectedId) {
-                    setDetail(null);
-                    setDetailLoading(true);
-                    setSelectedId(c.id);
-                  }
-                  setEditMode(false);
-                  setShowCreate(false);
-                }}
+                onClick={() => selectCase(c.id)}
                 className={`w-full border-b border-white/5 px-4 py-3.5 text-left transition-all duration-200 hover:bg-white/[0.04] ${selectedId === c.id ? "bg-white/[0.06] border-l-2 border-l-amber-400/60" : "border-l-2 border-l-transparent"}`}
               >
                 <div className="flex items-center gap-2">
@@ -974,7 +1040,7 @@ export default function CasesApp(_props: CasesAppProps) {
                   <h3 className="text-sm font-semibold text-white/60">
                     Linked Conversations ({detail.conversations?.length ?? 0})
                   </h3>
-                  <a
+                  <Link
                     href={`/chat?caseId=${encodeURIComponent(detail.id)}`}
                     className="flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
                   >
@@ -991,24 +1057,24 @@ export default function CasesApp(_props: CasesAppProps) {
                       <path d="M12 5v14M5 12h14" />
                     </svg>
                     Start new conversation
-                  </a>
+                  </Link>
                 </div>
                 {(detail.conversations?.length ?? 0) === 0 ? (
                   <div className="rounded-xl border border-dashed border-white/10 p-6 text-center">
                     <p className="text-xs text-white/30">
                       No conversations linked yet
                     </p>
-                    <a
+                    <Link
                       href={`/chat?caseId=${encodeURIComponent(detail.id)}`}
                       className="mt-2 inline-block text-xs text-blue-400 hover:text-blue-300"
                     >
                       Start a conversation
-                    </a>
+                    </Link>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {detail.conversations.map((conv) => (
-                      <a
+                      <Link
                         key={conv.id}
                         href={`/chat?conversation=${encodeURIComponent(conv.id)}&caseId=${encodeURIComponent(detail.id)}`}
                         className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 transition-colors hover:bg-white/[0.06]"
@@ -1022,7 +1088,7 @@ export default function CasesApp(_props: CasesAppProps) {
                         <span className="text-[10px] text-white/25">
                           {conv.type}
                         </span>
-                      </a>
+                      </Link>
                     ))}
                   </div>
                 )}

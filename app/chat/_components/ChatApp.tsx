@@ -4630,9 +4630,9 @@ export default function ChatApp({
           <div className="flex min-w-0 items-center gap-3">
             {initialCaseId && (
               <Link
-                href="/cases"
+                href={`/cases?caseId=${encodeURIComponent(initialCaseId)}`}
                 className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                title="Back to Cases"
+                title="Back to Case Tracker"
               >
                 <svg
                   aria-hidden

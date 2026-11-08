@@ -10,13 +10,24 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function CasesPage() {
+export default async function CasesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ caseId?: string; id?: string }>;
+}) {
+  const params = searchParams ? await searchParams : undefined;
+  const initialCaseId = params?.caseId ?? params?.id ?? null;
+
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
   if (!session) {
-    redirect("/signin");
+    redirect(
+      `/signin?next=${encodeURIComponent(
+        initialCaseId ? `/cases?caseId=${initialCaseId}` : "/cases"
+      )}`
+    );
   }
 
   return (
@@ -27,6 +38,7 @@ export default async function CasesPage() {
         email: session.user.email,
         image: session.user.image ?? null,
       }}
+      initialCaseId={initialCaseId}
     />
   );
 }
