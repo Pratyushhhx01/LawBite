@@ -141,7 +141,7 @@ describe("END-TO-END VERIFICATION & AUDIT SUITE", () => {
 
       // 3. Attempt to attach report using unauthorizedUserId
       await expect(
-        MatterService.saveMatterReport(unauthorizedUserId, createdMatterId, {
+        MatterService.saveMatterReport(unauthorizedUserId, {
           matterId: createdMatterId,
           reportType: "contract_risk",
           title: "Malicious Report Injection",
@@ -157,13 +157,13 @@ describe("END-TO-END VERIFICATION & AUDIT SUITE", () => {
       const matter = await MatterService.createMatter(testUserId, {
         name: "Apex Logistics v. National Highways Authority",
         description: "Concessionaire dispute under NHAI Act.",
-        stage: "Filing",
+        stage: "Pleadings",
         priority: "Urgent",
       });
 
       // Update
       const updated = await MatterService.updateMatter(testUserId, matter.id, {
-        stage: "Pleadings Complete",
+        stage: "Evidence",
         notes: "Rejoinder filed.",
       });
       expect(updated).toBe(true);
@@ -175,7 +175,7 @@ describe("END-TO-END VERIFICATION & AUDIT SUITE", () => {
       // Workspace check
       const ws = await MatterService.getMatterWorkspace(testUserId, matter.id);
       expect(ws?.matter.status).toBe("archived");
-      expect(ws?.matter.stage).toBe("Pleadings Complete");
+      expect(ws?.matter.stage).toBe("Evidence");
       expect(ws?.activities.length).toBeGreaterThanOrEqual(3);
 
       // Clean up

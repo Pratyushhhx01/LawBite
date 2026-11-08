@@ -620,13 +620,12 @@ export default function MattersApp({ initialMatterId = null }: MattersAppProps) 
             >
               <option value="all">All Stages</option>
               <option value="Pre-litigation">Pre-litigation</option>
-              <option value="Filing">Filing</option>
-              <option value="Pleadings Complete">Pleadings Complete</option>
-              <option value="Evidence / Trial">Evidence / Trial</option>
-              <option value="Final Arguments">Final Arguments</option>
-              <option value="Judgment Reserved">Judgment Reserved</option>
-              <option value="Appeal / Execution">Appeal / Execution</option>
-              <option value="Disposed">Disposed</option>
+              <option value="Pleadings">Pleadings</option>
+              <option value="Evidence">Evidence</option>
+              <option value="Arguments">Arguments</option>
+              <option value="Judgment/Decree">Judgment/Decree</option>
+              <option value="Appeal">Appeal</option>
+              <option value="Closed">Closed</option>
             </select>
             <select
               value={priorityFilter}
