@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import AmendmentTrackerApp from "./_components/AmendmentTrackerApp";
+import AmendmentsInfoView from "./_components/AmendmentsInfoView";
 
 export const metadata: Metadata = {
   title: "Indian Legal Amendment Tracker — LawBite",
@@ -17,6 +18,17 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function AmendmentsPage() {
-  return <AmendmentTrackerApp />;
+export default async function AmendmentsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ view?: string; q?: string; act?: string }>;
+}) {
+  const params = searchParams ? await searchParams : undefined;
+  const isTableView = params?.view === "table" || Boolean(params?.q) || Boolean(params?.act);
+
+  if (isTableView) {
+    return <AmendmentTrackerApp />;
+  }
+
+  return <AmendmentsInfoView />;
 }

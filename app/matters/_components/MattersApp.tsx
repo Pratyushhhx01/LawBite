@@ -554,6 +554,14 @@ export default function MattersApp({ initialMatterId = null }: MattersAppProps) 
             </div>
             <div className="flex items-center gap-2">
               <Link
+                href="/matters?view=info"
+                className="text-[11px] font-medium text-white/50 hover:text-white"
+                title="Matter Management Feature Guide"
+              >
+                Guide
+              </Link>
+              <span className="text-white/20">|</span>
+              <Link
                 href="/cases"
                 className="text-[11px] font-medium text-white/60 hover:text-white"
                 title="Case Tracker"
