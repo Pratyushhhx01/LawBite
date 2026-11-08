@@ -15,8 +15,6 @@ import LogoIcon from "./LogoIcon";
 
 const links = [
   { label: "Features", href: "#features" },
-  { label: "Matters", href: "/matters" },
-  { label: "Amendments", href: "/amendments" },
   { label: "Preview", href: "#preview" },
   { label: "How It Works", href: "#process" },
   { label: "FAQ", href: "#faq" },
@@ -76,35 +74,22 @@ export default function Navbar() {
         </Link>
 
         <ul className="hidden items-center gap-1 text-sm text-white/70 md:flex">
-          {links.map((link) => {
-            const isInternal = link.href.startsWith("/");
-            return (
-              <li key={link.href}>
-                {isInternal ? (
-                  <Link
-                    href={link.href}
-                    className="relative inline-block rounded-full px-3.5 py-1.5 transition-colors duration-300 hover:text-white"
-                  >
-                    <span className="relative z-10">{link.label}</span>
-                    <span className="absolute inset-0 -z-0 scale-90 rounded-full bg-white/0 transition-all duration-300 group-hover:bg-white/10" />
-                  </Link>
-                ) : (
-                  <a
-                    href={link.href}
-                    className="relative inline-block rounded-full px-3.5 py-1.5 transition-colors duration-300 hover:text-white"
-                    onClick={
-                      isSectionHref(link.href)
-                        ? (e) => handleSectionAnchor(e, link.href)
-                        : undefined
-                    }
-                  >
-                    <span className="relative z-10">{link.label}</span>
-                    <span className="absolute inset-0 -z-0 scale-90 rounded-full bg-white/0 transition-all duration-300 group-hover:bg-white/10" />
-                  </a>
-                )}
-              </li>
-            );
-          })}
+          {links.map((link) => (
+            <li key={link.href}>
+              <a
+                href={link.href}
+                className="relative inline-block rounded-full px-3.5 py-1.5 transition-colors duration-300 hover:text-white"
+                onClick={
+                  isSectionHref(link.href)
+                    ? (e) => handleSectionAnchor(e, link.href)
+                    : undefined
+                }
+              >
+                <span className="relative z-10">{link.label}</span>
+                <span className="absolute inset-0 -z-0 scale-90 rounded-full bg-white/0 transition-all duration-300 group-hover:bg-white/10" />
+              </a>
+            </li>
+          ))}
         </ul>
 
         <div className="hidden items-center gap-2 md:flex">
@@ -299,39 +284,26 @@ export default function Navbar() {
         }`}
       >
         <ul className="flex flex-col p-3 text-sm">
-          {links.map((link, i) => {
-            const isInternal = link.href.startsWith("/");
-            return (
-              <li
-                key={link.href}
-                style={{ transitionDelay: `${i * 40}ms` }}
-                className={`transform transition-all duration-500 ${
-                  open ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-                }`}
+          {links.map((link, i) => (
+            <li
+              key={link.href}
+              style={{ transitionDelay: `${i * 40}ms` }}
+              className={`transform transition-all duration-500 ${
+                open ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+              }`}
+            >
+              <a
+                onClick={(e) => {
+                  setOpen(false);
+                  handleSectionAnchor(e, link.href);
+                }}
+                href={link.href}
+                className="block rounded-xl px-3 py-2.5 text-white/80 transition-colors hover:bg-white/5 hover:text-white"
               >
-                {isInternal ? (
-                  <Link
-                    href={link.href}
-                    onClick={() => setOpen(false)}
-                    className="block rounded-xl px-3 py-2.5 text-white/80 transition-colors hover:bg-white/5 hover:text-white"
-                  >
-                    {link.label}
-                  </Link>
-                ) : (
-                  <a
-                    onClick={(e) => {
-                      setOpen(false);
-                      handleSectionAnchor(e, link.href);
-                    }}
-                    href={link.href}
-                    className="block rounded-xl px-3 py-2.5 text-white/80 transition-colors hover:bg-white/5 hover:text-white"
-                  >
-                    {link.label}
-                  </a>
-                )}
-              </li>
-            );
-          })}
+                {link.label}
+              </a>
+            </li>
+          ))}
           <li
             style={{ transitionDelay: `${links.length * 40}ms` }}
             className={`transform transition-all duration-500 ${
@@ -344,6 +316,24 @@ export default function Navbar() {
               className="block rounded-xl px-3 py-2.5 text-white/80 transition-colors hover:bg-white/5 hover:text-white"
             >
               Legal News
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/matters"
+              onClick={() => setOpen(false)}
+              className="block rounded-xl px-3 py-2.5 text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              Legal Matters Workspace
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/amendments"
+              onClick={() => setOpen(false)}
+              className="block rounded-xl px-3 py-2.5 text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              Amendment Tracker
             </Link>
           </li>
           <li
