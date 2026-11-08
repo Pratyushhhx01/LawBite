@@ -487,13 +487,38 @@ export class MatterService {
       title = matterIdOrInput.title;
       summary = matterIdOrInput.summary || "";
       reportData = matterIdOrInput.reportData;
+    } else if (typeof reportTypeArg === "object" && reportTypeArg !== null) {
+      const obj = reportTypeArg as unknown as {
+        matterId?: string;
+        reportType: MatterReport["reportType"];
+        title: string;
+        summary?: string;
+        reportData: unknown;
+      };
+      matterId = obj.matterId || matterIdOrInput;
+      reportType = obj.reportType;
+      title = obj.title || "Report";
+      summary = obj.summary || "";
+      reportData = obj.reportData;
     } else {
       matterId = matterIdOrInput;
-      reportType = reportTypeArg!;
+      reportType = (reportTypeArg as MatterReport["reportType"]) || "contract_risk";
       title = titleArg || "Report";
       summary = summaryArg || "";
       reportData = reportDataArg;
     }
+
+    // Tenant Isolation: Verify matter exists and belongs to userId
+    const folder = await db
+      .selectFrom("case_folder")
+      .select("id")
+      .where("id", "=", matterId)
+      .where("userId", "=", userId)
+      .executeTakeFirst();
+    if (!folder) {
+      throw new Error(`Matter "${matterId}" not found or unauthorized for user "${userId}"`);
+    }
+
     const id = crypto.randomUUID();
     const row = await db
       .insertInto("matter_report")
@@ -576,6 +601,18 @@ export class MatterService {
       matterId = matterIdOrData;
       data = dataArg!;
     }
+
+    // Tenant Isolation: Verify matter exists and belongs to userId
+    const folder = await db
+      .selectFrom("case_folder")
+      .select("id")
+      .where("id", "=", matterId)
+      .where("userId", "=", userId)
+      .executeTakeFirst();
+    if (!folder) {
+      throw new Error(`Matter "${matterId}" not found or unauthorized for user "${userId}"`);
+    }
+
     // Check if a document with this fileName already exists to increment version
     const existing = await db
       .selectFrom("case_document")

@@ -41,6 +41,9 @@ export async function POST(
 
     return NextResponse.json(report, { status: 201 });
   } catch (err) {
+    if (err instanceof Error && err.message.includes("unauthorized")) {
+      return NextResponse.json({ error: "Matter not found or unauthorized" }, { status: 404 });
+    }
     console.error("[API] /api/matters/[id]/reports POST error:", err);
     return NextResponse.json({ error: "Failed to save report" }, { status: 500 });
   }
