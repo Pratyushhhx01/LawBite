@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import type {
   LegalMatter,
@@ -32,6 +32,8 @@ interface MattersAppProps {
   user?: { id: string; name: string; email: string; image: string | null };
   initialMatterId?: string | null;
   onSwitchModule?: (mod: "cases" | "matters" | "amendments") => void;
+  sidebarOpen?: boolean;
+  onSidebarOpenChange?: (open: boolean) => void;
 }
 
 const STAGE_COLORS: Record<string, string> = {
@@ -73,6 +75,8 @@ const MATTER_PRIORITIES: MatterPriority[] = ["Low", "Medium", "High", "Urgent"];
 export default function MattersApp({
   initialMatterId = null,
   onSwitchModule,
+  sidebarOpen: controlledSidebarOpen,
+  onSidebarOpenChange,
 }: MattersAppProps = {}) {
   // State
   const [matters, setMatters] = useState<LegalMatter[]>([]);
@@ -84,7 +88,22 @@ export default function MattersApp({
     "overview" | "documents" | "contract_risk" | "doc_compare" | "courtroom_prep" | "reports" | "activity"
   >("overview");
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [internalSidebarOpen, setInternalSidebarOpen] = useState(false);
+  const isControlled = typeof controlledSidebarOpen === "boolean";
+  const sidebarOpen = isControlled ? controlledSidebarOpen : internalSidebarOpen;
+
+  const setSidebarOpen = useCallback(
+    (val: boolean | ((prev: boolean) => boolean)) => {
+      if (isControlled) {
+        const next = typeof val === "function" ? val(controlledSidebarOpen!) : val;
+        onSidebarOpenChange?.(next);
+      } else {
+        setInternalSidebarOpen(val);
+      }
+    },
+    [isControlled, controlledSidebarOpen, onSidebarOpenChange]
+  );
+
   const sidebarCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cancelSidebarClose = () => {
@@ -641,7 +660,7 @@ export default function MattersApp({
             <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1 text-center text-xs">
               <Link
                 href="/cases?tab=cases"
-                onClick={onSwitchModule ? (e) => { e.preventDefault(); setSidebarOpen(false); onSwitchModule("cases"); } : undefined}
+                onClick={onSwitchModule ? (e) => { e.preventDefault(); cancelSidebarClose(); onSwitchModule("cases"); } : undefined}
                 className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
               >
                 Cases
@@ -651,7 +670,7 @@ export default function MattersApp({
               </span>
               <Link
                 href="/cases?tab=amendments"
-                onClick={onSwitchModule ? (e) => { e.preventDefault(); setSidebarOpen(false); onSwitchModule("amendments"); } : undefined}
+                onClick={onSwitchModule ? (e) => { e.preventDefault(); cancelSidebarClose(); onSwitchModule("amendments"); } : undefined}
                 className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
               >
                 Amendments
@@ -661,7 +680,7 @@ export default function MattersApp({
             <div className="mb-3 hidden md:flex flex-col items-center gap-1.5">
               <Link
                 href="/cases?tab=cases"
-                onClick={onSwitchModule ? (e) => { e.preventDefault(); onSwitchModule("cases"); } : undefined}
+                onClick={onSwitchModule ? (e) => { e.preventDefault(); cancelSidebarClose(); onSwitchModule("cases"); } : undefined}
                 title="Switch to Cases"
                 className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white transition-colors"
               >
@@ -677,7 +696,7 @@ export default function MattersApp({
               </span>
               <Link
                 href="/cases?tab=amendments"
-                onClick={onSwitchModule ? (e) => { e.preventDefault(); onSwitchModule("amendments"); } : undefined}
+                onClick={onSwitchModule ? (e) => { e.preventDefault(); cancelSidebarClose(); onSwitchModule("amendments"); } : undefined}
                 title="Switch to Amendments"
                 className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white transition-colors"
               >

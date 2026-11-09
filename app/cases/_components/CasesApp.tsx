@@ -523,6 +523,8 @@ export default function CasesApp({
         user={user}
         initialMatterId={initialMatterId}
         onSwitchModule={setActiveModule}
+        sidebarOpen={sidebarOpen}
+        onSidebarOpenChange={setSidebarOpen}
       />
     );
   }
@@ -532,6 +534,8 @@ export default function CasesApp({
       <AmendmentTrackerApp
         onSwitchModule={setActiveModule}
         initialQuery={initialQuery}
+        sidebarOpen={sidebarOpen}
+        onSidebarOpenChange={setSidebarOpen}
       />
     );
   }
@@ -645,7 +649,7 @@ export default function CasesApp({
               <button
                 type="button"
                 onClick={() => {
-                  setSidebarOpen(false);
+                  cancelSidebarClose();
                   setActiveModule("matters");
                 }}
                 className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
@@ -655,7 +659,7 @@ export default function CasesApp({
               <button
                 type="button"
                 onClick={() => {
-                  setSidebarOpen(false);
+                  cancelSidebarClose();
                   setActiveModule("amendments");
                 }}
                 className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
@@ -672,7 +676,10 @@ export default function CasesApp({
               </span>
               <button
                 type="button"
-                onClick={() => setActiveModule("matters")}
+                onClick={() => {
+                  cancelSidebarClose();
+                  setActiveModule("matters");
+                }}
                 title="Switch to Matters"
                 className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white transition-colors"
               >
@@ -683,7 +690,10 @@ export default function CasesApp({
               </button>
               <button
                 type="button"
-                onClick={() => setActiveModule("amendments")}
+                onClick={() => {
+                  cancelSidebarClose();
+                  setActiveModule("amendments");
+                }}
                 title="Switch to Amendments"
                 className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white transition-colors"
               >

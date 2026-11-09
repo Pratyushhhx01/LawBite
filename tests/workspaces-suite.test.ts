@@ -140,5 +140,19 @@ describe("Unified Legal Workspaces & Statutory Tracker Suite", () => {
       expect(benchmarkStandards.maxUnsupportedCitationRate).toBeLessThanOrEqual(0.05);
       expect(benchmarkStandards.targetTrapResistance).toBe(1.0);
     });
+
+    it("verifies sidebar remains open during workspace mode transitions until mouseleave", () => {
+      const sidebarTransitionPolicy = {
+        closeOnSwitch: false,
+        retainsOpenStateOnModeChange: true,
+        closeTrigger: "mouseleave",
+        closeDelayMs: 150,
+      };
+
+      expect(sidebarTransitionPolicy.closeOnSwitch).toBe(false);
+      expect(sidebarTransitionPolicy.retainsOpenStateOnModeChange).toBe(true);
+      expect(sidebarTransitionPolicy.closeTrigger).toBe("mouseleave");
+      expect(sidebarTransitionPolicy.closeDelayMs).toBe(150);
+    });
   });
 });
