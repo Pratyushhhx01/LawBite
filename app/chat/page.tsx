@@ -21,6 +21,8 @@ export default async function ChatPage({
     caseId?: string;
     tool?: string;
     item?: string;
+    modal?: string;
+    cases?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -30,6 +32,11 @@ export default async function ChatPage({
       : null;
   const item = params.item ?? null;
   const caseId = params.caseId ?? null;
+  const openCases =
+    params.modal === "cases" ||
+    params.modal === "ai-lawyer" ||
+    params.cases === "true" ||
+    params.cases === "open";
 
   let session;
   try {
@@ -47,6 +54,7 @@ export default async function ChatPage({
     if (caseId) qs.set("caseId", caseId);
     if (tool) qs.set("tool", tool);
     if (item) qs.set("item", item);
+    if (openCases) qs.set("modal", "cases");
     const query = qs.toString();
     redirect(
       `/signin?next=${encodeURIComponent(`/chat${query ? `?${query}` : ""}`)}`,
@@ -89,6 +97,7 @@ export default async function ChatPage({
     if (caseId) qs.set("caseId", caseId);
     if (tool) qs.set("tool", tool);
     if (item) qs.set("item", item);
+    if (openCases) qs.set("modal", "cases");
     redirect(`/chat?${qs.toString()}`);
   }
 
@@ -106,6 +115,7 @@ export default async function ChatPage({
       initialCaseName={caseName}
       initialTool={tool}
       initialItem={item}
+      initialOpenCases={openCases}
     />
   );
 }

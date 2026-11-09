@@ -13,8 +13,16 @@ const CATEGORY_COLORS: Record<AmendmentCategory, string> = {
   "Tech & Data": "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
 };
 
-export default function AmendmentTrackerApp() {
-  const [search, setSearch] = useState("");
+interface AmendmentTrackerAppProps {
+  onSwitchModule?: (mod: "cases" | "matters" | "amendments") => void;
+  initialQuery?: string | null;
+}
+
+export default function AmendmentTrackerApp({
+  onSwitchModule,
+  initialQuery = null,
+}: AmendmentTrackerAppProps = {}) {
+  const [search, setSearch] = useState(initialQuery || "");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>("amend-bns-2023");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -55,156 +63,172 @@ export default function AmendmentTrackerApp() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-amber-400/30 selection:text-white">
-      {/* Top Navigation */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white/60 transition-all hover:bg-white/10 hover:text-white"
-              title="Back to Home"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+    <div className="flex h-screen bg-black text-white selection:bg-amber-400/30 selection:text-white">
+      {/* Sidebar: Amendments Search & Filtering */}
+      <aside className="flex w-80 shrink-0 flex-col border-r border-white/10 bg-black/60 backdrop-blur-xl">
+        <div className="border-b border-white/10 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Link
+                href="/chat?modal=cases"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+                title="Back to AI Lawyer menu"
               >
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-semibold text-white">
-                  Legal Amendment Tracker
-                </span>
-                <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-400 border border-amber-400/20">
-                  INDIA CODE & GAZETTE VERIFIED
-                </span>
-              </div>
-              <p className="text-xs text-white/40">
-                Track Central & State legislative amendments, effective dates, and statutory shifts.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/amendments"
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition-all hover:bg-white/10 hover:text-white"
-              title="Overview & Guide"
-            >
-              ← Overview
-            </Link>
-            <Link
-              href="/cases"
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition-all hover:bg-white/10 hover:text-white"
-            >
-              Case Tracker
-            </Link>
-            <Link
-              href="/matters"
-              className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300 transition-all hover:bg-amber-400/20"
-            >
-              Matters Workspace
-            </Link>
-            <Link
-              href="/chat"
-              className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-black transition-all hover:scale-105"
-            >
-              Ask AI Assistant
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero / Filter Bar */}
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="mb-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent p-6">
-          <div className="max-w-2xl">
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Indian Legislative Amendments & Transition Registry
-            </h1>
-            <p className="mt-2 text-sm text-white/60 leading-relaxed">
-              Explore pivotal amendments to Indian statutes including the new criminal laws (BNS, BSA, BNSS 2023),
-              mandatory specific performance in commercial contracts, cheque bounce interim compensation,
-              and digital data privacy frameworks.
-            </p>
-          </div>
-
-          {/* Search Input */}
-          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <svg
-                className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by Act, Section (e.g. Sec 103, Sec 143A), Gazette number or keyword..."
-                className="w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/40 outline-none transition-all focus:border-white/30 focus:bg-white/[0.08]"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/40 hover:text-white"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            <div className="text-xs text-white/50 whitespace-nowrap">
-              Showing <span className="font-semibold text-white">{filteredAmendments.length}</span> verified amendments
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </Link>
+              <h1 className="text-sm font-bold tracking-tight text-white">
+                Amendments
+              </h1>
             </div>
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="mt-4 flex flex-wrap items-center gap-1.5">
+          {/* Module Switcher Tabs */}
+          <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1 text-center text-xs">
+            <Link
+              href="/cases?tab=cases"
+              onClick={onSwitchModule ? (e) => { e.preventDefault(); onSwitchModule("cases"); } : undefined}
+              className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              Cases
+            </Link>
+            <Link
+              href="/cases?tab=matters"
+              onClick={onSwitchModule ? (e) => { e.preventDefault(); onSwitchModule("matters"); } : undefined}
+              className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              Matters
+            </Link>
+            <span className="rounded-lg bg-white/10 py-1 font-semibold text-white">
+              Amendments
+            </span>
+          </div>
+
+          {/* Search */}
+          <div className="relative mt-2">
+            <svg
+              className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search statutes, sections..."
+              className="w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/40 outline-none focus:border-white/20"
+            />
+          </div>
+
+          {/* Category Chips */}
+          <div className="mt-3 flex flex-wrap gap-1">
             {categories.map((cat) => (
               <button
                 key={cat}
+                type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                className={`rounded-md px-2 py-0.5 text-[10px] capitalize transition-all ${
                   selectedCategory === cat
-                    ? "bg-white text-black font-semibold shadow-md"
-                    : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-white/5"
+                    ? "bg-amber-400 text-black font-semibold shadow-sm"
+                    : "border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
                 }`}
               >
-                {cat === "all" ? "All Domains" : cat}
+                {cat === "all" ? "All" : cat}
               </button>
             ))}
           </div>
+
+          <div className="mt-2 text-[10px] text-white/40">
+            Showing {filteredAmendments.length} verified statutes
+          </div>
         </div>
 
-        {/* Results */}
-        {filteredAmendments.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-12 text-center">
-            <p className="text-sm font-medium text-white/60">No statutory amendments matched your search</p>
-            <p className="mt-1 text-xs text-white/40">Try searching for &quot;BNS&quot;, &quot;Section 10&quot;, &quot;Specific Relief&quot;, or &quot;Cheque&quot;</p>
-            <button
-              onClick={() => {
-                setSearch("");
-                setSelectedCategory("all");
-              }}
-              className="mt-4 rounded-lg bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15"
+        {/* List of Statutes in Sidebar for quick navigation */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredAmendments.map((item) => {
+            const isSelected = expandedId === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setExpandedId(item.id)}
+                className={`w-full border-b border-white/5 px-4 py-3 text-left transition-all hover:bg-white/[0.04] ${
+                  isSelected
+                    ? "bg-white/[0.08] border-l-2 border-l-amber-400"
+                    : "border-l-2 border-l-transparent"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="truncate text-xs font-semibold text-white">
+                    {item.actName}
+                  </span>
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.2 text-[9px] font-semibold border ${
+                      CATEGORY_COLORS[item.category]
+                    }`}
+                  >
+                    {item.category}
+                  </span>
+                </div>
+                <p className="mt-0.5 truncate text-[11px] text-white/50">
+                  {item.amendmentActName}
+                </p>
+                <div className="mt-1 flex items-center gap-2 text-[10px] text-white/40">
+                  <span>Eff: {item.effectiveDate}</span>
+                  <span>•</span>
+                  <span>{item.affectedSections.length} sections</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* Main Workspace Pane: Amendment details & comparison */}
+      <main className="flex flex-1 flex-col overflow-y-auto bg-black/95">
+        {/* Top App Navigation Bar */}
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 bg-black/40 px-4 sm:px-6">
+          <nav className="flex items-center gap-2 text-xs text-white/50">
+            <Link
+              href="/chat"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
             >
-              Reset Filters
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredAmendments.map((item) => {
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              AI Chat
+            </Link>
+            <span>/</span>
+            <span className="font-semibold text-white">
+              Amendments
+            </span>
+          </nav>
+        </header>
+
+        <div className="p-6 space-y-4">
+          {filteredAmendments.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-12 text-center">
+              <p className="text-sm font-medium text-white/60">No statutory amendments matched your search</p>
+              <p className="mt-1 text-xs text-white/40">Try searching for &quot;BNS&quot;, &quot;Section 10&quot;, &quot;Specific Relief&quot;, or &quot;Cheque&quot;</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setSelectedCategory("all");
+                }}
+                className="mt-4 rounded-lg bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/15"
+              >
+                Reset Filters
+              </button>
+            </div>
+          ) : (
+            filteredAmendments.map((item) => {
               const isExpanded = expandedId === item.id;
               const isCopied = copiedId === item.id;
 
@@ -241,9 +265,9 @@ export default function AmendmentTrackerApp() {
                             Enacted: {item.enactmentDate}
                           </span>
                         </div>
-                        <h2 className="mt-2 text-lg font-semibold text-white">
+                        <h3 className="mt-2 text-lg font-semibold text-white">
                           {item.actName}
-                        </h2>
+                        </h3>
                         <p className="mt-0.5 text-xs text-white/50">
                           {item.amendmentActName}
                         </p>
@@ -251,6 +275,7 @@ export default function AmendmentTrackerApp() {
 
                       <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={() => copyCitation(item)}
                           className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white"
                           title="Copy official citation"
@@ -322,6 +347,7 @@ export default function AmendmentTrackerApp() {
 
                     {/* Toggle Historical Comparison */}
                     <button
+                      type="button"
                       onClick={() => setExpandedId(isExpanded ? null : item.id)}
                       className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-white/60 hover:text-white transition-colors"
                     >
@@ -396,9 +422,9 @@ export default function AmendmentTrackerApp() {
                   )}
                 </article>
               );
-            })}
-          </div>
-        )}
+            })
+          )}
+        </div>
       </main>
     </div>
   );

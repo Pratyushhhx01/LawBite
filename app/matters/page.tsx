@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import MattersApp from "./_components/MattersApp";
+import { redirect } from "next/navigation";
 import MattersInfoView from "./_components/MattersInfoView";
 
 export const metadata: Metadata = {
@@ -24,36 +24,37 @@ export default async function MattersPage({
   const params = searchParams ? await searchParams : undefined;
   const initialMatterId = params?.matterId ?? params?.caseId ?? params?.id ?? null;
   const view = params?.view ?? null;
+  const tab = params?.tab ?? null;
 
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
-  // If user is not logged in, show the informational overview page with feature details & login prompts
-  if (!session) {
-    return <MattersInfoView isLoggedIn={false} />;
-  }
-
-  // If an authenticated user explicitly requests the overview/guide page
+  // If view=info is explicitly requested (e.g. from landing page resources)
   if (view === "info") {
     return (
       <MattersInfoView
-        isLoggedIn={true}
-        userName={session.user.name}
+        isLoggedIn={Boolean(session)}
+        userName={session?.user.name ?? null}
       />
     );
   }
 
-  // Authenticated user accessing workspace
-  return (
-    <MattersApp
-      user={{
-        id: session.user.id,
-        name: session.user.name,
-        email: session.user.email,
-        image: session.user.image ?? null,
-      }}
-      initialMatterId={initialMatterId}
-    />
-  );
+  // Any other visit directly to /matters enters the specific workspace in Case Tracker
+  if (!session) {
+    redirect(
+      `/signin?next=${encodeURIComponent(
+        initialMatterId
+          ? `/cases?tab=matters&matterId=${initialMatterId}`
+          : "/cases?tab=matters"
+      )}`
+    );
+  }
+
+  const query = new URLSearchParams();
+  query.set("tab", "matters");
+  if (initialMatterId) query.set("matterId", initialMatterId);
+  if (tab) query.set("matterTab", tab);
+
+  redirect(`/cases?${query.toString()}`);
 }

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import ResourceLayout from "../../resources/_components/ResourceLayout";
+import NavbarWrapper from "@/app/components/NavbarWrapper";
+import Footer from "@/app/components/Footer";
 
 export default function AmendmentsInfoView() {
   const amendmentSections = [
@@ -112,11 +114,14 @@ export default function AmendmentsInfoView() {
   ];
 
   return (
-    <ResourceLayout
-      title="Statutory Amendment Tracker"
-      description="Track amendments to Indian Central and State legislation — official Gazette notifications, effective enforcement dates, original vs amended statutory texts, and transitional guidance."
-    >
-      {/* Top Action Header */}
+    <div className="relative isolate flex min-h-screen flex-col bg-black text-white">
+      <NavbarWrapper />
+      <main className="relative z-10 flex flex-1 flex-col">
+        <ResourceLayout
+          title="Statutory Amendment Tracker"
+          description="Track amendments to Indian Central and State legislation — official Gazette notifications, effective enforcement dates, original vs amended statutory texts, and transitional guidance."
+        >
+          {/* Top Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.02] p-5 backdrop-blur-md">
         <div>
           <div className="flex items-center gap-2">
@@ -217,6 +222,9 @@ export default function AmendmentsInfoView() {
           </Link>
         </div>
       </section>
-    </ResourceLayout>
+        </ResourceLayout>
+      </main>
+      <Footer />
+    </div>
   );
 }

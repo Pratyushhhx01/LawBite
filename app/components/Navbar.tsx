@@ -176,7 +176,7 @@ export default function Navbar() {
                       Open Chat
                     </Link>
                     <Link
-                      href="/matters"
+                      href="/matters?view=app"
                       onClick={() => setProfileOpen(false)}
                       className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white"
                     >
@@ -320,7 +320,7 @@ export default function Navbar() {
           </li>
           <li>
             <Link
-              href="/matters"
+              href="/matters?view=app"
               onClick={() => setOpen(false)}
               className="block rounded-xl px-3 py-2.5 text-white/80 transition-colors hover:bg-white/5 hover:text-white"
             >

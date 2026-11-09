@@ -13,10 +13,25 @@ export const metadata: Metadata = {
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ caseId?: string; id?: string }>;
+  searchParams?: Promise<{
+    caseId?: string;
+    id?: string;
+    tab?: string;
+    matterId?: string;
+    q?: string;
+  }>;
 }) {
   const params = searchParams ? await searchParams : undefined;
   const initialCaseId = params?.caseId ?? params?.id ?? null;
+  const rawTab = params?.tab?.toLowerCase();
+  const initialTab: "cases" | "matters" | "amendments" | null =
+    rawTab === "matters" || rawTab === "workspace" || Boolean(params?.matterId)
+      ? "matters"
+      : rawTab === "amendments"
+      ? "amendments"
+      : rawTab === "cases"
+      ? "cases"
+      : null;
 
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -39,6 +54,9 @@ export default async function CasesPage({
         image: session.user.image ?? null,
       }}
       initialCaseId={initialCaseId}
+      initialTab={initialTab}
+      initialMatterId={params?.matterId ?? null}
+      initialQuery={params?.q ?? null}
     />
   );
 }

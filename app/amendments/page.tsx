@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import AmendmentTrackerApp from "./_components/AmendmentTrackerApp";
+import { redirect } from "next/navigation";
 import AmendmentsInfoView from "./_components/AmendmentsInfoView";
 
 export const metadata: Metadata = {
@@ -24,11 +24,18 @@ export default async function AmendmentsPage({
   searchParams?: Promise<{ view?: string; q?: string; act?: string }>;
 }) {
   const params = searchParams ? await searchParams : undefined;
-  const isTableView = params?.view === "table" || Boolean(params?.q) || Boolean(params?.act);
+  const view = params?.view ?? null;
 
-  if (isTableView) {
-    return <AmendmentTrackerApp />;
+  // If view=info is requested (e.g. from landing page resources)
+  if (view === "info") {
+    return <AmendmentsInfoView />;
   }
 
-  return <AmendmentsInfoView />;
+  // Any other visit directly to /amendments enters the specific workspace in Case Tracker
+  const query = new URLSearchParams();
+  query.set("tab", "amendments");
+  if (params?.q) query.set("q", params.q);
+  if (params?.act) query.set("act", params.act);
+
+  redirect(`/cases?${query.toString()}`);
 }

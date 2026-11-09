@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import MattersApp from "@/app/matters/_components/MattersApp";
+import AmendmentTrackerApp from "@/app/amendments/_components/AmendmentTrackerApp";
 
 interface CaseDoc {
   id: string;
@@ -37,6 +39,9 @@ interface CaseDetail extends CaseFolder {
 interface CasesAppProps {
   user: { id: string; name: string; email: string; image: string | null };
   initialCaseId?: string | null;
+  initialTab?: "cases" | "matters" | "amendments" | null;
+  initialMatterId?: string | null;
+  initialQuery?: string | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -77,8 +82,25 @@ function MobileBackButton({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function CasesApp({ user: _user, initialCaseId = null }: CasesAppProps) {
+export default function CasesApp({
+  user,
+  initialCaseId = null,
+  initialTab = null,
+  initialMatterId = null,
+  initialQuery = null,
+}: CasesAppProps) {
+  const [activeModule, setActiveModuleState] = useState<"cases" | "matters" | "amendments">(
+    initialTab || (initialMatterId ? "matters" : "cases")
+  );
+
+  const setActiveModule = (mod: "cases" | "matters" | "amendments") => {
+    setActiveModuleState(mod);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", mod);
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
   const [cases, setCases] = useState<CaseFolder[]>([]);
   const [prevInitialCaseId, setPrevInitialCaseId] = useState(initialCaseId);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -479,6 +501,25 @@ export default function CasesApp({ user: _user, initialCaseId = null }: CasesApp
     }
   };
 
+  if (activeModule === "matters") {
+    return (
+      <MattersApp
+        user={user}
+        initialMatterId={initialMatterId}
+        onSwitchModule={setActiveModule}
+      />
+    );
+  }
+
+  if (activeModule === "amendments") {
+    return (
+      <AmendmentTrackerApp
+        onSwitchModule={setActiveModule}
+        initialQuery={initialQuery}
+      />
+    );
+  }
+
   return (
     <div className="flex h-screen bg-black text-white supports-[height:100dvh]:h-dvh">
       <aside
@@ -488,9 +529,9 @@ export default function CasesApp({ user: _user, initialCaseId = null }: CasesApp
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <Link
-                href="/chat"
-                aria-label="Back to chat"
-                title="Back to Chat"
+                href="/chat?modal=cases"
+                aria-label="Back to AI Lawyer menu"
+                title="Back to AI Lawyer menu"
                 className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white/40 transition-all duration-200 hover:bg-white/10 hover:text-white/70"
               >
                 <svg
@@ -505,17 +546,10 @@ export default function CasesApp({ user: _user, initialCaseId = null }: CasesApp
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </Link>
-              <h1 className="text-sm font-semibold text-white/80">
-                Case Tracker
+              <h1 className="text-sm font-semibold text-white/90">
+                Cases
               </h1>
             </div>
-            <Link
-              href="/matters"
-              className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-400/20"
-              title="Full Legal Matter Management Workspace"
-            >
-              Matters ↗
-            </Link>
           </div>
 
           {/* Module Switcher Tabs */}
@@ -523,18 +557,20 @@ export default function CasesApp({ user: _user, initialCaseId = null }: CasesApp
             <span className="rounded-lg bg-white/10 py-1 font-semibold text-white">
               Cases
             </span>
-            <Link
-              href="/matters"
+            <button
+              type="button"
+              onClick={() => setActiveModule("matters")}
               className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
             >
               Matters
-            </Link>
-            <Link
-              href="/amendments"
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveModule("amendments")}
               className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
             >
               Amendments
-            </Link>
+            </button>
           </div>
           <button
             onClick={() => startEdit()}
@@ -637,37 +673,10 @@ export default function CasesApp({ user: _user, initialCaseId = null }: CasesApp
                 Case Tracker
               </span>
               <span>/</span>
-              <Link
-                href="/matters"
-                className="flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 font-medium text-amber-300 transition-colors hover:bg-amber-400/20"
-                title="Switch to full Legal Matter Workspace"
-              >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                </svg>
-                Matter Management
-              </Link>
-              <span>/</span>
-              <Link
-                href="/amendments"
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
-                title="Statutory Amendment Tracker"
-              >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-                </svg>
-                Amendment Tracker
-              </Link>
+              <span className="font-semibold text-white">
+                Cases
+              </span>
             </nav>
-          </div>
-          <div className="hidden items-center gap-2 sm:flex">
-            <Link
-              href="/matters"
-              className="text-[11px] font-medium text-amber-400/90 transition-colors hover:text-amber-300"
-            >
-              Matter Workspaces →
-            </Link>
           </div>
         </header>
         {!selectedId && !showCreate && !editMode ? (
@@ -689,34 +698,25 @@ export default function CasesApp({ user: _user, initialCaseId = null }: CasesApp
                 </svg>
               </div>
               <h2 className="text-xl font-semibold text-white/70">
-                Case Tracker
+                Cases
               </h2>
               <p className="mt-2 max-w-md text-sm text-white/40">
-                Select a case from the sidebar or navigate to advanced legal workflows:
+                Select a case from the sidebar or click &quot;New Case&quot; to begin tracking
               </p>
               <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
-                <Link
-                  href="/matters"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs font-semibold text-amber-300 transition-all hover:bg-amber-400/20"
+                <button
+                  type="button"
+                  onClick={() => startEdit()}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-black transition-all hover:bg-white/90"
                 >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
                   </svg>
-                  Matter Management
-                </Link>
-                <Link
-                  href="/amendments"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white/80 transition-all hover:bg-white/10 hover:text-white"
-                >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-                  </svg>
-                  Amendment Tracker
-                </Link>
+                  New Case
+                </button>
                 <Link
                   href="/chat"
-                  className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-black transition-all hover:bg-white/90"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white/80 transition-all hover:bg-white/10 hover:text-white"
                 >
                   AI Chat →
                 </Link>

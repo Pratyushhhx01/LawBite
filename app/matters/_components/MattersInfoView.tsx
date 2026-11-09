@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import ResourceLayout from "../../resources/_components/ResourceLayout";
+import NavbarWrapper from "@/app/components/NavbarWrapper";
+import Footer from "@/app/components/Footer";
 
 interface MattersInfoViewProps {
   isLoggedIn?: boolean;
@@ -124,11 +126,14 @@ export default function MattersInfoView({
   ];
 
   return (
-    <ResourceLayout
-      title="Matter Management"
-      description="Professional workspace for Indian legal practitioners — organize litigation and advisory matters, audit contracts, compare drafts, and prepare for courtroom hearings."
-    >
-      {/* Session status banner */}
+    <div className="relative isolate flex min-h-screen flex-col bg-black text-white">
+      <NavbarWrapper />
+      <main className="relative z-10 flex flex-1 flex-col">
+        <ResourceLayout
+          title="Matter Management"
+          description="Professional workspace for Indian legal practitioners — organize litigation and advisory matters, audit contracts, compare drafts, and prepare for courtroom hearings."
+        >
+          {/* Session status banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.02] p-5 backdrop-blur-md">
         <div>
           <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">
@@ -209,6 +214,9 @@ export default function MattersInfoView({
           </Link>
         </div>
       </section>
-    </ResourceLayout>
+        </ResourceLayout>
+      </main>
+      <Footer />
+    </div>
   );
 }

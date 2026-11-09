@@ -233,10 +233,10 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} Lawbite. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-xs text-white/50">
-            <Link href="/amendments" className="transition-colors hover:text-white">
+            <Link href="/amendments?view=info" className="transition-colors hover:text-white">
               Amendments
             </Link>
-            <Link href="/matters" className="transition-colors hover:text-white">
+            <Link href="/matters?view=info" className="transition-colors hover:text-white">
               Matters
             </Link>
             <a

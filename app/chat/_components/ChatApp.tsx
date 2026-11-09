@@ -129,6 +129,7 @@ type ChatAppProps = {
   initialCaseName?: string | null;
   initialTool?: "templates" | "filing" | null;
   initialItem?: string | null;
+  initialOpenCases?: boolean;
 };
 
 type ConversationType =
@@ -865,6 +866,7 @@ export default function ChatApp({
   initialCaseName = null,
   initialTool = null,
   initialItem = null,
+  initialOpenCases = false,
 }: ChatAppProps) {
   const router = useRouter();
   const [user, setUser] = useState<ChatUser>(initialUser);
@@ -1002,7 +1004,18 @@ export default function ChatApp({
   const [editingTitle, setEditingTitle] = useState("");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
-  const [myCasesOpen, setMyCasesOpen] = useState(false);
+  const [myCasesOpen, setMyCasesOpen] = useState(initialOpenCases);
+
+  useEffect(() => {
+    if (initialOpenCases && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("modal") === "cases" || url.searchParams.get("cases")) {
+        url.searchParams.delete("modal");
+        url.searchParams.delete("cases");
+        window.history.replaceState(null, "", url.pathname + (url.search ? url.search : ""));
+      }
+    }
+  }, [initialOpenCases]);
   const [savedCases, setSavedCases] = useState<SavedCase[]>(() =>
     loadSavedCases(),
   );
@@ -4536,97 +4549,7 @@ export default function ChatApp({
             </span>
           </button>
 
-          <div className="my-1 border-t border-white/10" />
 
-          {/* Core Legal Platform Modules */}
-          <Link
-            href="/matters"
-            onClick={() => setSidebarOpen(false)}
-            title="Legal Matter Management"
-            className="flex h-10 w-full items-center rounded-lg text-amber-400 transition-all duration-200 hover:bg-amber-400/10"
-          >
-            <div className="flex h-10 w-11 shrink-0 items-center justify-center">
-              <svg
-                aria-hidden
-                viewBox="0 0 24 24"
-                className="h-4 w-4 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-              </svg>
-            </div>
-            <span
-              className={`whitespace-nowrap pr-3 text-[13px] font-semibold tracking-wide transition-opacity duration-200 ${
-                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
-              }`}
-            >
-              Legal Matters
-            </span>
-          </Link>
-
-          <Link
-            href="/cases"
-            onClick={() => setSidebarOpen(false)}
-            title="Case Tracker"
-            className="flex h-10 w-full items-center rounded-lg text-white/70 transition-all duration-200 hover:bg-white/[0.08] hover:text-white"
-          >
-            <div className="flex h-10 w-11 shrink-0 items-center justify-center">
-              <svg
-                aria-hidden
-                viewBox="0 0 24 24"
-                className="h-4 w-4 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
-            </div>
-            <span
-              className={`whitespace-nowrap pr-3 text-[13px] font-medium tracking-wide transition-opacity duration-200 ${
-                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
-              }`}
-            >
-              Case Tracker
-            </span>
-          </Link>
-
-          <Link
-            href="/amendments"
-            onClick={() => setSidebarOpen(false)}
-            title="Statutory Amendment Tracker"
-            className="flex h-10 w-full items-center rounded-lg text-white/70 transition-all duration-200 hover:bg-white/[0.08] hover:text-white"
-          >
-            <div className="flex h-10 w-11 shrink-0 items-center justify-center">
-              <svg
-                aria-hidden
-                viewBox="0 0 24 24"
-                className="h-4 w-4 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-              </svg>
-            </div>
-            <span
-              className={`whitespace-nowrap pr-3 text-[13px] font-medium tracking-wide transition-opacity duration-200 ${
-                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
-              }`}
-            >
-              Amendments
-            </span>
-          </Link>
         </div>
 
         {/* User Footer */}
@@ -4820,41 +4743,6 @@ export default function ChatApp({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Direct App Navigation */}
-            <div className="hidden sm:flex items-center gap-1.5 mr-1">
-              <Link
-                href="/matters"
-                className="flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-300 transition-colors hover:bg-amber-400/20"
-                title="Legal Matter Management"
-              >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                </svg>
-                <span>Matters</span>
-              </Link>
-              <Link
-                href="/cases"
-                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                title="Case Tracker"
-              >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-                <span>Cases</span>
-              </Link>
-              <Link
-                href="/amendments"
-                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                title="Statutory Amendment Tracker"
-              >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-                </svg>
-                <span>Amendments</span>
-              </Link>
-            </div>
             <div className="relative" ref={notificationRef}>
               {(() => {
                 const minDays =
@@ -9719,24 +9607,6 @@ export default function ChatApp({
                 </svg>
                 Case Tracker
               </a>
-              <Link
-                href="/matters"
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-300 transition-all hover:bg-amber-400/20"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                </svg>
-                Matters Workspace
-              </Link>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
