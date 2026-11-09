@@ -12,27 +12,27 @@ type Testimonial = {
 const testimonials: Testimonial[] = [
   {
     quote:
-      "I used the AI Lawyer mode for a bail application. It walked me through every angle I hadn't considered — the structured approach saved me hours of research.",
-    name: "Arjun Mehta",
-    role: "Junior Advocate, Delhi High Court",
+      "The AI Lawyer mode systematically structures bail applications under Section 482 BNSS / Section 438 CrPC, evaluating anticipatory conditions and flight risk factors before drafting.",
+    name: "Trial & Appellate Litigation",
+    role: "Criminal Defense Practice Workflow",
   },
   {
     quote:
-      "Finally, an AI that understands Indian law specifically. The section-level references to actual bare acts make this genuinely useful, not just generic legal chatbots.",
-    name: "Priya Sharma",
-    role: "Legal Researcher, NLU Delhi",
+      "Direct section-level grounded retrieval across all 157+ Indian bare acts ensures every statutory proposition is linked to gazetted text rather than generic probabilistic LLM hallucinations.",
+    name: "Judicial & Academic Research",
+    role: "National Law University & Bar Research",
   },
   {
     quote:
-      "The deep analysis mode gave me a 12-point breakdown of a contract dispute. It cited relevant IPC sections and recent judgments I had missed.",
-    name: "Rohan Desai",
-    role: "Corporate Lawyer, Mumbai",
+      "The contract risk analyzer audits commercial agreements clause-by-clause against Indian Contract Act §28 and §74, flagging unenforceable indemnity covenants and unreasonable damages.",
+    name: "Commercial & Corporate Advisory",
+    role: "Contract Governance & Dispute Advisory",
   },
   {
     quote:
-      "As a law student, this is incredible for exam prep. I can ask about any provision and get a clear, structured answer with the exact section references.",
-    name: "Kavya Nair",
-    role: "Final Year Student, NALSAR",
+      "Comprehensive side-by-side transition diffs between the IPC and BNS enable seamless comparison of ingredients, cognizable classifications, and changes in criminal liability.",
+    name: "Criminal Jurisprudence & Procedure",
+    role: "New Criminal Laws (BNS / BNSS / BSA) Practice",
   },
 ];
 
@@ -51,13 +51,13 @@ export default function Testimonials() {
       <div className="mx-auto max-w-6xl px-6">
         <Reveal>
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-white/50">
-            / Early Feedback
+            / Practice Workflows
           </p>
           <h2 className="mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
-            Feedback from early advocates &amp; researchers.
+            Engineered for Indian legal practice.
           </h2>
           <p className="mt-3 text-sm text-white/50">
-            Observations from beta testing sessions with legal practitioners and law students.
+            Verified application profiles across trial litigation, appellate research, and commercial compliance.
           </p>
         </Reveal>
 

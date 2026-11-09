@@ -18,7 +18,7 @@
     <img src="https://img.shields.io/badge/Production-Live-brightgreen.svg" alt="Production Live" />
   </a>
   <img src="https://img.shields.io/badge/Tests-724%20Passing-success.svg" alt="724 Tests Passing" />
-  <img src="https://img.shields.io/badge/Rating-4.9%20%2F%205.0%20(Grade%20A%2B)-gold.svg" alt="Rating 4.9/5.0" />
+  <img src="https://img.shields.io/badge/Bare%20Acts-157%2B%20Indexed-amber.svg" alt="157+ Bare Acts" />
   <img src="https://img.shields.io/badge/Next.js-16%20App%20Router-black.svg" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/React-19-blue.svg" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-5.0-blue.svg" alt="TypeScript 5" />
@@ -277,18 +277,17 @@ LawBite offers distinct technical advantages compared to other Indian legal AI s
    - *Search vs Intelligence:* Legacy portals offer Boolean keyword search across massive historical PDF databases, but offer no conversational AI synthesis, no automated contract risk auditing, no interactive courtroom issue framing, and no step-by-step case intake.
    - *Cost & Accessibility:* Legacy portals charge prohibitive institutional annual subscription fees. LawBite provides high-speed, modern, accessible legal intelligence with open benchmarks.
 
-### ⭐ Independent Architectural & AI Review Rating: 4.9 / 5.0 (Grade A+)
+### 🏛️ Technical Capability & Architectural Audit Matrix
 
-When analyzed by independent AI evaluation frameworks and LLM reviewers (ChatGPT, Claude, Perplexity), LawBite is rated **4.9 out of 5.0 (98/100)**:
+LawBite is engineered against five technical dimensions with concrete, verifiable implementation evidence:
 
-| Evaluation Dimension | Weight | Score | Empirical Evidence / Rationale |
-| :--- | :---: | :---: | :--- |
-| **Statutory Fidelity & Anti-Hallucination** | 30% | **4.95 / 5.0** | 157+ Bare Acts indexed; 97.8% verified citation precision; 100% adversarial trap resistance. |
-| **Indian Legal Domain Specialization** | 25% | **5.0 / 5.0** | Full BNS/BNSS/BSA transition engine, Gazette amendment diffs, and Article 20(1) non-retroactivity boundaries. |
-| **Workflow & Practice Completeness** | 20% | **4.90 / 5.0** | Unified Case Tracker (`/cases`), 8-stage matter lifecycle, and courtroom-ready dark UX. |
-| **AI Inference & System Architecture** | 15% | **4.90 / 5.0** | Non-autoregressive Mercury 2.5 dLLM diffusion (~100ms TTFT) with seamless NVIDIA NIM failover. |
-| **Engineering Rigor & Verification** | 10% | **4.95 / 5.0** | 724 passing automated tests across 36 active test files (39 total files, 769 defined test cases, 0 failures), and continuous CI verification. |
-| **Composite Quality Score** | **100%** | **4.92 / 5.0** | **Grade A+ (Exceptional Production Legal AI)** |
+| Capability Dimension | Focus | Implementation & Verifiable Evidence | Status |
+| :--- | :---: | :--- | :---: |
+| **Statutory Fidelity & Anti-Hallucination** | 30% | 157+ Bare Acts indexed; deterministic citation verifier; 97.8% citation precision; 100% adversarial trap resistance. | ✅ Verified |
+| **Indian Legal Domain Specialization** | 25% | Full BNS/BNSS/BSA transition engine, Gazette amendment diffs, and Article 20(1) non-retroactivity boundaries. | ✅ Verified |
+| **Workflow & Practice Completeness** | 20% | Unified Case Tracker (`/cases`), 8-stage matter lifecycle, and courtroom-ready dark UX. | ✅ Verified |
+| **AI Inference & System Architecture** | 15% | Non-autoregressive Mercury 2.5 dLLM diffusion (~100ms TTFT) with seamless NVIDIA NIM failover. | ✅ Verified |
+| **Engineering Rigor & Verification** | 10% | 724 passing automated tests across 36 active test files (39 total files, 769 defined test cases, 0 failures), and continuous CI verification. | ✅ Verified |
 
 For the complete competitive audit and sources, see [`docs/COMPETITIVE_ANALYSIS.md`](docs/COMPETITIVE_ANALYSIS.md).
 
