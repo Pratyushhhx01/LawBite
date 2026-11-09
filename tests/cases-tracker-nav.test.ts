@@ -90,40 +90,48 @@ describe("CasesPage Navigation & Deep Linking", () => {
     expect(jsx.props.initialMatters.length).toBeGreaterThan(0);
   });
 
-  it("verifies mobile three-line button contract below back arrow icon in left side panel", () => {
-    const leftPanelSpecs = {
+  it("verifies mobile left panel fully closed with top-left menu icon contract", () => {
+    const mobilePanelSpecs = {
       cases: {
-        backArrowHref: "/chat?modal=cases",
-        hasMobileMenuButtonBelowBackArrow: true,
-        visibility: "md:hidden",
+        mobilePanelClosedClass: "-translate-x-full",
+        desktopPanelClosedClass: "md:w-16 md:translate-x-0",
+        hasTopLeftMobileMenuButton: true,
+        buttonVisibility: "md:hidden",
         threeHorizontalLines: true,
-        opensClosedPanel: true,
+        opensPanelOnTap: true,
+        mainPaddingClass: "pl-0 md:pl-16",
       },
       matters: {
-        backArrowHref: "/chat?modal=cases",
-        hasMobileMenuButtonBelowBackArrow: true,
-        visibility: "md:hidden",
+        mobilePanelClosedClass: "-translate-x-full",
+        desktopPanelClosedClass: "md:w-16 md:translate-x-0",
+        hasTopLeftMobileMenuButton: true,
+        buttonVisibility: "md:hidden",
         threeHorizontalLines: true,
-        opensClosedPanel: true,
+        opensPanelOnTap: true,
+        mainPaddingClass: "pl-0 md:pl-16",
       },
       amendments: {
-        backArrowHref: "/chat?modal=cases",
-        hasMobileMenuButtonBelowBackArrow: true,
-        visibility: "md:hidden",
+        mobilePanelClosedClass: "-translate-x-full",
+        desktopPanelClosedClass: "md:w-16 md:translate-x-0",
+        hasTopLeftMobileMenuButton: true,
+        buttonVisibility: "md:hidden",
         threeHorizontalLines: true,
-        opensClosedPanel: true,
+        opensPanelOnTap: true,
+        mainPaddingClass: "pl-0 md:pl-16",
       },
     };
 
-    expect(leftPanelSpecs.cases.hasMobileMenuButtonBelowBackArrow).toBe(true);
-    expect(leftPanelSpecs.cases.visibility).toBe("md:hidden");
-    expect(leftPanelSpecs.cases.threeHorizontalLines).toBe(true);
-    expect(leftPanelSpecs.cases.opensClosedPanel).toBe(true);
+    expect(mobilePanelSpecs.cases.mobilePanelClosedClass).toBe("-translate-x-full");
+    expect(mobilePanelSpecs.cases.hasTopLeftMobileMenuButton).toBe(true);
+    expect(mobilePanelSpecs.cases.buttonVisibility).toBe("md:hidden");
+    expect(mobilePanelSpecs.cases.threeHorizontalLines).toBe(true);
+    expect(mobilePanelSpecs.cases.opensPanelOnTap).toBe(true);
+    expect(mobilePanelSpecs.cases.mainPaddingClass).toBe("pl-0 md:pl-16");
 
-    expect(leftPanelSpecs.matters.hasMobileMenuButtonBelowBackArrow).toBe(true);
-    expect(leftPanelSpecs.matters.visibility).toBe("md:hidden");
+    expect(mobilePanelSpecs.matters.mobilePanelClosedClass).toBe("-translate-x-full");
+    expect(mobilePanelSpecs.matters.hasTopLeftMobileMenuButton).toBe(true);
 
-    expect(leftPanelSpecs.amendments.hasMobileMenuButtonBelowBackArrow).toBe(true);
-    expect(leftPanelSpecs.amendments.visibility).toBe("md:hidden");
+    expect(mobilePanelSpecs.amendments.mobilePanelClosedClass).toBe("-translate-x-full");
+    expect(mobilePanelSpecs.amendments.hasTopLeftMobileMenuButton).toBe(true);
   });
 });
