@@ -49,6 +49,10 @@ Three concrete failures the project targets:
 | PDF / DOCX export | Shipped | Client-side generation |
 | Case folders + document upload (S3) | Shipped | 10 MB cap |
 | Hearing reminders + iCal export | Shipped | |
+| Unified Case Tracker Suite (`/cases`) | Shipped | 3 sub-workspaces (Cases, Matters, Amendments) with instant tab switching |
+| Legal Matter Management (`/cases?tab=matters`) | Shipped | 8-stage litigation tracking, forum docketing, hearing dates, dark UX |
+| Statutory Amendment Tracker (`/cases?tab=amendments`) | Shipped | Split-pane Gazette diffs, enforcement dates, India Code citations |
+| Context-preserving modal navigation | Shipped | Back arrow in trackers routes to `/chat?modal=cases` to reopen case selection |
 | Document review of an uploaded PDF/DOCX | Shipped | 10 MB server cap, 8k chars extracted |
 | Admin dashboard | Shipped | Gated by `ADMIN_EMAILS` |
 | Billing / "Plus plan" | **Not built** | See §13 |

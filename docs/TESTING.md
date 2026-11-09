@@ -8,8 +8,8 @@ This document details the automated test architecture, coverage enforcement, con
 
 LawBite employs **Vitest 4** configured in a Node.js runtime environment (`environment: "node"` in `vitest.config.ts`), paired with V8 coverage analysis.
 
-- **Total Test Suites:** 38 test files
-- **Total Executed Tests:** 712 passed unit, integration, and E2E tests
+- **Total Test Suites:** 39 test files
+- **Total Executed Tests:** 722 passed unit, integration, and E2E tests
 - **CI Status:** GitHub Actions workflow running on every commit to `main` and all pull requests.
 
 ```
@@ -42,7 +42,8 @@ tests/
   ├── legal-benchmark.test.ts      # Schema and sanity check for 50-question QA benchmark
   ├── legal-tools.test.ts          # Legal search and IPC-BNS transition tools
   ├── response-citations.test.ts   # Citation extraction from assistant replies
-  └── security-headers.test.ts     # HTTP security headers verification
+  ├── security-headers.test.ts     # HTTP security headers verification
+  └── workspaces-suite.test.ts     # Unified workspaces, amendments, and matter invariants
 ```
 
 ---
