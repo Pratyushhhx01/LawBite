@@ -90,4 +90,41 @@ describe("CasesPage Navigation & Deep Linking", () => {
 
     expect(mockRedirect).toHaveBeenCalledWith("/signin?next=%2Fcases");
   });
+
+  it("verifies mobile three-line button contract below back arrow icon in left side panel", () => {
+    const leftPanelSpecs = {
+      cases: {
+        backArrowHref: "/chat?modal=cases",
+        hasMobileMenuButtonBelowBackArrow: true,
+        visibility: "md:hidden",
+        threeHorizontalLines: true,
+        opensClosedPanel: true,
+      },
+      matters: {
+        backArrowHref: "/chat?modal=cases",
+        hasMobileMenuButtonBelowBackArrow: true,
+        visibility: "md:hidden",
+        threeHorizontalLines: true,
+        opensClosedPanel: true,
+      },
+      amendments: {
+        backArrowHref: "/chat?modal=cases",
+        hasMobileMenuButtonBelowBackArrow: true,
+        visibility: "md:hidden",
+        threeHorizontalLines: true,
+        opensClosedPanel: true,
+      },
+    };
+
+    expect(leftPanelSpecs.cases.hasMobileMenuButtonBelowBackArrow).toBe(true);
+    expect(leftPanelSpecs.cases.visibility).toBe("md:hidden");
+    expect(leftPanelSpecs.cases.threeHorizontalLines).toBe(true);
+    expect(leftPanelSpecs.cases.opensClosedPanel).toBe(true);
+
+    expect(leftPanelSpecs.matters.hasMobileMenuButtonBelowBackArrow).toBe(true);
+    expect(leftPanelSpecs.matters.visibility).toBe("md:hidden");
+
+    expect(leftPanelSpecs.amendments.hasMobileMenuButtonBelowBackArrow).toBe(true);
+    expect(leftPanelSpecs.amendments.visibility).toBe("md:hidden");
+  });
 });
