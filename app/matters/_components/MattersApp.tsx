@@ -34,6 +34,8 @@ interface MattersAppProps {
   onSwitchModule?: (mod: "cases" | "matters" | "amendments") => void;
   sidebarOpen?: boolean;
   onSidebarOpenChange?: (open: boolean) => void;
+  initialMatters?: LegalMatter[];
+  initialWorkspace?: MatterWorkspace | null;
 }
 
 const STAGE_COLORS: Record<string, string> = {
@@ -77,13 +79,28 @@ export default function MattersApp({
   onSwitchModule,
   sidebarOpen: controlledSidebarOpen,
   onSidebarOpenChange,
+  initialMatters,
+  initialWorkspace = null,
 }: MattersAppProps = {}) {
   // State
-  const [matters, setMatters] = useState<LegalMatter[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(initialMatterId);
-  const [workspace, setWorkspace] = useState<MatterWorkspace | null>(null);
-  const [loadingList, setLoadingList] = useState(true);
-  const [loadingWorkspace, setLoadingWorkspace] = useState(false);
+  const [matters, setMatters] = useState<LegalMatter[]>(initialMatters ?? []);
+  const initialSelId =
+    initialMatterId ??
+    (initialMatters && initialMatters.length > 0 ? initialMatters[0].id : null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelId);
+  const [workspace, setWorkspace] = useState<MatterWorkspace | null>(
+    initialWorkspace ?? null
+  );
+  const [loadingList, setLoadingList] = useState(!initialMatters);
+  const [loadingWorkspace, setLoadingWorkspace] = useState(
+    !initialWorkspace && Boolean(initialSelId)
+  );
+
+  const workspaceCache = useRef<Map<string, MatterWorkspace>>(
+    initialWorkspace && initialWorkspace.matter
+      ? new Map([[initialWorkspace.matter.id, initialWorkspace]])
+      : new Map()
+  );
   const [activeTab, setActiveTab] = useState<
     "overview" | "documents" | "contract_risk" | "doc_compare" | "courtroom_prep" | "reports" | "activity"
   >("overview");
@@ -181,7 +198,9 @@ export default function MattersApp({
     let cancelled = false;
     (async () => {
       try {
-        setLoadingList(true);
+        if (!initialMatters || initialMatters.length === 0) {
+          setLoadingList(true);
+        }
         const res = await fetch("/api/matters", { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
@@ -204,7 +223,7 @@ export default function MattersApp({
     return () => {
       cancelled = true;
     };
-  }, [initialMatterId]);
+  }, [initialMatterId, initialMatters]);
 
   // Load workspace when selectedId changes
   useEffect(() => {
@@ -212,15 +231,29 @@ export default function MattersApp({
     if (!selectedId) {
       return;
     }
+
+    const cached = workspaceCache.current.get(selectedId);
+    if (cached) {
+      setWorkspace(cached);
+      setLoadingWorkspace(false);
+      if (cached.matter) {
+        setPrepFacts(
+          `${cached.matter.name}\nParties: ${cached.matter.parties || "Not specified"}\nCourt: ${cached.matter.court || "Not specified"}\n\nFacts & Background:\n${cached.matter.description || cached.matter.notes || "Commercial breach and claim for relief."}`
+        );
+      }
+    } else {
+      setLoadingWorkspace(true);
+    }
+
     (async () => {
       try {
-        setLoadingWorkspace(true);
         const res = await fetch(`/api/matters/${encodeURIComponent(selectedId)}`, {
           credentials: "include",
         });
         if (res.ok) {
           const data = await res.json();
           if (!cancelled) {
+            workspaceCache.current.set(selectedId, data);
             setWorkspace(data);
             if (data.matter) {
               setPrepFacts(
@@ -239,6 +272,12 @@ export default function MattersApp({
       cancelled = true;
     };
   }, [selectedId]);
+
+  useEffect(() => {
+    if (workspace?.matter?.id) {
+      workspaceCache.current.set(workspace.matter.id, workspace);
+    }
+  }, [workspace]);
 
   // Filtered matters
   const filteredMatters = useMemo(() => {

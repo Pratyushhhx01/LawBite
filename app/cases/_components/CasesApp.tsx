@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import MattersApp from "@/app/matters/_components/MattersApp";
 import AmendmentTrackerApp from "@/app/amendments/_components/AmendmentTrackerApp";
+import type { LegalMatter, MatterWorkspace } from "@/lib/matter-types";
 
 interface CaseDoc {
   id: string;
@@ -42,6 +43,10 @@ interface CasesAppProps {
   initialTab?: "cases" | "matters" | "amendments" | null;
   initialMatterId?: string | null;
   initialQuery?: string | null;
+  initialCases?: CaseFolder[];
+  initialDetail?: CaseDetail | null;
+  initialMatters?: LegalMatter[];
+  initialMatterWorkspace?: MatterWorkspace | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -88,6 +93,10 @@ export default function CasesApp({
   initialTab = null,
   initialMatterId = null,
   initialQuery = null,
+  initialCases,
+  initialDetail,
+  initialMatters,
+  initialMatterWorkspace,
 }: CasesAppProps) {
   const [activeModule, setActiveModuleState] = useState<"cases" | "matters" | "amendments">(
     initialTab || (initialMatterId ? "matters" : "cases")
@@ -119,22 +128,25 @@ export default function CasesApp({
       sidebarCloseTimer.current = null;
     }, delay);
   };
-  const [cases, setCases] = useState<CaseFolder[]>([]);
-  const [prevInitialCaseId, setPrevInitialCaseId] = useState(initialCaseId);
+  const [cases, setCases] = useState<CaseFolder[]>(initialCases ?? []);
   const [selectedId, setSelectedId] = useState<string | null>(
-    initialCaseId ?? null
+    initialCaseId ?? (initialCases && initialCases.length > 0 ? initialCases[0].id : null)
   );
-  const [detail, setDetail] = useState<CaseDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(Boolean(initialCaseId));
+  const [detail, setDetail] = useState<CaseDetail | null>(initialDetail ?? null);
+  const [detailLoading, setDetailLoading] = useState(
+    !initialDetail && Boolean(initialCaseId || (initialCases && initialCases.length > 0))
+  );
 
-  if (initialCaseId !== prevInitialCaseId) {
-    setPrevInitialCaseId(initialCaseId);
-    setSelectedId(initialCaseId ?? null);
-    if (initialCaseId) {
-      setDetailLoading(true);
+  const detailCache = useRef<Map<string, CaseDetail>>(
+    initialDetail ? new Map([[initialDetail.id, initialDetail]]) : new Map()
+  );
+
+  useEffect(() => {
+    if (detail?.id) {
+      detailCache.current.set(detail.id, detail);
     }
-  }
-  const [loading, setLoading] = useState(true);
+  }, [detail]);
+  const [loading, setLoading] = useState(!initialCases);
   const [showCreate, setShowCreate] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState({
@@ -166,9 +178,17 @@ export default function CasesApp({
       const urlCaseId = sp.get("caseId") || sp.get("id");
       setSelectedId(urlCaseId || null);
       if (urlCaseId) {
-        setDetailLoading(true);
+        const cached = detailCache.current.get(urlCaseId);
+        if (cached) {
+          setDetail(cached);
+          setDetailLoading(false);
+        } else {
+          setDetail(null);
+          setDetailLoading(true);
+        }
       } else {
         setDetail(null);
+        setDetailLoading(false);
       }
       setEditMode(false);
       setShowCreate(false);
@@ -180,8 +200,14 @@ export default function CasesApp({
 
   const selectCase = (id: string) => {
     if (id !== selectedId) {
-      setDetail(null);
-      setDetailLoading(true);
+      const cached = detailCache.current.get(id);
+      if (cached) {
+        setDetail(cached);
+        setDetailLoading(false);
+      } else {
+        setDetail(null);
+        setDetailLoading(true);
+      }
       setSelectedId(id);
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
@@ -202,7 +228,7 @@ export default function CasesApp({
           credentials: "include",
         });
         const data = await res.json();
-        if (!cancelled) setCases(data.folders || []);
+        if (!cancelled && data.folders) setCases(data.folders);
       } catch {
         console.error("Failed to load cases");
       } finally {
@@ -216,6 +242,11 @@ export default function CasesApp({
 
   useEffect(() => {
     if (!selectedId) return;
+    const cached = detailCache.current.get(selectedId);
+    if (cached) {
+      setDetail(cached);
+      setDetailLoading(false);
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -226,19 +257,23 @@ export default function CasesApp({
         if (cancelled) return;
         if (!res.ok || data.error) {
           const local = casesRef.current.find((c) => c.id === selectedId);
-          if (local) {
+          if (local && !cached) {
             setDetail({ ...local, documents: [], conversations: [] });
           }
           return;
         }
-        setDetail({
+        const fullDetail: CaseDetail = {
           ...data.folder,
           documents: data.documents || [],
           conversations: data.conversations || [],
-        });
+        };
+        detailCache.current.set(selectedId, fullDetail);
+        setDetail(fullDetail);
       } catch {
         const local = casesRef.current.find((c) => c.id === selectedId);
-        if (local) setDetail({ ...local, documents: [], conversations: [] });
+        if (local && !cached) {
+          setDetail({ ...local, documents: [], conversations: [] });
+        }
       } finally {
         if (!cancelled) setDetailLoading(false);
       }
@@ -517,31 +552,13 @@ export default function CasesApp({
     }
   };
 
-  if (activeModule === "matters") {
-    return (
-      <MattersApp
-        user={user}
-        initialMatterId={initialMatterId}
-        onSwitchModule={setActiveModule}
-        sidebarOpen={sidebarOpen}
-        onSidebarOpenChange={setSidebarOpen}
-      />
-    );
-  }
-
-  if (activeModule === "amendments") {
-    return (
-      <AmendmentTrackerApp
-        onSwitchModule={setActiveModule}
-        initialQuery={initialQuery}
-        sidebarOpen={sidebarOpen}
-        onSidebarOpenChange={setSidebarOpen}
-      />
-    );
-  }
-
   return (
-    <div className="relative flex h-screen w-full overflow-hidden bg-black text-white supports-[height:100dvh]:h-dvh">
+    <>
+      <div
+        className={`relative ${
+          activeModule === "cases" ? "flex" : "hidden"
+        } h-screen w-full overflow-hidden bg-black text-white supports-[height:100dvh]:h-dvh`}
+      >
       {/* Mobile backdrop */}
       <div
         aria-hidden
@@ -1428,6 +1445,28 @@ export default function CasesApp({
           </div>
         </div>
       )}
-    </div>
+      </div>
+
+      <div className={activeModule === "matters" ? "h-screen w-full supports-[height:100dvh]:h-dvh" : "hidden"}>
+        <MattersApp
+          user={user}
+          initialMatterId={initialMatterId}
+          initialMatters={initialMatters}
+          initialWorkspace={initialMatterWorkspace}
+          onSwitchModule={setActiveModule}
+          sidebarOpen={sidebarOpen}
+          onSidebarOpenChange={setSidebarOpen}
+        />
+      </div>
+
+      <div className={activeModule === "amendments" ? "h-screen w-full supports-[height:100dvh]:h-dvh" : "hidden"}>
+        <AmendmentTrackerApp
+          onSwitchModule={setActiveModule}
+          initialQuery={initialQuery}
+          sidebarOpen={sidebarOpen}
+          onSidebarOpenChange={setSidebarOpen}
+        />
+      </div>
+    </>
   );
 }

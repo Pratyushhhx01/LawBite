@@ -30,50 +30,56 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Case not found" }, { status: 404 });
       }
 
-      let documents: unknown[] = [];
-      try {
-        documents = await db
+      const [documents, conversations] = await Promise.all([
+        db
           .selectFrom("case_document")
           .selectAll()
           .where("caseId", "=", caseId)
           .orderBy("createdAt", "desc")
-          .execute();
-      } catch (docErr) {
-        console.error("Documents query failed:", docErr);
-      }
-
-      let conversations: unknown[] = [];
-      try {
-        conversations = await db
+          .execute()
+          .catch((docErr) => {
+            console.error("Documents query failed:", docErr);
+            return [];
+          }),
+        db
           .selectFrom("conversation")
           .select(["id", "title", "preview", "type", "updatedAt"])
           .where("folderId", "=", caseId)
           .where("userId", "=", user.id)
-          .execute();
-      } catch (convErr) {
-        console.error("Conversations query failed:", convErr);
-      }
+          .execute()
+          .catch((convErr) => {
+            console.error("Conversations query failed:", convErr);
+            return [];
+          }),
+      ]);
 
       return NextResponse.json({ folder, documents, conversations });
     }
 
-    const folders = await db
-      .selectFrom("case_folder")
-      .selectAll()
-      .where("userId", "=", user.id)
-      .orderBy("createdAt", "desc")
-      .execute();
-
     if (!withConversations) {
+      const folders = await db
+        .selectFrom("case_folder")
+        .selectAll()
+        .where("userId", "=", user.id)
+        .orderBy("createdAt", "desc")
+        .execute();
       return NextResponse.json({ folders });
     }
 
-    const convs = await db
-      .selectFrom("conversation")
-      .select(["id", "title", "preview", "type", "folderId", "updatedAt"])
-      .where("userId", "=", user.id)
-      .where("folderId", "is not", null)
-      .execute();
+    const [folders, convs] = await Promise.all([
+      db
+        .selectFrom("case_folder")
+        .selectAll()
+        .where("userId", "=", user.id)
+        .orderBy("createdAt", "desc")
+        .execute(),
+      db
+        .selectFrom("conversation")
+        .select(["id", "title", "preview", "type", "folderId", "updatedAt"])
+        .where("userId", "=", user.id)
+        .where("folderId", "is not", null)
+        .execute(),
+    ]);
 
     const byFolder: Record<string, unknown[]> = {};
     for (const c of convs) {

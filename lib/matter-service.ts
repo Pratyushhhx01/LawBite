@@ -110,14 +110,64 @@ export class MatterService {
       createdAt: new Date(matterRow.createdAt).toISOString(),
     };
 
-    // 1. Documents
-    const docRows = await db
-      .selectFrom("case_document")
-      .selectAll()
-      .where("caseId", "=", matterId)
-      .where("userId", "=", userId)
-      .orderBy("createdAt", "desc")
-      .execute();
+    const [docRows, convRows, reportRows, activityRows, reminderRows] =
+      await Promise.all([
+        db
+          .selectFrom("case_document")
+          .selectAll()
+          .where("caseId", "=", matterId)
+          .where("userId", "=", userId)
+          .orderBy("createdAt", "desc")
+          .execute()
+          .catch((err) => {
+            console.error("[MatterService] Failed to load documents:", err);
+            return [];
+          }),
+        db
+          .selectFrom("conversation")
+          .select(["id", "title", "preview", "type", "updatedAt"])
+          .where("folderId", "=", matterId)
+          .where("userId", "=", userId)
+          .orderBy("updatedAt", "desc")
+          .execute()
+          .catch((err) => {
+            console.error("[MatterService] Failed to load conversations:", err);
+            return [];
+          }),
+        db
+          .selectFrom("matter_report")
+          .selectAll()
+          .where("matterId", "=", matterId)
+          .where("userId", "=", userId)
+          .orderBy("createdAt", "desc")
+          .execute()
+          .catch((err) => {
+            console.error("[MatterService] Failed to load reports:", err);
+            return [];
+          }),
+        db
+          .selectFrom("matter_activity")
+          .selectAll()
+          .where("matterId", "=", matterId)
+          .where("userId", "=", userId)
+          .orderBy("createdAt", "desc")
+          .execute()
+          .catch((err) => {
+            console.error("[MatterService] Failed to load activity:", err);
+            return [];
+          }),
+        db
+          .selectFrom("reminder")
+          .selectAll()
+          .where("userId", "=", userId)
+          .where("title", "ilike", `%${matter.name}%`)
+          .orderBy("deadlineAt", "asc")
+          .execute()
+          .catch((err) => {
+            console.error("[MatterService] Failed to load reminders:", err);
+            return [];
+          }),
+      ]);
 
     const documents: MatterDocument[] = docRows.map((d) => ({
       id: d.id,
@@ -132,15 +182,6 @@ export class MatterService {
       createdAt: new Date(d.createdAt).toISOString(),
     }));
 
-    // 2. Linked conversations
-    const convRows = await db
-      .selectFrom("conversation")
-      .select(["id", "title", "preview", "type", "updatedAt"])
-      .where("folderId", "=", matterId)
-      .where("userId", "=", userId)
-      .orderBy("updatedAt", "desc")
-      .execute();
-
     const conversations = convRows.map((c) => ({
       id: c.id,
       title: c.title,
@@ -148,15 +189,6 @@ export class MatterService {
       type: c.type,
       updatedAt: new Date(c.updatedAt).toISOString(),
     }));
-
-    // 3. AI Generated Reports
-    const reportRows = await db
-      .selectFrom("matter_report")
-      .selectAll()
-      .where("matterId", "=", matterId)
-      .where("userId", "=", userId)
-      .orderBy("createdAt", "desc")
-      .execute();
 
     const reports: MatterReport[] = reportRows.map((r) => ({
       id: r.id,
@@ -169,15 +201,6 @@ export class MatterService {
       createdAt: new Date(r.createdAt).toISOString(),
     }));
 
-    // 4. Activity history
-    const activityRows = await db
-      .selectFrom("matter_activity")
-      .selectAll()
-      .where("matterId", "=", matterId)
-      .where("userId", "=", userId)
-      .orderBy("createdAt", "desc")
-      .execute();
-
     const activities: MatterActivity[] = activityRows.map((a) => ({
       id: a.id,
       matterId: a.matterId,
@@ -187,15 +210,6 @@ export class MatterService {
       metadata: a.metadata as Record<string, unknown> | undefined,
       createdAt: new Date(a.createdAt).toISOString(),
     }));
-
-    // 5. Linked Reminders
-    const reminderRows = await db
-      .selectFrom("reminder")
-      .selectAll()
-      .where("userId", "=", userId)
-      .where("title", "ilike", `%${matter.name}%`)
-      .orderBy("deadlineAt", "asc")
-      .execute();
 
     const reminders: MatterReminder[] = reminderRows.map((rem) => ({
       id: rem.id,
