@@ -897,6 +897,36 @@ export default function MattersApp({
             </nav>
           </div>
         </header>
+
+        {/* Three-line horizontal button at top left just below the LawBite hero section (mobile view only) */}
+        {!sidebarOpen && (
+          <button
+            type="button"
+            onClick={() => {
+              cancelSidebarClose();
+              setSidebarOpen(true);
+            }}
+            className="fixed top-[56px] left-3 z-30 flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-black/85 backdrop-blur-md text-white/80 shadow-[0_4px_16px_rgba(0,0,0,0.5)] transition-all hover:bg-white/10 hover:text-white active:scale-95 md:hidden"
+            aria-label="Open matters menu"
+            aria-expanded={sidebarOpen}
+            aria-controls="matters-sidebar"
+            title="Open menu"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="18" x2="20" y2="18" />
+            </svg>
+          </button>
+        )}
         {!workspace || loadingWorkspace ? (
           <div className="flex flex-1 items-center justify-center text-center">
             <div className="max-w-xs p-6">
