@@ -496,6 +496,8 @@ export default function CasesApp({
     });
 
   const selectedCase = cases.find((c) => c.id === selectedId);
+  // Mobile uses a single pane: the case list, then the selected case/form.
+  const showListOnMobile = !selectedId && !showCreate && !editMode;
 
   const backToList = () => {
     setSelectedId(null);
@@ -558,7 +560,7 @@ export default function CasesApp({
         className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-white/10 bg-black/95 backdrop-blur-xl shadow-2xl transition-[width,transform] duration-300 ease-in-out md:translate-x-0 ${
           sidebarOpen
             ? "w-80 translate-x-0 shadow-[0_0_30px_rgba(0,0,0,0.8)]"
-            : "w-80 -translate-x-full md:w-16 md:translate-x-0"
+            : `${showListOnMobile ? "w-80 translate-x-0" : "w-80 -translate-x-full"} md:w-16 md:translate-x-0`
         }`}
       >
         <div className="border-b border-white/10 p-3 sm:p-4">
@@ -787,7 +789,7 @@ export default function CasesApp({
       </aside>
 
       <main
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:pl-16 transition-[padding] duration-300"
+        className={`${showListOnMobile ? "hidden md:flex" : "flex"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:pl-16 transition-[padding] duration-300`}
       >
         {/* Top App Navigation Bar */}
         <header className="flex items-center justify-between border-b border-white/10 bg-black/40 px-4 py-2.5">
@@ -796,21 +798,18 @@ export default function CasesApp({
               type="button"
               onClick={() => {
                 cancelSidebarClose();
-                setSidebarOpen((prev) => !prev);
+                setSidebarOpen(true);
               }}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/80 shadow-sm transition-all hover:border-white/30 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/20 active:scale-95"
-              aria-label="Toggle cases menu"
-              aria-expanded={sidebarOpen}
-              aria-controls="cases-sidebar"
-              title="Toggle left side panel"
+              className="rounded-lg p-1.5 text-white/60 hover:bg-white/5 hover:text-white md:hidden"
+              aria-label="Open cases menu"
             >
-              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="4" y1="6" x2="20" y2="6" />
-                <line x1="4" y1="12" x2="20" y2="12" />
-                <line x1="4" y1="18" x2="20" y2="18" />
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </button>
-            {selectedId && (
+            {!showListOnMobile && (
               <MobileBackButton onClick={backToList} />
             )}
             <nav className="flex items-center gap-1.5 text-xs text-white/50">
@@ -834,36 +833,6 @@ export default function CasesApp({
             </nav>
           </div>
         </header>
-
-        {/* Three-line horizontal button at top left just below the LawBite hero section */}
-        {!sidebarOpen && (
-          <button
-            type="button"
-            onClick={() => {
-              cancelSidebarClose();
-              setSidebarOpen(true);
-            }}
-            className="fixed top-[58px] left-3 md:left-[76px] z-30 flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-black/90 backdrop-blur-md text-white shadow-[0_4px_16px_rgba(0,0,0,0.6)] transition-all hover:border-white/40 hover:bg-white/10 hover:text-white active:scale-95"
-            aria-label="Open cases menu"
-            aria-expanded={sidebarOpen}
-            aria-controls="cases-sidebar"
-            title="Open left side panel"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="4" y1="12" x2="20" y2="12" />
-              <line x1="4" y1="18" x2="20" y2="18" />
-            </svg>
-          </button>
-        )}
         {!selectedId && !showCreate && !editMode ? (
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
