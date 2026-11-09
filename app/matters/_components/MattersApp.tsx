@@ -940,15 +940,21 @@ export default function MattersApp({
                 <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </button>
-            <nav className="flex items-center gap-2 text-xs text-white/50">
+            <nav className="flex items-center gap-1.5 text-xs text-white/50">
               <Link
-                href="/chat"
-                className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+                href="/cases?tab=cases"
+                onClick={
+                  onSwitchModule
+                    ? (e) => {
+                        e.preventDefault();
+                        cancelSidebarClose();
+                        onSwitchModule("cases");
+                      }
+                    : undefined
+                }
+                className="rounded-lg bg-white/10 px-2.5 py-1 font-semibold text-white transition-colors hover:bg-white/15"
               >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                AI Chat
+                Case Tracker
               </Link>
               <span>/</span>
               <span className="font-semibold text-white">

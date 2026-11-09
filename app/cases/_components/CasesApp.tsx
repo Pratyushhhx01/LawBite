@@ -57,36 +57,6 @@ const STATUS_COLORS: Record<string, string> = {
   closed: "bg-white/5 text-white/40 shadow-[0_0_8px_rgba(255,255,255,0.05)]",
 };
 
-function MobileBackButton({
-  onClick,
-  className = "",
-}: {
-  onClick: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 text-sm text-white/50 transition-colors hover:text-white md:hidden ${className}`}
-    >
-      <svg
-        viewBox="0 0 24 24"
-        className="h-4 w-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M19 12H5M12 19l-7-7 7-7" />
-      </svg>
-      All cases
-    </button>
-  );
-}
-
 export default function CasesApp({
   user,
   initialCaseId = null,
@@ -836,23 +806,19 @@ export default function CasesApp({
                 <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </button>
-            {selectedId && (
-              <MobileBackButton onClick={backToList} />
-            )}
             <nav className="flex items-center gap-1.5 text-xs text-white/50">
               <Link
-                href="/chat"
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+                href="/cases?tab=cases"
+                onClick={(e) => {
+                  if (selectedId) {
+                    e.preventDefault();
+                    backToList();
+                  }
+                }}
+                className="rounded-lg bg-white/10 px-2.5 py-1 font-semibold text-white transition-colors hover:bg-white/15"
               >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                AI Chat
-              </Link>
-              <span>/</span>
-              <span className="rounded-lg bg-white/10 px-2.5 py-1 font-semibold text-white">
                 Case Tracker
-              </span>
+              </Link>
               <span>/</span>
               <span className="font-semibold text-white">
                 Cases
