@@ -796,12 +796,15 @@ export default function CasesApp({
               type="button"
               onClick={() => {
                 cancelSidebarClose();
-                setSidebarOpen(true);
+                setSidebarOpen((prev) => !prev);
               }}
-              className="rounded-lg p-1.5 text-white/60 hover:bg-white/5 hover:text-white md:hidden"
-              aria-label="Open cases menu"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/80 shadow-sm transition-all hover:border-white/30 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/20 active:scale-95"
+              aria-label="Toggle cases menu"
+              aria-expanded={sidebarOpen}
+              aria-controls="cases-sidebar"
+              title="Toggle left side panel"
             >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="4" y1="6" x2="20" y2="6" />
                 <line x1="4" y1="12" x2="20" y2="12" />
                 <line x1="4" y1="18" x2="20" y2="18" />
@@ -832,7 +835,7 @@ export default function CasesApp({
           </div>
         </header>
 
-        {/* Three-line horizontal button at top left just below the LawBite hero section (mobile view only) */}
+        {/* Three-line horizontal button at top left just below the LawBite hero section */}
         {!sidebarOpen && (
           <button
             type="button"
@@ -840,11 +843,11 @@ export default function CasesApp({
               cancelSidebarClose();
               setSidebarOpen(true);
             }}
-            className="fixed top-[58px] left-3 z-30 flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-black/85 backdrop-blur-md text-white/80 shadow-[0_4px_16px_rgba(0,0,0,0.5)] transition-all hover:bg-white/10 hover:text-white active:scale-95 md:hidden"
+            className="fixed top-[58px] left-3 md:left-[76px] z-30 flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-black/90 backdrop-blur-md text-white shadow-[0_4px_16px_rgba(0,0,0,0.6)] transition-all hover:border-white/40 hover:bg-white/10 hover:text-white active:scale-95"
             aria-label="Open cases menu"
             aria-expanded={sidebarOpen}
             aria-controls="cases-sidebar"
-            title="Open menu"
+            title="Open left side panel"
           >
             <svg
               viewBox="0 0 24 24"

@@ -91,35 +91,35 @@ describe("CasesPage Navigation & Deep Linking", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/signin?next=%2Fcases");
   });
 
-  it("verifies mobile navigation contract with 3-line horizontal button positioning", () => {
-    const mobileButtonSpecs = {
+  it("verifies universal navigation contract with 3-line horizontal button positioning", () => {
+    const buttonSpecs = {
       chatPage: {
-        position: "fixed top-[72px] left-3",
-        visibility: "md:hidden",
+        position: "fixed top-[72px] left-3 md:left-[76px]",
+        visibleOnAllScreens: true,
         threeHorizontalLines: true,
       },
       caseTracker: {
-        position: "fixed top-[58px] left-3",
-        visibility: "md:hidden",
+        position: "fixed top-[58px] left-3 md:left-[76px]",
+        visibleOnAllScreens: true,
         threeHorizontalLines: true,
       },
       mattersWorkspace: {
-        position: "fixed top-[56px] left-3",
-        visibility: "md:hidden",
+        position: "fixed top-[56px] left-3 md:left-[76px]",
+        visibleOnAllScreens: true,
         threeHorizontalLines: true,
       },
       amendmentsWorkspace: {
-        position: "fixed top-[56px] left-3",
-        visibility: "md:hidden",
+        position: "fixed top-[56px] left-3 md:left-[76px]",
+        visibleOnAllScreens: true,
         threeHorizontalLines: true,
       },
     };
 
-    expect(mobileButtonSpecs.chatPage.visibility).toBe("md:hidden");
-    expect(mobileButtonSpecs.chatPage.threeHorizontalLines).toBe(true);
-    expect(mobileButtonSpecs.caseTracker.visibility).toBe("md:hidden");
-    expect(mobileButtonSpecs.caseTracker.threeHorizontalLines).toBe(true);
-    expect(mobileButtonSpecs.mattersWorkspace.visibility).toBe("md:hidden");
-    expect(mobileButtonSpecs.amendmentsWorkspace.visibility).toBe("md:hidden");
+    expect(buttonSpecs.chatPage.visibleOnAllScreens).toBe(true);
+    expect(buttonSpecs.chatPage.threeHorizontalLines).toBe(true);
+    expect(buttonSpecs.caseTracker.visibleOnAllScreens).toBe(true);
+    expect(buttonSpecs.caseTracker.threeHorizontalLines).toBe(true);
+    expect(buttonSpecs.mattersWorkspace.visibleOnAllScreens).toBe(true);
+    expect(buttonSpecs.amendmentsWorkspace.visibleOnAllScreens).toBe(true);
   });
 });
