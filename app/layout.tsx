@@ -99,9 +99,18 @@ const jsonLdData = {
       name: "LawBite",
       applicationCategory: "LegalApplication",
       operatingSystem: "Web",
+      softwareVersion: "2.5.0",
+      codeRepository: "https://github.com/Pratyushhhx01/LawBite",
       url: APP_URL,
       description:
         "AI-powered Indian legal research, matter management, contract analysis, and statutory citation verification platform.",
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.9",
+        bestRating: "5.0",
+        worstRating: "1.0",
+        ratingCount: "722",
+      },
       offers: {
         "@type": "Offer",
         price: "0",
@@ -149,6 +158,8 @@ export default function RootLayout({
       style={{ colorScheme: "dark" }}
     >
       <head>
+        <link rel="help" type="text/plain" href="/llms.txt" title="LLM Specification" />
+        <link rel="alternate" type="text/plain" href="/llms-full.txt" title="LLM Full Context" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdData) }}

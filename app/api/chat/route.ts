@@ -1047,12 +1047,14 @@ export async function POST(request: NextRequest) {
     }
     const sessionMs = Date.now() - reqStart;
 
-    if (!session) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const rateLimitKey = `chat:${session.user.id}`;
-    const { allowed, retryAfterMs } = checkRateLimit(rateLimitKey, 30, 60_000);
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "guest";
+    const userId = session?.user?.id ?? `guest:${ip}`;
+    const rateLimitKey = `chat:${userId}`;
+    const maxRequests = session ? 30 : 10;
+    const { allowed, retryAfterMs } = checkRateLimit(rateLimitKey, maxRequests, 60_000);
     if (!allowed) {
       return Response.json(
         { error: "Too many requests. Please try again later." },

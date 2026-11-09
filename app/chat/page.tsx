@@ -7,9 +7,18 @@ import { redirect } from "next/navigation";
 import ChatApp from "./_components/ChatApp";
 
 export const metadata: Metadata = {
-  title: "Chat — Lawbite",
-  description: "Chat with the Lawbite assistant.",
-  robots: { index: false, follow: false },
+  title: "AI Lawyer Chat — LawBite",
+  description:
+    "Interactive legal research assistant powered by Inception Mercury 2.5 dLLM with deterministic 157+ Indian bare acts verification and Good-Law precedent status checking.",
+  keywords: [
+    "Indian Legal Chat AI",
+    "LawBite Chat",
+    "Bare Acts AI",
+    "BNS 2023",
+    "Good Law Checker",
+    "Legal Drafting Assistant",
+  ],
+  robots: { index: true, follow: true },
 };
 
 export default async function ChatPage({
@@ -38,7 +47,7 @@ export default async function ChatPage({
     params.cases === "true" ||
     params.cases === "open";
 
-  let session;
+  let session = null;
   try {
     session = await auth.api.getSession({
       headers: await headers(),
@@ -47,22 +56,8 @@ export default async function ChatPage({
     session = null;
   }
 
-  if (!session) {
-    const qs = new URLSearchParams();
-    if (params.shareId) qs.set("shareId", params.shareId);
-    if (params.conversation) qs.set("conversation", params.conversation);
-    if (caseId) qs.set("caseId", caseId);
-    if (tool) qs.set("tool", tool);
-    if (item) qs.set("item", item);
-    if (openCases) qs.set("modal", "cases");
-    const query = qs.toString();
-    redirect(
-      `/signin?next=${encodeURIComponent(`/chat${query ? `?${query}` : ""}`)}`,
-    );
-  }
-
   let caseName: string | null = null;
-  if (caseId) {
+  if (caseId && session) {
     try {
       const folder = await db
         .selectFrom("case_folder")
@@ -78,10 +73,12 @@ export default async function ChatPage({
     }
   }
 
-  // A shared link is claimed on the server before the chat shell renders. That
-  // makes the import idempotent and guarantees the conversation is in the
-  // normal history fetch instead of racing it in the browser.
+  // A shared link is claimed on the server before the chat shell renders.
   if (params.shareId) {
+    if (!session) {
+      redirect(`/shared/${encodeURIComponent(params.shareId)}`);
+    }
+
     let importedId: string | null = null;
     try {
       importedId = await claimSharedChat(session.user.id, params.shareId);
@@ -101,15 +98,24 @@ export default async function ChatPage({
     redirect(`/chat?${qs.toString()}`);
   }
 
-  return (
-    <ChatApp
-      user={{
+  const user = session
+    ? {
         id: session.user.id,
         name: session.user.name,
         email: session.user.email,
         image: session.user.image ?? null,
-      }}
-      sessionId={session.session.id}
+      }
+    : {
+        id: "guest",
+        name: "Guest Advocate",
+        email: "guest@lawbite.local",
+        image: null,
+      };
+
+  return (
+    <ChatApp
+      user={user}
+      sessionId={session?.session?.id ?? null}
       initialConversationId={params.conversation ?? null}
       initialCaseId={caseId}
       initialCaseName={caseName}

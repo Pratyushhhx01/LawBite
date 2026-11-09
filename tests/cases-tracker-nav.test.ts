@@ -65,30 +65,29 @@ describe("CasesPage Navigation & Deep Linking", () => {
     expect(jsx.props.initialCaseId).toBeNull();
   });
 
-  it("redirects unauthenticated users to signin preserving the caseId in next param", async () => {
+  it("renders guest advocate workspace with demo data for unauthenticated users", async () => {
     currentSession = null;
 
-    await expect(
-      CasesPage({
-        searchParams: Promise.resolve({ caseId: "case-secret-007" }),
-      }),
-    ).rejects.toThrow("REDIRECT:/signin?next=%2Fcases%3FcaseId%3Dcase-secret-007");
+    const jsx = await CasesPage({
+      searchParams: Promise.resolve({ caseId: "case-secret-007" }),
+    });
 
-    expect(mockRedirect).toHaveBeenCalledWith(
-      "/signin?next=%2Fcases%3FcaseId%3Dcase-secret-007",
-    );
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(jsx.props.user.id).toBe("guest-advocate");
+    expect(jsx.props.initialCases.length).toBeGreaterThan(0);
   });
 
-  it("redirects unauthenticated users to /cases when no caseId is present", async () => {
+  it("renders demo matters and cases for unauthenticated users when no caseId is present", async () => {
     currentSession = null;
 
-    await expect(
-      CasesPage({
-        searchParams: Promise.resolve({}),
-      }),
-    ).rejects.toThrow("REDIRECT:/signin?next=%2Fcases");
+    const jsx = await CasesPage({
+      searchParams: Promise.resolve({}),
+    });
 
-    expect(mockRedirect).toHaveBeenCalledWith("/signin?next=%2Fcases");
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(jsx.props.user.name).toBe("Guest Advocate");
+    expect(jsx.props.initialCases.length).toBeGreaterThan(0);
+    expect(jsx.props.initialMatters.length).toBeGreaterThan(0);
   });
 
   it("verifies mobile three-line button contract below back arrow icon in left side panel", () => {

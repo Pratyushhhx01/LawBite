@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import MattersInfoView from "./_components/MattersInfoView";
 
 export const metadata: Metadata = {
-  title: "Legal Matters & Workspace — Lawbite",
+  title: "Legal Matters & Litigation Workspace — LawBite",
   description:
-    "Organize legal matters, analyze contracts, compare documents, and prepare for courtroom hearings.",
+    "Organize legal matters, analyze contracts, compare documents, and prepare for courtroom hearings across 8 litigation stages.",
+  robots: { index: true, follow: true },
 };
 
 export default async function MattersPage({
@@ -26,9 +27,14 @@ export default async function MattersPage({
   const view = params?.view ?? null;
   const tab = params?.tab ?? null;
 
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  let session = null;
+  try {
+    session = await auth.api.getSession({
+      headers: await headers(),
+    });
+  } catch {
+    session = null;
+  }
 
   // If view=info is explicitly requested (e.g. from landing page resources)
   if (view === "info") {
@@ -40,17 +46,7 @@ export default async function MattersPage({
     );
   }
 
-  // Any other visit directly to /matters enters the specific workspace in Case Tracker
-  if (!session) {
-    redirect(
-      `/signin?next=${encodeURIComponent(
-        initialMatterId
-          ? `/cases?tab=matters&matterId=${initialMatterId}`
-          : "/cases?tab=matters"
-      )}`
-    );
-  }
-
+  // Any direct visit to /matters enters the specific workspace in Case Tracker seamlessly
   const query = new URLSearchParams();
   query.set("tab", "matters");
   if (initialMatterId) query.set("matterId", initialMatterId);
