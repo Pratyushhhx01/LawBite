@@ -921,7 +921,7 @@ export default function MattersApp({
       </aside>
 
       {/* Main Workspace Pane */}
-      <main className="flex flex-1 flex-col overflow-hidden bg-black/95 pl-0 transition-[padding] duration-300 md:pl-16">
+      <main className="flex flex-1 min-w-0 flex-col overflow-hidden bg-black/95 pl-0 transition-[padding] duration-300 md:pl-16">
         {/* Top App Navigation Bar */}
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 bg-black/40 px-4 sm:px-6">
           <div className="flex items-center gap-2">
@@ -1052,7 +1052,7 @@ export default function MattersApp({
             </header>
 
             {/* Tab Body */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 min-w-0">
               {/* TAB 1: OVERVIEW */}
               {activeTab === "overview" && (
                 <div className="mx-auto max-w-5xl space-y-6">
@@ -1219,64 +1219,122 @@ export default function MattersApp({
                       </button>
                     </div>
                   ) : (
-                    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
-                      <table className="w-full text-left text-xs">
-                        <thead className="border-b border-white/10 bg-white/[0.03] text-white/50">
-                          <tr>
-                            <th className="px-4 py-3 font-semibold">Document Name</th>
-                            <th className="px-4 py-3 font-semibold">Type</th>
-                            <th className="px-4 py-3 font-semibold">Version</th>
-                            <th className="px-4 py-3 font-semibold">Size</th>
-                            <th className="px-4 py-3 font-semibold">Date Uploaded</th>
-                            <th className="px-4 py-3 text-right font-semibold">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {workspace.documents.map((doc) => (
-                            <tr key={doc.id} className="hover:bg-white/[0.02] transition-colors">
-                              <td className="px-4 py-3.5 font-medium text-white flex items-center gap-2">
-                                <svg className="h-4 w-4 text-white/40 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <>
+                      {/* Mobile Card View (< sm screens) */}
+                      <div className="space-y-3 sm:hidden">
+                        {workspace.documents.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.05]"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5 text-amber-400 border border-white/10">
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                 </svg>
-                                <span className="truncate max-w-xs">{doc.fileName}</span>
-                              </td>
-                              <td className="px-4 py-3.5">
-                                <span className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-white/70">
-                                  {doc.docType || "General"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3.5">
-                                <span className="rounded bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
-                                  v{doc.version || 1}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3.5 text-white/50">
-                                {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : "—"}
-                              </td>
-                              <td className="px-4 py-3.5 text-white/50">
-                                {new Date(doc.createdAt).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                              </td>
-                              <td className="px-4 py-3.5 text-right space-x-2">
-                                {doc.fileUrl && (
-                                  <a
-                                    href={doc.fileUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="rounded bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white"
-                                  >
-                                    View ↗
-                                  </a>
-                                )}
-                              </td>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-sm text-white break-words">
+                                  {doc.fileName}
+                                </p>
+                                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                  <span className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-white/70">
+                                    {doc.docType || "General"}
+                                  </span>
+                                  <span className="rounded bg-amber-400/10 px-2 py-0.5 font-semibold text-amber-400">
+                                    v{doc.version || 1}
+                                  </span>
+                                  <span className="text-white/40">
+                                    {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : "—"}
+                                  </span>
+                                  <span className="text-white/30">•</span>
+                                  <span className="text-white/40">
+                                    {new Date(doc.createdAt).toLocaleDateString("en-IN", {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {doc.fileUrl && (
+                              <div className="mt-3.5 pt-3 border-t border-white/5 flex justify-end">
+                                <a
+                                  href={doc.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/20 px-3.5 py-2 text-xs font-semibold transition-colors"
+                                >
+                                  View Document ↗
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Desktop / Tablet Table View (sm: and larger with horizontal scroll fallback) */}
+                      <div className="hidden sm:block overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+                        <table className="w-full min-w-[620px] text-left text-xs">
+                          <thead className="border-b border-white/10 bg-white/[0.03] text-white/50">
+                            <tr>
+                              <th className="px-4 py-3 font-semibold">Document Name</th>
+                              <th className="px-4 py-3 font-semibold">Type</th>
+                              <th className="px-4 py-3 font-semibold">Version</th>
+                              <th className="px-4 py-3 font-semibold">Size</th>
+                              <th className="px-4 py-3 font-semibold">Date Uploaded</th>
+                              <th className="px-4 py-3 text-right font-semibold">Actions</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {workspace.documents.map((doc) => (
+                              <tr key={doc.id} className="hover:bg-white/[0.02] transition-colors">
+                                <td className="px-4 py-3.5 font-medium text-white flex items-center gap-2">
+                                  <svg className="h-4 w-4 text-white/40 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  </svg>
+                                  <span className="truncate max-w-xs">{doc.fileName}</span>
+                                </td>
+                                <td className="px-4 py-3.5">
+                                  <span className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] text-white/70">
+                                    {doc.docType || "General"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3.5">
+                                  <span className="rounded bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                                    v{doc.version || 1}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3.5 text-white/50">
+                                  {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : "—"}
+                                </td>
+                                <td className="px-4 py-3.5 text-white/50">
+                                  {new Date(doc.createdAt).toLocaleDateString("en-IN", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </td>
+                                <td className="px-4 py-3.5 text-right space-x-2">
+                                  {doc.fileUrl && (
+                                    <a
+                                      href={doc.fileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="rounded bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white"
+                                    >
+                                      View ↗
+                                    </a>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
