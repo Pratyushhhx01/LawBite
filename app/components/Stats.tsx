@@ -27,7 +27,8 @@ const stats: Stat[] = [
 ];
 
 function useCountUp(target: number, durationMs = 1600, decimals = 0) {
-  const [value, setValue] = useState(0);
+  // Initialize with target so SSR, AI crawlers, and initial renders always show accurate non-zero values
+  const [value, setValue] = useState(target);
   const ref = useRef<HTMLSpanElement | null>(null);
   const startedRef = useRef(false);
 
@@ -35,8 +36,12 @@ function useCountUp(target: number, durationMs = 1600, decimals = 0) {
     const node = ref.current;
     if (!node || startedRef.current) return;
 
+    // Respect reduced motion settings
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
     if (typeof IntersectionObserver === "undefined") {
-      requestAnimationFrame(() => setValue(target));
       return;
     }
 
@@ -45,19 +50,24 @@ function useCountUp(target: number, durationMs = 1600, decimals = 0) {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !startedRef.current) {
             startedRef.current = true;
+            setValue(0);
             const start = performance.now();
             const tick = (now: number) => {
               const t = Math.min(1, (now - start) / durationMs);
               const eased = 1 - Math.pow(1 - t, 3);
               setValue(Number((eased * target).toFixed(decimals)));
-              if (t < 1) requestAnimationFrame(tick);
+              if (t < 1) {
+                requestAnimationFrame(tick);
+              } else {
+                setValue(target);
+              }
             };
             requestAnimationFrame(tick);
             observer.disconnect();
           }
         });
       },
-      { threshold: 0.4 },
+      { threshold: 0.15 },
     );
 
     observer.observe(node);

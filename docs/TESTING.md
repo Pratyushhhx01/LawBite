@@ -8,9 +8,17 @@ This document details the automated test architecture, coverage enforcement, con
 
 LawBite employs **Vitest 4** configured in a Node.js runtime environment (`environment: "node"` in `vitest.config.ts`), paired with V8 coverage analysis.
 
-- **Total Test Suites:** 39 test files
-- **Total Executed Tests:** 722 passed unit, integration, and E2E tests
+- **Total Test Files:** 39 test files across the repository
+- **Hermetic Active Passes:** 724 passed tests across 36 active test files (0 failures)
+- **Conditional Live Cloud Skips:** 45 tests across 3 files conditionally skipped when offline without live cloud credentials
+- **Total Defined Assertions:** 769 test cases
 - **CI Status:** GitHub Actions workflow running on every commit to `main` and all pull requests.
+
+```text
+ Test Files  36 passed | 3 skipped (39)
+      Tests  724 passed | 45 skipped (769)
+   Duration  58.47s
+```
 
 ```
 tests/

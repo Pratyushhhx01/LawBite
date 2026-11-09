@@ -11,7 +11,7 @@ unavailable.
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | Type safety                | TypeScript strict mode passes                                                                                                                        | `npm run typecheck`                                      |
 | Lint                       | ESLint flat config passes with no warnings                                                                                                           | `npm run lint`                                           |
-| Unit and integration tests | 523 passed, 44 skipped across 26 files                                                                                                               | `npm run test`                                           |
+| Unit and integration tests | 724 passed, 45 skipped across 36 active files (39 test files total, 769 assertions)                                                                                                               | `npm run test`                                           |
 | Coverage                   | Local run: 51.5% statements, 46.8% branches, 61.5% functions, 52.0% lines. CI enforces floors of 46/40/55/47.                                        | `npm run test:coverage`                                  |
 | Production build           | Next.js 16.4.3 build succeeds                                                                                                                        | `npm run build`                                          |
 | Dependency audit           | 0 known vulnerabilities; CI fails on high or critical advisories                                                                                     | `npm run audit`                                          |
@@ -22,7 +22,7 @@ unavailable.
 | S3 diagnosis               | Credential, bucket, region, and read-access check with actionable errors                                                                             | `npm run check:s3`                                       |
 | Scope guard                | Model-identity, prompt-injection, and off-topic questions are refused before the provider call; legal questions that use the word "model" still pass | `tests/chat-filters.test.ts`, `tests/chat-modes.test.ts` |
 
-The 44 skipped tests are live-database and live-deployment suites. CI sets
+The 45 skipped tests are live-database and live-deployment suites. CI sets
 `CI_SKIP_DB_TESTS=1` so it never pretends to have a database it does not have.
 The deployed smoke workflow is the separate opt-in path for a real environment.
 

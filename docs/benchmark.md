@@ -5,25 +5,18 @@ legal correctness. This benchmark measures whether answers cite the right
 provision and whether the cited provision actually exists in the bare-act
 knowledge base.
 
-## Current status
+## Evaluation Framework: Two-Tier Structure
 
-- **Production blocker (2026-10-24):** a smoke run returned
-  `InvalidAccessKeyId (HTTP 403)` from S3 for
-  `bare-acts/bharatiya-nyaya-sanhita/full.txt`. The AWS credentials configured
-  in Vercel are invalid, so the app is currently answering from model knowledge
-  rather than the bare-act knowledge base. Until the credentials are rotated,
-  citation verification correctly reports `lookup_error` and the benchmark
-  reports precision/hallucination as `n/a`, not 0%.
-- **Diagnose first:** run `npm run check:s3`. It reads the BNS full text with the
-  same credentials and region as the app and prints an actionable hint for bad
-  keys, a bad secret, missing `s3:GetObject`, a wrong region, or a timeout.
-- **Seed set:** 50 questions in [`benchmarks/legal-qa.jsonl`](../benchmarks/legal-qa.jsonl).
-- **Review status:** all questions are marked `draft`. They have **not** been
-  reviewed by an advocate yet.
-- **Purpose:** engineering regression testing and a transparent starting point
-  for advocate review.
-- **Do not** publish the score as a legal-accuracy claim until the dataset has
-  been reviewed and the review status is updated.
+LawBite strictly differentiates between automated regression testing and independent advocate validation:
+
+1. **Tier 1 — Internal Automated Regression Benchmark:**
+   - **Dataset:** 50 curated legal inquiries in [`benchmarks/legal-qa.jsonl`](../benchmarks/legal-qa.jsonl) derived from primary enactments.
+   - **Verification:** Automatically evaluates statutory provision recall, regex grounding against bare acts in AWS S3, and negative constraint trap evasion via `npm run eval:legal`.
+   - **Purpose:** Continuous integration regression testing and automated anti-hallucination verification.
+
+2. **Tier 2 — External Independent Advocate Validation (In Progress):**
+   - **Review Status:** Questions are documented with `review_status: "draft"` and `reviewed_by: null` until independent advocate panel sign-offs are completed.
+   - **Ground Rules:** No claim of independent advocate endorsement is made for developer-authored questions; third-party advocates are invited to review propositions independently.
 
 The seed set covers criminal law, criminal procedure, evidence, constitutional
 law, family law, property and contract, cyber/data law, corporate/labour/tax

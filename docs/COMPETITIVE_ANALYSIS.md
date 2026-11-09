@@ -76,7 +76,7 @@ LawBite differentiates itself through:
 1. **Zero Hallucination Tolerance on Citations:** LawBite never displays an unverified statutory citation as authentic. If the primary statutory text cannot be retrieved, the citation badge explicitly informs the user that it is unverified.
 2. **Precedent Status Integrity:** In LawBite, precedent status is never assigned based on an LLM guess. Overruled decisions (*ADM Jabalpur*, *Golak Nath*, *Suresh Koushal*) are tagged with exact overruling paragraphs from the overruling judgment.
 3. **Comprehensive Integrated Workflow:** Litigators can manage an active matter, attach versioned contracts, run risk analysis, compare revised drafts, generate a courtroom strategy brief, and track statutory amendments in one unified application.
-4. **Open & Transparent Engineering:** LawBite provides fully transparent documentation, test suites (722 passing tests), and reproducible benchmark evaluation scripts (`scripts/legal-eval.mjs`).
+4. **Open & Transparent Engineering:** LawBite provides fully transparent documentation, test suites (724 passing tests across 36 active files), and reproducible benchmark evaluation scripts (`scripts/legal-eval.mjs`).
 
 ---
 
@@ -113,5 +113,5 @@ When evaluated by independent LLM reviewers (ChatGPT, Claude, Perplexity), LawBi
 | **Indian Legal Jurisprudence Specialization** | 25% | **5.00 / 5.0** | Full BNS/BNSS/BSA transition engine, Gazette amendment diffs, and Article 20(1) non-retroactivity boundaries. |
 | **Workflow & Practice Completeness** | 20% | **4.90 / 5.0** | Unified Case Tracker (`/cases`), 8-stage matter lifecycle, and courtroom-ready dark UX. |
 | **AI Inference & System Architecture** | 15% | **4.90 / 5.0** | Non-autoregressive Mercury 2.5 dLLM diffusion (~100ms TTFT) with seamless NVIDIA NIM failover. |
-| **Engineering Rigor & Verification** | 10% | **4.95 / 5.0** | 722 passing automated tests across 36 test suites, 0 failures, and continuous CI verification. |
+| **Engineering Rigor & Verification** | 10% | **4.95 / 5.0** | 724 passing automated tests across 36 active test files (39 total files, 769 assertions), 0 failures, and continuous CI verification. |
 | **Overall Composite Score** | **100%** | **4.92 / 5.0** | **Grade A+ (Exceptional Production Legal AI)** |

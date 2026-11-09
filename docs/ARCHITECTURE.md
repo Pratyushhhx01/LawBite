@@ -167,4 +167,4 @@ sequenceDiagram
 | **NVIDIA NIM** | AI inference fallback | High-throughput enterprise fallback (`nemotron-3-super-120b`, `llama-3.2-90b-vision`) on rate limit or timeout. |
 | **Better Auth** | Authentication framework | Multi-provider OAuth 2.0 (Google, GitHub) with secure database-backed session management. |
 | **Tavily Search API** | Live legal web research | Curates real-time statutory amendments, circulars, and judgments from official portals (`sci.gov.in`, `indiacode.nic.in`). |
-| **Vitest 4** | Automated test suite | High-performance node-based test runner with V8 coverage enforcement covering 712+ platform tests. |
+| **Vitest 4** | Automated test suite | High-performance node-based test runner with V8 coverage enforcement covering 724+ passing platform tests across 36 active test files (39 total files, 769 assertions). |
