@@ -101,6 +101,24 @@ export default function CasesApp({
       window.history.replaceState(null, "", url.toString());
     }
   };
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelSidebarClose = () => {
+    if (sidebarCloseTimer.current) {
+      clearTimeout(sidebarCloseTimer.current);
+      sidebarCloseTimer.current = null;
+    }
+  };
+
+  const scheduleSidebarClose = (delay = 150) => {
+    cancelSidebarClose();
+    sidebarCloseTimer.current = setTimeout(() => {
+      setSidebarOpen(false);
+      sidebarCloseTimer.current = null;
+    }, delay);
+  };
   const [cases, setCases] = useState<CaseFolder[]>([]);
   const [prevInitialCaseId, setPrevInitialCaseId] = useState(initialCaseId);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -521,18 +539,38 @@ export default function CasesApp({
   }
 
   return (
-    <div className="flex h-screen bg-black text-white supports-[height:100dvh]:h-dvh">
+    <div className="relative flex h-screen w-full overflow-hidden bg-black text-white supports-[height:100dvh]:h-dvh">
+      {/* Mobile backdrop */}
+      <div
+        aria-hidden
+        className={`fixed inset-0 z-30 bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+          sidebarOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       <aside
-        className={`${showListOnMobile ? "flex" : "hidden"} w-full flex-col border-r border-white/10 bg-black/50 md:flex md:w-80`}
+        id="cases-sidebar"
+        aria-label="Case tracker navigation"
+        onMouseEnter={() => {
+          cancelSidebarClose();
+          setSidebarOpen(true);
+        }}
+        onMouseLeave={() => scheduleSidebarClose(150)}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-white/10 bg-black/95 backdrop-blur-xl shadow-2xl transition-[width,transform] duration-300 ease-in-out md:translate-x-0 ${
+          sidebarOpen
+            ? "w-80 translate-x-0 shadow-[0_0_30px_rgba(0,0,0,0.8)]"
+            : `${showListOnMobile ? "w-80 translate-x-0" : "w-80 -translate-x-full"} md:w-16 md:translate-x-0`
+        }`}
       >
-        <div className="border-b border-white/10 p-4">
+        <div className="border-b border-white/10 p-3 sm:p-4">
           <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 overflow-hidden">
               <Link
                 href="/chat?modal=cases"
                 aria-label="Back to AI Lawyer menu"
                 title="Back to AI Lawyer menu"
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white/40 transition-all duration-200 hover:bg-white/10 hover:text-white/70"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/50 transition-all duration-200 hover:bg-white/10 hover:text-white"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -546,39 +584,100 @@ export default function CasesApp({
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </Link>
-              <h1 className="text-sm font-semibold text-white/90">
+              <h1
+                className={`text-sm font-semibold text-white/90 whitespace-nowrap transition-opacity duration-200 ${
+                  sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+                }`}
+              >
                 Cases
               </h1>
             </div>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-full p-1.5 text-white/60 hover:bg-white/5 hover:text-white md:hidden"
+              aria-label="Close sidebar"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
           {/* Module Switcher Tabs */}
-          <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1 text-center text-xs">
-            <span className="rounded-lg bg-white/10 py-1 font-semibold text-white">
-              Cases
-            </span>
-            <button
-              type="button"
-              onClick={() => setActiveModule("matters")}
-              className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              Matters
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveModule("amendments")}
-              className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              Amendments
-            </button>
-          </div>
+          {sidebarOpen ? (
+            <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1 text-center text-xs">
+              <span className="rounded-lg bg-white/10 py-1 font-semibold text-white">
+                Cases
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  setActiveModule("matters");
+                }}
+                className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                Matters
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  setActiveModule("amendments");
+                }}
+                className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                Amendments
+              </button>
+            </div>
+          ) : (
+            <div className="mb-3 hidden md:flex flex-col items-center gap-1.5">
+              <span title="Cases (Active)" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-white">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveModule("matters")}
+                title="Switch to Matters"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                  <rect x="8" y="2" width="8" height="4" rx="1" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveModule("amendments")}
+                title="Switch to Amendments"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </button>
+            </div>
+          )}
+
           <button
-            onClick={() => startEdit()}
-            className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+            onClick={() => {
+              setSidebarOpen(false);
+              startEdit();
+            }}
+            title="New Case"
+            className={`group flex items-center justify-center rounded-xl bg-white text-black transition-all duration-200 hover:bg-white/90 active:scale-[0.98] ${
+              sidebarOpen
+                ? "w-full gap-2 px-4 py-2.5 text-xs font-semibold"
+                : "h-10 w-10 mx-auto"
+            }`}
           >
             <svg
               viewBox="0 0 24 24"
-              className="h-4.5 w-4.5 transition-transform duration-300 group-hover:rotate-90"
+              className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:rotate-90"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"
@@ -587,61 +686,101 @@ export default function CasesApp({
             >
               <path d="M12 5v14M5 12h14" />
             </svg>
-            New Case
+            <span
+              className={`whitespace-nowrap transition-opacity duration-200 ${
+                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              }`}
+            >
+              New Case
+            </span>
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           {loading ? (
-            <div className="p-4 text-sm text-white/40">Loading cases...</div>
+            <div className={`p-4 text-xs text-white/40 ${sidebarOpen ? "block" : "hidden"}`}>Loading cases...</div>
           ) : cases.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
-                <svg
-                  className="h-7 w-7 text-white/20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
-                  />
-                </svg>
+            sidebarOpen ? (
+              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
+                  <svg
+                    className="h-7 w-7 text-white/20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+                    />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-white/50">No cases yet</p>
+                <p className="mt-1 text-xs text-white/30">
+                  Click &quot;New Case&quot; to start tracking
+                </p>
               </div>
-              <p className="text-sm font-medium text-white/50">No cases yet</p>
-              <p className="mt-1 text-xs text-white/30">
-                Click &quot;New Case&quot; to start tracking
-              </p>
-            </div>
+            ) : null
           ) : (
             cases.map((c) => (
               <button
                 key={c.id}
-                onClick={() => selectCase(c.id)}
-                className={`w-full border-b border-white/5 px-4 py-3.5 text-left transition-all duration-200 hover:bg-white/[0.04] ${selectedId === c.id ? "bg-white/[0.06] border-l-2 border-l-amber-400/60" : "border-l-2 border-l-transparent"}`}
+                onClick={() => {
+                  selectCase(c.id);
+                  setSidebarOpen(false);
+                }}
+                title={c.name}
+                className={`w-full transition-all duration-200 hover:bg-white/[0.04] ${
+                  sidebarOpen
+                    ? "border-b border-white/5 px-4 py-3.5 text-left block"
+                    : "flex h-12 w-16 items-center justify-center"
+                } ${
+                  selectedId === c.id
+                    ? sidebarOpen
+                      ? "bg-white/[0.06] border-l-2 border-l-amber-400/60"
+                      : "bg-white/[0.08] text-amber-400"
+                    : "border-l-2 border-l-transparent text-white/60"
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">{c.name}</span>
-                  <span
-                    className={`ml-auto shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide uppercase ${STATUS_COLORS[c.status] || STATUS_COLORS.active}`}
-                  >
+                {sidebarOpen ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium text-white">{c.name}</span>
+                      <span
+                        className={`ml-auto shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide uppercase ${STATUS_COLORS[c.status] || STATUS_COLORS.active}`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${c.status === "active" ? "bg-emerald-400" : c.status === "pending" ? "bg-amber-400" : "bg-white/40"}`}
+                        ></span>
+                        {c.status}
+                      </span>
+                    </div>
+                    {c.description && (
+                      <p className="mt-1 truncate text-xs text-white/40">
+                        {c.description}
+                      </p>
+                    )}
+                    {c.nextHearing && (
+                      <p className="mt-1 text-[11px] text-amber-400/70">
+                        Next: {formatDateTime(c.nextHearing)}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] text-xs font-semibold uppercase text-white/80 transition-colors hover:bg-white/10">
+                    {c.name.slice(0, 2)}
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${c.status === "active" ? "bg-emerald-400" : c.status === "pending" ? "bg-amber-400" : "bg-white/40"}`}
-                    ></span>
-                    {c.status}
-                  </span>
-                </div>
-                {c.description && (
-                  <p className="mt-1 truncate text-xs text-white/40">
-                    {c.description}
-                  </p>
-                )}
-                {c.nextHearing && (
-                  <p className="mt-1 text-[11px] text-amber-400/70">
-                    Next: {formatDateTime(c.nextHearing)}
-                  </p>
+                      className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-black ${
+                        c.status === "active"
+                          ? "bg-emerald-400"
+                          : c.status === "pending"
+                          ? "bg-amber-400"
+                          : "bg-white/40"
+                      }`}
+                    />
+                  </div>
                 )}
               </button>
             ))
@@ -650,11 +789,26 @@ export default function CasesApp({
       </aside>
 
       <main
-        className={`${showListOnMobile ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex`}
+        className={`${showListOnMobile ? "hidden md:flex" : "flex"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:pl-16 transition-[padding] duration-300`}
       >
         {/* Top App Navigation Bar */}
         <header className="flex items-center justify-between border-b border-white/10 bg-black/40 px-4 py-2.5">
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                cancelSidebarClose();
+                setSidebarOpen(true);
+              }}
+              className="rounded-lg p-1.5 text-white/60 hover:bg-white/5 hover:text-white md:hidden"
+              aria-label="Open cases menu"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
             {!showListOnMobile && (
               <MobileBackButton onClick={backToList} />
             )}

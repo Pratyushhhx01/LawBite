@@ -84,6 +84,24 @@ export default function MattersApp({
     "overview" | "documents" | "contract_risk" | "doc_compare" | "courtroom_prep" | "reports" | "activity"
   >("overview");
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelSidebarClose = () => {
+    if (sidebarCloseTimer.current) {
+      clearTimeout(sidebarCloseTimer.current);
+      sidebarCloseTimer.current = null;
+    }
+  };
+
+  const scheduleSidebarClose = (delay = 150) => {
+    cancelSidebarClose();
+    sidebarCloseTimer.current = setTimeout(() => {
+      setSidebarOpen(false);
+      sidebarCloseTimer.current = null;
+    }, delay);
+  };
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -537,192 +555,303 @@ export default function MattersApp({
   };
 
   return (
-    <div className="flex h-screen bg-black text-white selection:bg-amber-400/30 selection:text-white">
+    <div className="relative flex h-screen w-full overflow-hidden bg-black text-white selection:bg-amber-400/30 selection:text-white">
+      {/* Mobile backdrop */}
+      <div
+        aria-hidden
+        className={`fixed inset-0 z-30 bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+          sidebarOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* Sidebar: Matters List & Filtering */}
-      <aside className="flex w-80 shrink-0 flex-col border-r border-white/10 bg-black/60 backdrop-blur-xl">
-        <div className="border-b border-white/10 p-4">
+      <aside
+        onMouseEnter={() => {
+          cancelSidebarClose();
+          setSidebarOpen(true);
+        }}
+        onMouseLeave={() => scheduleSidebarClose(150)}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-white/10 bg-black/95 backdrop-blur-xl shadow-2xl transition-[width,transform] duration-300 ease-in-out md:translate-x-0 ${
+          sidebarOpen
+            ? "w-80 translate-x-0 shadow-[0_0_30px_rgba(0,0,0,0.8)]"
+            : "w-80 -translate-x-full md:w-16 md:translate-x-0"
+        }`}
+      >
+        <div className="border-b border-white/10 p-3 sm:p-4">
           <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5 overflow-hidden">
               <Link
                 href="/chat?modal=cases"
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
                 title="Back to AI Lawyer menu"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </Link>
-              <h1 className="text-sm font-bold tracking-tight text-white">
+              <h1
+                className={`text-sm font-bold tracking-tight text-white whitespace-nowrap transition-opacity duration-200 ${
+                  sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+                }`}
+              >
                 Matters
               </h1>
             </div>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-full p-1.5 text-white/60 hover:bg-white/5 hover:text-white md:hidden"
+              aria-label="Close sidebar"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
           {/* Module Switcher Tabs */}
-          <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1 text-center text-xs">
-            <Link
-              href="/cases?tab=cases"
-              onClick={onSwitchModule ? (e) => { e.preventDefault(); onSwitchModule("cases"); } : undefined}
-              className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              Cases
-            </Link>
-            <span className="rounded-lg bg-amber-400/20 py-1 font-semibold text-amber-300">
-              Matters
-            </span>
-            <Link
-              href="/cases?tab=amendments"
-              onClick={onSwitchModule ? (e) => { e.preventDefault(); onSwitchModule("amendments"); } : undefined}
-              className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              Amendments
-            </Link>
-          </div>
+          {sidebarOpen ? (
+            <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1 text-center text-xs">
+              <Link
+                href="/cases?tab=cases"
+                onClick={onSwitchModule ? (e) => { e.preventDefault(); setSidebarOpen(false); onSwitchModule("cases"); } : undefined}
+                className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                Cases
+              </Link>
+              <span className="rounded-lg bg-amber-400/20 py-1 font-semibold text-amber-300">
+                Matters
+              </span>
+              <Link
+                href="/cases?tab=amendments"
+                onClick={onSwitchModule ? (e) => { e.preventDefault(); setSidebarOpen(false); onSwitchModule("amendments"); } : undefined}
+                className="rounded-lg py-1 font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                Amendments
+              </Link>
+            </div>
+          ) : (
+            <div className="mb-3 hidden md:flex flex-col items-center gap-1.5">
+              <Link
+                href="/cases?tab=cases"
+                onClick={onSwitchModule ? (e) => { e.preventDefault(); onSwitchModule("cases"); } : undefined}
+                title="Switch to Cases"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+              </Link>
+              <span title="Matters (Active)" className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/20 text-amber-300">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                  <rect x="8" y="2" width="8" height="4" rx="1" />
+                </svg>
+              </span>
+              <Link
+                href="/cases?tab=amendments"
+                onClick={onSwitchModule ? (e) => { e.preventDefault(); onSwitchModule("amendments"); } : undefined}
+                title="Switch to Amendments"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </Link>
+            </div>
+          )}
 
           <button
             onClick={() => {
+              setSidebarOpen(false);
               resetForm();
               setShowCreateModal(true);
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3.5 py-2.5 text-xs font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+            title="New Matter"
+            className={`flex items-center justify-center rounded-xl bg-white text-black transition-all hover:bg-white/90 active:scale-[0.98] ${
+              sidebarOpen
+                ? "w-full gap-2 px-3.5 py-2.5 text-xs font-semibold"
+                : "h-10 w-10 mx-auto"
+            }`}
           >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
             </svg>
-            New Matter
+            <span
+              className={`whitespace-nowrap transition-opacity duration-200 ${
+                sidebarOpen ? "opacity-100" : "opacity-0 md:hidden"
+              }`}
+            >
+              New Matter
+            </span>
           </button>
 
-          {/* Search */}
-          <div className="relative mt-3">
-            <svg
-              className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter matters..."
-              className="w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/40 outline-none focus:border-white/20"
-            />
-          </div>
+          {/* Search & Filters */}
+          {sidebarOpen && (
+            <>
+              <div className="relative mt-3">
+                <svg
+                  className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter matters..."
+                  className="w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/40 outline-none focus:border-white/20"
+                />
+              </div>
 
-          {/* Quick Filters */}
-          <div className="mt-2.5 flex items-center gap-1 overflow-x-auto text-[10px]">
-            {["all", "active", "pending", "closed", "archived"].map((st) => (
-              <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`rounded px-2 py-0.5 capitalize transition-all ${
-                  statusFilter === st
-                    ? "bg-white/20 text-white font-semibold"
-                    : "text-white/40 hover:text-white"
-                }`}
-              >
-                {st}
-              </button>
-            ))}
-          </div>
+              {/* Quick Filters */}
+              <div className="mt-2.5 flex items-center gap-1 overflow-x-auto text-[10px]">
+                {["all", "active", "pending", "closed", "archived"].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setStatusFilter(st)}
+                    className={`rounded px-2 py-0.5 capitalize transition-all ${
+                      statusFilter === st
+                        ? "bg-white/20 text-white font-semibold"
+                        : "text-white/40 hover:text-white"
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
 
-          <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px]">
-            <select
-              value={stageFilter}
-              onChange={(e) => setStageFilter(e.target.value)}
-              style={{ colorScheme: "dark" }}
-              className="rounded-lg border border-white/10 bg-[#141414] px-2 py-1.5 text-white/90 outline-none transition-colors focus:border-white/20 [&>option]:bg-[#141414] [&>option]:text-white"
-            >
-              <option value="all" className="bg-[#141414] text-white">All Stages</option>
-              <option value="Pre-litigation" className="bg-[#141414] text-white">Pre-litigation</option>
-              <option value="Pleadings" className="bg-[#141414] text-white">Pleadings</option>
-              <option value="Evidence" className="bg-[#141414] text-white">Evidence</option>
-              <option value="Arguments" className="bg-[#141414] text-white">Arguments</option>
-              <option value="Judgment/Decree" className="bg-[#141414] text-white">Judgment/Decree</option>
-              <option value="Appeal" className="bg-[#141414] text-white">Appeal</option>
-              <option value="Closed" className="bg-[#141414] text-white">Closed</option>
-            </select>
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              style={{ colorScheme: "dark" }}
-              className="rounded-lg border border-white/10 bg-[#141414] px-2 py-1.5 text-white/90 outline-none transition-colors focus:border-white/20 [&>option]:bg-[#141414] [&>option]:text-white"
-            >
-              <option value="all" className="bg-[#141414] text-white">All Priorities</option>
-              <option value="Low" className="bg-[#141414] text-white">Low</option>
-              <option value="Medium" className="bg-[#141414] text-white">Medium</option>
-              <option value="High" className="bg-[#141414] text-white">High</option>
-              <option value="Urgent" className="bg-[#141414] text-white">Urgent</option>
-            </select>
-          </div>
+              <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px]">
+                <select
+                  value={stageFilter}
+                  onChange={(e) => setStageFilter(e.target.value)}
+                  style={{ colorScheme: "dark" }}
+                  className="rounded-lg border border-white/10 bg-[#141414] px-2 py-1.5 text-white/90 outline-none transition-colors focus:border-white/20 [&>option]:bg-[#141414] [&>option]:text-white"
+                >
+                  <option value="all" className="bg-[#141414] text-white">All Stages</option>
+                  <option value="Pre-litigation" className="bg-[#141414] text-white">Pre-litigation</option>
+                  <option value="Pleadings" className="bg-[#141414] text-white">Pleadings</option>
+                  <option value="Evidence" className="bg-[#141414] text-white">Evidence</option>
+                  <option value="Arguments" className="bg-[#141414] text-white">Arguments</option>
+                  <option value="Judgment/Decree" className="bg-[#141414] text-white">Judgment/Decree</option>
+                  <option value="Appeal" className="bg-[#141414] text-white">Appeal</option>
+                  <option value="Closed" className="bg-[#141414] text-white">Closed</option>
+                </select>
+                <select
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                  style={{ colorScheme: "dark" }}
+                  className="rounded-lg border border-white/10 bg-[#141414] px-2 py-1.5 text-white/90 outline-none transition-colors focus:border-white/20 [&>option]:bg-[#141414] [&>option]:text-white"
+                >
+                  <option value="all" className="bg-[#141414] text-white">All Priorities</option>
+                  <option value="Low" className="bg-[#141414] text-white">Low</option>
+                  <option value="Medium" className="bg-[#141414] text-white">Medium</option>
+                  <option value="High" className="bg-[#141414] text-white">High</option>
+                  <option value="Urgent" className="bg-[#141414] text-white">Urgent</option>
+                </select>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Matters List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {loadingList ? (
-            <div className="p-4 text-xs text-white/40">Loading legal matters...</div>
+            <div className={`p-4 text-xs text-white/40 ${sidebarOpen ? "block" : "hidden"}`}>Loading legal matters...</div>
           ) : filteredMatters.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <p className="text-xs font-medium text-white/50">No matters found</p>
-              <p className="mt-1 text-[11px] text-white/30">
-                Click &quot;New Matter&quot; to organize a case
-              </p>
-            </div>
+            sidebarOpen ? (
+              <div className="px-6 py-12 text-center">
+                <p className="text-xs font-medium text-white/50">No matters found</p>
+                <p className="mt-1 text-[11px] text-white/30">
+                  Click &quot;New Matter&quot; to organize a case
+                </p>
+              </div>
+            ) : null
           ) : (
             filteredMatters.map((m) => {
               const isSelected = selectedId === m.id;
               return (
                 <button
                   key={m.id}
-                  onClick={() => setSelectedId(m.id)}
-                  className={`w-full border-b border-white/5 px-4 py-3.5 text-left transition-all hover:bg-white/[0.04] ${
+                  onClick={() => {
+                    setSelectedId(m.id);
+                    setSidebarOpen(false);
+                  }}
+                  title={m.name}
+                  className={`w-full transition-all hover:bg-white/[0.04] ${
+                    sidebarOpen
+                      ? "border-b border-white/5 px-4 py-3.5 text-left block"
+                      : "flex h-12 w-16 items-center justify-center"
+                  } ${
                     isSelected
-                      ? "bg-white/[0.08] border-l-2 border-l-amber-400"
-                      : "border-l-2 border-l-transparent"
+                      ? sidebarOpen
+                        ? "bg-white/[0.08] border-l-2 border-l-amber-400"
+                        : "bg-white/[0.08] text-amber-400"
+                      : "border-l-2 border-l-transparent text-white/60"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-1.5">
-                    <span className="truncate text-xs font-semibold text-white">
-                      {m.name}
-                    </span>
-                    <span
-                      className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold border ${
-                        PRIORITY_COLORS[m.priority] || PRIORITY_COLORS.Medium
-                      }`}
-                    >
-                      {m.priority}
-                    </span>
-                  </div>
+                  {sidebarOpen ? (
+                    <>
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span className="truncate text-xs font-semibold text-white">
+                          {m.name}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold border ${
+                            PRIORITY_COLORS[m.priority] || PRIORITY_COLORS.Medium
+                          }`}
+                        >
+                          {m.priority}
+                        </span>
+                      </div>
 
-                  <div className="mt-1 flex items-center gap-1.5 text-[10px] text-white/50">
-                    <span className={`rounded px-1.5 py-0.2 border ${STAGE_COLORS[m.stage] || STAGE_COLORS["Pre-litigation"]}`}>
-                      {m.stage}
-                    </span>
-                    <span className="truncate">{m.matterType}</span>
-                  </div>
+                      <div className="mt-1 flex items-center gap-1.5 text-[10px] text-white/50">
+                        <span className={`rounded px-1.5 py-0.2 border ${STAGE_COLORS[m.stage] || STAGE_COLORS["Pre-litigation"]}`}>
+                          {m.stage}
+                        </span>
+                        <span className="truncate">{m.matterType}</span>
+                      </div>
 
-                  {m.parties && (
-                    <p className="mt-1 truncate text-[11px] text-white/40">
-                      {m.parties}
-                    </p>
-                  )}
+                      {m.parties && (
+                        <p className="mt-1 truncate text-[11px] text-white/40">
+                          {m.parties}
+                        </p>
+                      )}
 
-                  {m.nextHearing && (
-                    <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-400/80">
-                      <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 6v6l4 2" />
-                      </svg>
-                      {new Date(m.nextHearing).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </p>
+                      {m.nextHearing && (
+                        <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-400/80">
+                          <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 6v6l4 2" />
+                          </svg>
+                          {new Date(m.nextHearing).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] text-xs font-semibold uppercase text-white/80 transition-colors hover:bg-white/10">
+                      {m.name.slice(0, 2)}
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-black ${
+                          m.priority === "Urgent"
+                            ? "bg-red-400"
+                            : m.priority === "High"
+                            ? "bg-amber-400"
+                            : "bg-emerald-400"
+                        }`}
+                      />
+                    </div>
                   )}
                 </button>
               );
@@ -732,24 +861,41 @@ export default function MattersApp({
       </aside>
 
       {/* Main Workspace Pane */}
-      <main className="flex flex-1 flex-col overflow-hidden bg-black/95">
+      <main className="flex flex-1 flex-col overflow-hidden bg-black/95 md:pl-16 transition-[padding] duration-300">
         {/* Top App Navigation Bar */}
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 bg-black/40 px-4 sm:px-6">
-          <nav className="flex items-center gap-2 text-xs text-white/50">
-            <Link
-              href="/chat"
-              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                cancelSidebarClose();
+                setSidebarOpen(true);
+              }}
+              className="rounded-lg p-1.5 text-white/60 hover:bg-white/5 hover:text-white md:hidden"
+              aria-label="Open matters menu"
             >
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
-              AI Chat
-            </Link>
-            <span>/</span>
-            <span className="font-semibold text-white">
-              Matters
-            </span>
-          </nav>
+            </button>
+            <nav className="flex items-center gap-2 text-xs text-white/50">
+              <Link
+                href="/chat"
+                className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                AI Chat
+              </Link>
+              <span>/</span>
+              <span className="font-semibold text-white">
+                Matters
+              </span>
+            </nav>
+          </div>
         </header>
         {!workspace || loadingWorkspace ? (
           <div className="flex flex-1 items-center justify-center text-center">
