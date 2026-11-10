@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.1] - 2026-11-10
+
+### Fixed
+- **Matters document viewing:** Matter workspace document “View” actions now open via the secure proxy route (`/api/cases/documents/[docId]`) instead of direct `fileUrl`, ensuring authenticated streaming for S3-backed and data-URI documents.
+
+### Security
+- **Browser hardening:** Removed `'unsafe-eval'` from CSP `script-src`, added `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, and `X-DNS-Prefetch-Control: off`.
+- **OAuth state validation:** Removed `account.skipStateCookieCheck` in Better Auth configuration to restore standard OAuth state cookie checks (requires end-to-end OAuth verification in target environments).
+
+### Added
+- **Baseline audit artifact:** `docs/BASELINE_AUDIT_2026-11-10.md` documenting verified strengths, findings, remediation status, and prioritized next steps for 5.0/5 readiness.
+
+### Verification
+- `npm run lint`: passed
+- `npm run typecheck`: passed
+- `npm test`: 728 passed, 45 skipped (3 suites), 0 failed
+- `npm run build`: passed
+- `npm audit --audit-level=high`: no high/critical vulnerabilities reported (7 moderate dev-dependency issues remain in eslint/typescript-eslint toolchain)
+
+---
+
 ## [2.1.0] - 2026-11-08
 
 ### Added
