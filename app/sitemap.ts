@@ -14,6 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/chat", changeFrequency: "weekly" as const, priority: 0.95 },
     { path: "/matters", changeFrequency: "weekly" as const, priority: 0.9 },
     { path: "/amendments", changeFrequency: "weekly" as const, priority: 0.9 },
+    { path: "/trust", changeFrequency: "weekly" as const, priority: 0.9 },
     { path: "/tools", changeFrequency: "monthly" as const, priority: 0.85 },
     { path: "/about", changeFrequency: "monthly" as const, priority: 0.8 },
     { path: "/calculators", changeFrequency: "monthly" as const, priority: 0.75 },

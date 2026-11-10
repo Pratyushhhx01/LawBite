@@ -233,6 +233,9 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} LawBite. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-xs text-white/50">
+            <Link href="/trust" className="text-emerald-400/90 transition-colors hover:text-emerald-300">
+              Trust Center
+            </Link>
             <Link href="/amendments?view=info" className="transition-colors hover:text-white">
               Amendments
             </Link>
