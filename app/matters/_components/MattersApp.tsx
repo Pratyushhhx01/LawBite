@@ -1265,18 +1265,16 @@ export default function MattersApp({
                               </div>
                             </div>
 
-                            {doc.fileUrl && (
-                              <div className="mt-3.5 pt-3 border-t border-white/5 flex justify-end">
-                                <a
-                                  href={doc.fileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/20 px-3.5 py-2 text-xs font-semibold transition-colors"
-                                >
-                                  View Document ↗
-                                </a>
-                              </div>
-                            )}
+                            <div className="mt-3.5 pt-3 border-t border-white/5 flex justify-end">
+                              <a
+                                href={`/api/cases/documents/${doc.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/20 px-3.5 py-2 text-xs font-semibold transition-colors"
+                              >
+                                View Document ↗
+                              </a>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1324,16 +1322,14 @@ export default function MattersApp({
                                   })}
                                 </td>
                                 <td className="px-4 py-3.5 text-right space-x-2">
-                                  {doc.fileUrl && (
-                                    <a
-                                      href={doc.fileUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="rounded bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white"
-                                    >
-                                      View ↗
-                                    </a>
-                                  )}
+                                  <a
+                                    href={`/api/cases/documents/${doc.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white"
+                                  >
+                                    View ↗
+                                  </a>
                                 </td>
                               </tr>
                             ))}
