@@ -60,7 +60,7 @@ const features: Feature[] = [
     tag: "09",
     title: "Live Web Search",
     description:
-      "When your query needs current information, Lawbite automatically searches the web for recent judgments, amendments, and legal developments.",
+      "When your query needs current information, LawBite automatically searches the web for recent judgments, amendments, and legal developments.",
   },
 ];
 

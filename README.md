@@ -17,7 +17,7 @@
   <a href="https://law-bite.vercel.app">
     <img src="https://img.shields.io/badge/Production-Live-brightgreen.svg" alt="Production Live" />
   </a>
-  <img src="https://img.shields.io/badge/Tests-724%20Passing-success.svg" alt="724 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-728%20Passing-success.svg" alt="728 Tests Passing" />
   <img src="https://img.shields.io/badge/Bare%20Acts-157%2B%20Indexed-amber.svg" alt="157+ Bare Acts" />
   <img src="https://img.shields.io/badge/Next.js-16%20App%20Router-black.svg" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/React-19-blue.svg" alt="React 19" />
@@ -60,7 +60,7 @@
 
 ## 🏛️ Executive Summary
 
-**LawBite** is an advanced, production-deployed legal-tech platform tailored specifically to the statutory complexities, procedural codes, and judicial jurisprudence of India. Built upon **Next.js 16 (App Router)**, **React 19**, and **Neon Serverless PostgreSQL**, LawBite combines non-autoregressive **Diffusion Language Modeling (Inception Mercury 2.5 dLLM)** with deterministic statutory validation to eliminate legal hallucinations.
+**LawBite** is an advanced legal-tech platform tailored specifically to the statutory complexities, procedural codes, and judicial jurisprudence of India. Built upon **Next.js 16 (App Router)**, **React 19**, and **Neon Serverless PostgreSQL**, LawBite combines non-autoregressive **Diffusion Language Modeling (Inception Mercury 2.5 dLLM)** with deterministic statutory validation designed to significantly reduce unsupported AI-generated claims through retrieval grounding and citation verification.
 
 Unlike general-purpose conversational LLMs that fabricate section numbers or confuse pre- and post-2024 Indian criminal enactments, LawBite grounds every response in an authoritative corpus of **157+ Indian Bare Acts** and real Supreme Court / High Court precedents, offering an integrated suite for litigation preparation, transactional contract analysis, and matter lifecycle management.
 
@@ -92,7 +92,7 @@ LawBite delivers 18 integrated feature modules designed for advocates, corporate
 | **3. Good-Law Precedent Checker** | Deterministic subsequent judicial treatment analysis (*Followed*, *Distinguished*, *Overruled*, *Reversed*, *Affirmed*) | ✅ Production |
 | **4. Statutory Transition Engine** | Bidirectional IPC $\leftrightarrow$ BNS, CrPC $\leftrightarrow$ BNSS, and IEA $\leftrightarrow$ BSA mapping with word-level diffs and transitional scope | ✅ Production |
 | **5. 157+ Bare Acts Knowledge Base** | Complete statutory corpus with granular $O(1)$ section lookups and hybrid semantic vector search | ✅ Production |
-| **6. Deterministic Citation Verifier** | Real-time parser validating section existence against verified statutory text; flags hallucinations with warnings | ✅ Production |
+| **6. Deterministic Citation Verifier** | Real-time parser validating section existence against verified statutory text; flags ungrounded references with warnings | ✅ Production |
 | **7. Contract Risk Analyzer** | Automated clause-by-clause audit checking Indian Contract Act §§23/27/28, unilateral indemnities, and stamp duty requirements | ✅ Production |
 | **8. Document Comparison Engine** | Side-by-side contract revision redlining with risk escalation metrics and statutory exposure analysis | ✅ Production |
 | **9. Courtroom Preparation Mode** | Witness cross-examination strategies, impeachment traps using contradictory exhibits, and judicial preference summaries | ✅ Production |
@@ -375,13 +375,13 @@ Deep-dive technical specifications and operational runbooks are maintained in th
 
 ## 🧪 Testing & Quality Assurance
 
-LawBite maintains a comprehensive automated testing suite consisting of **724 passing tests across 36 active test files (39 test files total, 769 defined test cases, 0 failures)**:
+LawBite maintains a comprehensive automated testing suite consisting of **728 passing tests across 37 active test files (40 test files total, 773 defined test cases, 0 failures)**:
 
 ```text
- Test Files  36 passed | 3 skipped (39)
-      Tests  724 passed | 45 skipped (769)
-   Start at  20:01:47
-   Duration  58.47s
+ Test Files  37 passed | 3 skipped (40)
+      Tests  728 passed | 45 skipped (773)
+   Start at  22:12:04
+   Duration  61.48s
 ```
 
 *(Note: 3 test suites comprising 45 live-cloud integration tests are conditionally skipped when running hermetically without active AWS S3 credentials, ensuring zero false-negative failures in offline or air-gapped CI environments).*

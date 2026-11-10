@@ -47,6 +47,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const allowedMimeTypes = new Set([
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+      "text/plain",
+    ]);
+
+    const lowerName = file.name.toLowerCase();
+    const hasAllowedExtension =
+      lowerName.endsWith(".pdf") ||
+      lowerName.endsWith(".docx") ||
+      lowerName.endsWith(".doc") ||
+      lowerName.endsWith(".txt");
+
+    if (!hasAllowedExtension || (file.type && !allowedMimeTypes.has(file.type))) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid file type. Only PDF, DOCX, DOC, and TXT documents are allowed.",
+        },
+        { status: 400 },
+      );
+    }
+
     const folder = await db
       .selectFrom("case_folder")
       .select("id")
@@ -88,7 +112,9 @@ export async function POST(request: NextRequest) {
 
     // Fallback if S3 is unavailable or upload threw an error
     if (!fileUrl) {
-      const mime = file.type || "application/octet-stream";
+      const mime = allowedMimeTypes.has(file.type)
+        ? file.type
+        : "application/octet-stream";
       fileUrl = `data:${mime};base64,${body.toString("base64")}`;
     }
 

@@ -45,7 +45,7 @@ export default function Verification() {
           </Reveal>
           <Reveal delay={1}>
             <p className="max-w-md text-base leading-relaxed text-white/60">
-              Legal answers are only useful if you can check them. Lawbite
+              Legal answers are only useful if you can check them. LawBite
               retrieves real section text from Indian bare acts and verifies
               every citation before it reaches your screen.
             </p>
@@ -161,7 +161,7 @@ export default function Verification() {
           <p className="mt-14 max-w-3xl text-xs leading-relaxed text-white/35">
             Verification confirms that a cited provision exists in the named
             bare act. It does not replace advice from a qualified advocate, and
-            Lawbite responses remain AI-generated for reference purposes.
+            LawBite responses remain AI-generated for reference purposes.
           </p>
         </Reveal>
       </div>

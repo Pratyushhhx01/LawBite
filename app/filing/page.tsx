@@ -4,16 +4,16 @@ import ResourceLayout from "../resources/_components/ResourceLayout";
 import { filingGuidePreviews } from "./_data";
 
 export const metadata: Metadata = {
-  title: "Filing Assistance — Lawbite",
+  title: "Filing Assistance — LawBite",
   description:
-    "See the filing assistance features available on Lawbite — cyber crime complaints, RTI, and consumer complaints.",
+    "See the filing assistance features available on LawBite — cyber crime complaints, RTI, and consumer complaints.",
 };
 
 export default function FilingPage() {
   return (
     <ResourceLayout
       title="Filing Assistance"
-      description="Lawbite guides you through filing cyber crime complaints, RTI applications, and consumer complaints — all online."
+      description="LawBite guides you through filing cyber crime complaints, RTI applications, and consumer complaints — all online."
     >
       <section>
         <h2 className="text-xl font-semibold text-white">

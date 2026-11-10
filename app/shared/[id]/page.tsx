@@ -5,8 +5,8 @@ import { getSharedChat } from "@/lib/shares";
 import { stripThinkingTokens } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Shared conversation — Lawbite",
-  description: "A conversation shared from Lawbite.",
+  title: "Shared conversation — LawBite",
+  description: "A conversation shared from LawBite.",
   robots: { index: false, follow: false },
 };
 
@@ -28,11 +28,11 @@ function LinkExpired({ message }: { message: string }) {
       <div className="text-center">
         <Link
           href="/"
-          aria-label="Lawbite home"
+          aria-label="LawBite home"
           className="mb-8 inline-flex items-center gap-2.5 text-sm font-semibold tracking-tight"
         >
           <LogoIcon className="h-6 w-6" />
-          <span>Lawbite</span>
+          <span>LawBite</span>
         </Link>
         <h1 className="text-xl font-semibold text-white">Link unavailable</h1>
         <p className="mt-2 text-sm text-white/50">{message}</p>
@@ -76,11 +76,11 @@ export default async function SharedPage({
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-4 sm:px-6">
           <Link
             href="/"
-            aria-label="Lawbite home"
+            aria-label="LawBite home"
             className="inline-flex items-center gap-2.5 text-sm font-semibold tracking-tight"
           >
             <LogoIcon className="h-6 w-6" />
-            <span>Lawbite</span>
+            <span>LawBite</span>
           </Link>
           <Link
             href={continueHref}

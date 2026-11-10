@@ -7,7 +7,7 @@ if (!process.env.DATABASE_URL) {
   config({ path: ".env" });
 }
 
-const pool = new Pool({
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl:
     process.env.DATABASE_URL?.includes("neon.tech") ||

@@ -104,13 +104,6 @@ const jsonLdData = {
       url: APP_URL,
       description:
         "AI-powered Indian legal research, matter management, contract analysis, and statutory citation verification platform.",
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: "4.9",
-        bestRating: "5.0",
-        worstRating: "1.0",
-        ratingCount: "722",
-      },
       offers: {
         "@type": "Offer",
         price: "0",

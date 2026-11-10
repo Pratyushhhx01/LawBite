@@ -24,7 +24,7 @@ export default function Hero() {
         <Reveal delay={1}>
           <Image
             src="/lawbite-hero.jpeg"
-            alt="Lawbite — know your rights"
+            alt="LawBite — know your rights"
             width={1300}
             height={320}
             priority

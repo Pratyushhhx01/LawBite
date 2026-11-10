@@ -14,7 +14,7 @@ const Navbar = dynamic(() => import("./Navbar"), {
           className="group flex items-center gap-2.5 text-sm font-semibold tracking-tight"
         >
           <LogoIcon className="h-7 w-7" />
-          <span className="text-white">Lawbite</span>
+          <span className="text-white">LawBite</span>
         </a>
         <div className="hidden items-center gap-2 md:flex">
           <Link

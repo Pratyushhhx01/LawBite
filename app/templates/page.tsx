@@ -4,16 +4,16 @@ import ResourceLayout from "../resources/_components/ResourceLayout";
 import { templatePreviews } from "./_data";
 
 export const metadata: Metadata = {
-  title: "Contract Templates — Lawbite",
+  title: "Contract Templates — LawBite",
   description:
-    "Browse ready-to-use Indian legal contract templates available on Lawbite.",
+    "Browse ready-to-use Indian legal contract templates available on LawBite.",
 };
 
 export default function TemplatesPage() {
   return (
     <ResourceLayout
       title="Contract Templates"
-      description="Lawbite includes ready-to-use Indian legal contract templates. Fill in the blanks and download a finished draft."
+      description="LawBite includes ready-to-use Indian legal contract templates. Fill in the blanks and download a finished draft."
     >
       <section>
         <h2 className="text-xl font-semibold text-white">

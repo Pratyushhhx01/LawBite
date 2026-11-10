@@ -70,7 +70,7 @@ export default function Navbar() {
           className="group flex items-center gap-2.5 text-sm font-semibold tracking-tight"
         >
           <LogoIcon className="h-7 w-7" />
-          <span className="text-white">Lawbite</span>
+          <span className="text-white">LawBite</span>
         </Link>
 
         <ul className="hidden items-center gap-1 text-sm text-white/70 md:flex">

@@ -1,18 +1,11 @@
-import { Pool } from "pg";
+import { pool } from "@/lib/db";
 
 /**
  * PostgreSQL Knowledge Base & pgvector Client
  *
  * Provides hybrid retrieval (exact provision lookup + full-text search + vector similarity)
- * against the `legal_chunks` table in PostgreSQL.
+ * against the `legal_chunks` table in PostgreSQL. Reuses the application's central connection pool.
  */
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL?.replace("sslmode=verify-full", "sslmode=require"),
-  ssl: { rejectUnauthorized: false },
-  max: 10,
-  idleTimeoutMillis: 30000,
-});
 
 export type LegalChunk = {
   id: string;
@@ -186,7 +179,7 @@ export async function searchLegalChunksText(
       AND (tsv_content @@ plainto_tsquery('english', $1)
        OR title ILIKE '%' || $1 || '%'
        OR content ILIKE '%' || $1 || '%')
-    ORDER BY rank DESC
+    ORDER BY rank DESC NULLS LAST
     LIMIT $2;
   `;
   try {

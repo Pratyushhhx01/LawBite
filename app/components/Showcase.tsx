@@ -118,7 +118,7 @@ export default function Showcase() {
                   <div className="flex items-center gap-2 border-b border-white/10 pb-3">
                     <LogoIcon className="h-6 w-6" />
                     <span className="text-sm font-semibold text-white">
-                      Lawbite
+                      LawBite
                     </span>
                   </div>
 
@@ -331,7 +331,7 @@ export default function Showcase() {
                           </svg>
                         </button>
                         <div className="flex-1 px-1 py-1.5 text-sm text-white/40">
-                          Message Lawbite...
+                          Message LawBite...
                         </div>
                         <button
                           type="button"

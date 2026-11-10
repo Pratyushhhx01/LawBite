@@ -216,10 +216,17 @@ export const s3kb = {
       text: string;
     }> = [];
 
-    for (const actId of acts) {
-      const sections = await getJson<
-        Array<{ section: string; title: string }>
-      >(`bare-acts/${actId}/_sections.json`);
+    // Parallelize reading section lists across acts
+    const actSections = await Promise.all(
+      acts.map(async (actId) => {
+        const sections = await getJson<
+          Array<{ section: string; title: string }>
+        >(`bare-acts/${actId}/_sections.json`);
+        return { actId, sections };
+      }),
+    );
+
+    for (const { actId, sections } of actSections) {
       if (!sections) continue;
       for (const s of sections) {
         if (s.title && s.title.toLowerCase().includes(lower)) {
@@ -229,8 +236,10 @@ export const s3kb = {
             title: s.title,
             text: "",
           });
+          if (results.length >= 15) break;
         }
       }
+      if (results.length >= 15) break;
     }
     return results;
   },

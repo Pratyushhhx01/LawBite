@@ -96,14 +96,14 @@ function SignInForm() {
       <div className="flex flex-col items-center text-center">
         <Link
           href="/"
-          aria-label="Lawbite home"
+          aria-label="LawBite home"
           className="inline-flex items-center gap-2.5 text-sm font-semibold tracking-tight"
         >
           <LogoIcon className="h-7 w-7" />
-          <span>Lawbite</span>
+          <span>LawBite</span>
         </Link>
         <h1 className="mt-8 text-2xl font-semibold tracking-tight sm:text-3xl">
-          Sign in to Lawbite
+          Sign in to LawBite
         </h1>
         <p className="mt-2 text-sm text-white/55">
           {shareId

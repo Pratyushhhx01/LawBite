@@ -27,8 +27,8 @@ export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data: blob: https: http:",
+  "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://integrate.api.nvidia.com https://api.tavily.com https://*.amazonaws.com https://accounts.google.com https://github.com",
+  "connect-src 'self' https://*.amazonaws.com https://accounts.google.com https://github.com",
   "frame-ancestors 'none'",
 ].join("; ");

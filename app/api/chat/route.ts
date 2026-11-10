@@ -731,26 +731,76 @@ async function getLegalKnowledge(
     }
 
     if (!targetAct && sectionMatches.length > 0) {
-      const raw = await s3kb.getFullTextIndex();
-      if (raw) {
-        const ids: string[] = [];
-        for (const entry of raw) {
-          const id = typeof entry === "string" ? entry : entry.id;
-          if (id !== "constitution") ids.push(id);
-        }
-        for (const secNum of sectionMatches) {
-          for (const id of ids) {
+      // Prioritize high-frequency Indian codes in parallel before scanning other acts
+      const priorityActs = [
+        "ipc",
+        "bharatiya-nyaya-sanhita",
+        "crpc",
+        "bharatiya-nagrik-suraksha-sanhita",
+        "bharatiya-sakshya-adhiniyam",
+        "indian-contract-act",
+        "code-of-civil-procedure",
+        "transfer-of-property-act",
+        "companies-act",
+        "negotiable-instruments-act",
+        "specific-relief-act",
+        "limitation-act",
+        "information-technology-act",
+        "consumer-protection-act",
+        "hindu-marriage-act",
+      ];
+      for (const secNum of sectionMatches) {
+        let found = false;
+        const priorityResults = await Promise.all(
+          priorityActs.map(async (id) => {
             const sec = await s3kb.getSection(id, secNum);
-            if (sec) {
-              parts.push(
-                `[${id.toUpperCase()} Section ${sec.section}] ${sec.title}: ${sec.text}`,
-              );
-              citations.push({
-                type: "act",
-                label: `${displayActName(id)} § ${sec.section}`,
-                snippet: `${sec.title}: ${sec.text}`,
-              });
-              break;
+            return sec ? { id, sec } : null;
+          }),
+        );
+        for (const res of priorityResults) {
+          if (res) {
+            parts.push(
+              `[${res.id.toUpperCase()} Section ${res.sec.section}] ${res.sec.title}: ${res.sec.text}`,
+            );
+            citations.push({
+              type: "act",
+              label: `${displayActName(res.id)} § ${res.sec.section}`,
+              snippet: `${res.sec.title}: ${res.sec.text}`,
+            });
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          const raw = await s3kb.getFullTextIndex();
+          if (raw) {
+            const remaining = raw
+              .map((e: string | { id: string }) =>
+                typeof e === "string" ? e : e.id,
+              )
+              .filter(
+                (id: string) =>
+                  id !== "constitution" && !priorityActs.includes(id),
+              )
+              .slice(0, 30);
+            const remResults = await Promise.all(
+              remaining.map(async (id: string) => {
+                const sec = await s3kb.getSection(id, secNum);
+                return sec ? { id, sec } : null;
+              }),
+            );
+            for (const res of remResults) {
+              if (res) {
+                parts.push(
+                  `[${res.id.toUpperCase()} Section ${res.sec.section}] ${res.sec.title}: ${res.sec.text}`,
+                );
+                citations.push({
+                  type: "act",
+                  label: `${displayActName(res.id)} § ${res.sec.section}`,
+                  snippet: `${res.sec.title}: ${res.sec.text}`,
+                });
+                break;
+              }
             }
           }
         }

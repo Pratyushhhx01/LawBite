@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import RemindersApp from "./_components/RemindersApp";
 
 export const metadata: Metadata = {
-  title: "Deadline Reminder — Lawbite",
+  title: "Deadline Reminder — LawBite",
   description: "Track court dates, filing deadlines, and limitation periods.",
 };
 

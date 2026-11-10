@@ -57,7 +57,7 @@ export default function HowItWorks() {
               </h2>
             </div>
             <p className="max-w-sm text-sm leading-relaxed text-white/60">
-              No legal training required. Just ask, and Lawbite does the heavy
+              No legal training required. Just ask, and LawBite does the heavy
               lifting.
             </p>
           </div>

@@ -7,12 +7,12 @@ type Item = { q: string; a: string };
 
 const items: Item[] = [
   {
-    q: "What Indian laws does Lawbite cover?",
-    a: "Lawbite has knowledge of 157+ Indian bare acts including the IPC, BNS, CrPC, BNSS, Constitution, Indian Contract Act, Evidence Act, and many more. It retrieves information at the section and article level for precise legal references.",
+    q: "What Indian laws does LawBite cover?",
+    a: "LawBite has knowledge of 157+ Indian bare acts including the IPC, BNS, CrPC, BNSS, Constitution, Indian Contract Act, Evidence Act, and many more. It retrieves information at the section and article level for precise legal references.",
   },
   {
-    q: "Is Lawbite a replacement for a lawyer?",
-    a: "No. Lawbite is a research and analysis tool — it helps you understand legal provisions, explore your options, and prepare better questions for your lawyer. It does not provide legal advice or represent you in any proceeding.",
+    q: "Is LawBite a replacement for a lawyer?",
+    a: "No. LawBite is a research and analysis tool — it helps you understand legal provisions, explore your options, and prepare better questions for your lawyer. It does not provide legal advice or represent you in any proceeding.",
   },
   {
     q: "How does the AI Lawyer mode work?",
@@ -24,11 +24,11 @@ const items: Item[] = [
   },
   {
     q: "Is it free to use?",
-    a: "Yes — Lawbite is free to start. You can ask questions across all four AI modes without any payment. A Plus plan with additional features is available for power users.",
+    a: "Yes — LawBite is free to start. You can ask questions across all four AI modes without any payment. A Plus plan with additional features is available for power users.",
   },
   {
     q: "Does it search the web for current legal developments?",
-    a: "Yes. When your query requires up-to-date information — such as recent judgments, amendments, or notifications — Lawbite automatically searches the web and incorporates current results into its response.",
+    a: "Yes. When your query requires up-to-date information — such as recent judgments, amendments, or notifications — LawBite automatically searches the web and incorporates current results into its response.",
   },
 ];
 

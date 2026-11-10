@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
           .selectFrom("case_document")
           .selectAll()
           .where("caseId", "=", caseId)
+          .where("userId", "=", user.id)
           .orderBy("createdAt", "desc")
           .execute()
           .catch((docErr) => {

@@ -72,7 +72,7 @@ export default function Footer() {
               className="inline-flex items-center gap-2.5 text-sm font-semibold"
             >
               <LogoIcon className="h-7 w-7" />
-              <span>Lawbite</span>
+              <span>LawBite</span>
             </Link>
             <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/55">
               AI-powered Indian legal intelligence platform. Fast diffusion model
@@ -230,7 +230,7 @@ export default function Footer() {
 
         <div className="mt-16 flex flex-col items-start justify-between gap-4 border-t border-white/10 pt-8 sm:flex-row sm:items-center">
           <p className="text-xs text-white/40">
-            &copy; {new Date().getFullYear()} Lawbite. All rights reserved.
+            &copy; {new Date().getFullYear()} LawBite. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-xs text-white/50">
             <Link href="/amendments?view=info" className="transition-colors hover:text-white">
