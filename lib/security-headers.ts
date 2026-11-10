@@ -21,14 +21,21 @@ export const SECURITY_HEADERS = [
     value: "max-age=63072000; includeSubDomains; preload",
   },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "X-DNS-Prefetch-Control", value: "off" },
 ] as const;
 
+// Note: 'unsafe-inline' remains for Next.js hydration/styles; 'unsafe-eval'
+// removed from script-src to reduce XSS blast radius. Tighten further with
+// nonces when the app adopts nonce-based CSP.
 export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://*.amazonaws.com https://accounts.google.com https://github.com",
+  "connect-src 'self' https://*.amazonaws.com https://accounts.google.com https://github.com https://api.github.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
   "frame-ancestors 'none'",
 ].join("; ");
