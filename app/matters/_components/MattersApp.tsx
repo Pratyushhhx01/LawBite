@@ -5,6 +5,7 @@ import Link from "next/link";
 import type {
   LegalMatter,
   MatterDocument,
+  MatterReport,
   MatterWorkspace,
   MatterStatus,
   MatterStage,
@@ -73,6 +74,20 @@ const MATTER_STAGES: MatterStage[] = [
 ];
 
 const MATTER_PRIORITIES: MatterPriority[] = ["Low", "Medium", "High", "Urgent"];
+
+/**
+ * Resolve which detail tab a saved report should open in.
+ * Returns null when the entry has no usable reportData.
+ */
+export function getSavedReportTarget(
+  rep: Pick<MatterReport, "reportType" | "reportData">,
+): "contract_risk" | "doc_compare" | "courtroom_prep" | null {
+  if (!rep.reportData || typeof rep.reportData !== "object") return null;
+  if (rep.reportType === "contract_risk") return "contract_risk";
+  if (rep.reportType === "document_comparison") return "doc_compare";
+  if (rep.reportType === "courtroom_prep") return "courtroom_prep";
+  return null;
+}
 
 export default function MattersApp({
   initialMatterId = null,
@@ -576,6 +591,26 @@ export default function MattersApp({
       console.error("Courtroom prep error", e);
     } finally {
       setPreppingCourtroom(false);
+    }
+  };
+
+  // Open a saved report in its native tab (reuses the full detail UI).
+  const openSavedReport = (rep: MatterReport) => {
+    const target = getSavedReportTarget(rep);
+    if (!target) {
+      alert("Saved report data is unavailable for this entry.");
+      return;
+    }
+    const data = rep.reportData as Record<string, unknown>;
+    if (target === "contract_risk") {
+      setRiskResult(data as unknown as ContractAnalysisReport);
+      setActiveTab("contract_risk");
+    } else if (target === "doc_compare") {
+      setCompareResult(data as unknown as DocumentComparisonReport);
+      setActiveTab("doc_compare");
+    } else {
+      setPrepResult(data as unknown as CourtroomPrepBrief);
+      setActiveTab("courtroom_prep");
     }
   };
 
@@ -1818,9 +1853,11 @@ export default function MattersApp({
                   ) : (
                     <div className="space-y-3">
                       {workspace.reports.map((rep) => (
-                        <div
+                        <button
                           key={rep.id}
-                          className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-2"
+                          type="button"
+                          onClick={() => openSavedReport(rep)}
+                          className="block w-full cursor-pointer rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-left transition-all hover:border-amber-400/40 hover:bg-white/[0.04]"
                         >
                           <div className="flex items-center justify-between">
                             <span className="rounded bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-400 uppercase">
@@ -1834,9 +1871,13 @@ export default function MattersApp({
                               })}
                             </span>
                           </div>
-                          <h4 className="text-sm font-bold text-white">{rep.title}</h4>
+                          <h4 className="mt-2 text-sm font-bold text-white">{rep.title}</h4>
                           <p className="text-xs text-white/70 leading-relaxed">{rep.summary}</p>
-                        </div>
+                          <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-amber-400">
+                            Open report
+                            <span aria-hidden>→</span>
+                          </span>
+                        </button>
                       ))}
                     </div>
                   )}
