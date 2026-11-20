@@ -1759,14 +1759,20 @@ export default function MattersApp({
                         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-3">
                           <h4 className="text-sm font-bold text-white">Tactical Cross-Examination Questions</h4>
                           <div className="space-y-2">
-                            {prepResult.crossExamination.map((cq: CrossExaminationQuestion, idx: number) => (
-                              <div key={idx} className="rounded-xl border border-white/5 bg-black/40 p-3 text-xs space-y-1">
-                                <p className="text-[10px] text-amber-400 font-semibold uppercase">{cq.targetWitness}</p>
-                                <p className="font-semibold text-white">&quot;{cq.question}&quot;</p>
-                                <p className="text-[11px] text-white/50">Purpose: {cq.purpose}</p>
-                                <p className="text-[10px] text-white/40">Basis: {cq.statutoryBasis}</p>
-                              </div>
-                            ))}
+                            {prepResult.crossExamination.length === 0 ? (
+                              <p className="rounded-xl border border-white/5 bg-black/40 p-3 text-xs text-white/50">
+                                No cross-examination questions generated for these facts. Add witness details and prior statements to the case facts above, then regenerate the brief.
+                              </p>
+                            ) : (
+                              prepResult.crossExamination.map((cq: CrossExaminationQuestion, idx: number) => (
+                                <div key={idx} className="rounded-xl border border-white/5 bg-black/40 p-3 text-xs space-y-1">
+                                  <p className="text-[10px] text-amber-400 font-semibold uppercase">{cq.targetWitness}</p>
+                                  <p className="font-semibold text-white">&quot;{cq.question}&quot;</p>
+                                  <p className="text-[11px] text-white/50">Purpose: {cq.purpose}</p>
+                                  <p className="text-[10px] text-white/40">Basis: {cq.statutoryBasis}</p>
+                                </div>
+                              ))
+                            )}
                           </div>
                         </div>
                       </div>

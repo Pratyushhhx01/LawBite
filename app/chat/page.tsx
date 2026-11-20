@@ -47,7 +47,7 @@ export default async function ChatPage({
     params.cases === "true" ||
     params.cases === "open";
 
-  let session = null;
+  let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
   try {
     session = await auth.api.getSession({
       headers: await headers(),
@@ -81,7 +81,7 @@ export default async function ChatPage({
 
     let importedId: string | null = null;
     try {
-      importedId = await claimSharedChat(session.user.id, params.shareId);
+      importedId = await claimSharedChat(session!.user.id, params.shareId);
     } catch (error) {
       console.error("Failed to import shared chat:", error);
     }
@@ -90,7 +90,7 @@ export default async function ChatPage({
       redirect(`/shared/${encodeURIComponent(params.shareId)}`);
     }
 
-    const qs = new URLSearchParams({ conversation: importedId });
+    const qs = new URLSearchParams({ conversation: importedId as string });
     if (caseId) qs.set("caseId", caseId);
     if (tool) qs.set("tool", tool);
     if (item) qs.set("item", item);
@@ -115,16 +115,16 @@ export default async function ChatPage({
   }
 
   const user = {
-    id: session.user.id,
-    name: session.user.name,
-    email: session.user.email,
-    image: session.user.image ?? null,
+    id: session!.user.id,
+    name: session!.user.name,
+    email: session!.user.email,
+    image: session!.user.image ?? null,
   };
 
   return (
     <ChatApp
       user={user}
-      sessionId={session?.session?.id ?? null}
+      sessionId={session!.session?.id ?? null}
       initialConversationId={params.conversation ?? null}
       initialCaseId={caseId}
       initialCaseName={caseName}

@@ -287,6 +287,20 @@ export async function generateCourtroomPrepBrief(input: {
       suggestedAnswerStrategy: "Demonstrate that preliminary inquiry was legitimately initiated under the matrimonial/commercial exception.",
     });
 
+    crossExam.push({
+      targetWitness: "Complainant / First Informant",
+      question: "Is it correct that there was a delay in lodging the complaint, and can you explain each day of delay with supporting reasons?",
+      purpose: "Test delay/laches defence and credibility of FIR version under Section 154 BNSS.",
+      statutoryBasis: "Section 148 BSA (Cross-examination as to previous statements); Section 173 BNSS",
+    });
+
+    crossExam.push({
+      targetWitness: "Station House Officer (S.H.O.)",
+      question: "Did you record the information in the General Diary on receipt, and what preliminary enquiry, if any, did you conduct within the permitted window before registering the FIR?",
+      purpose: "Establish compliance or breach of Lalita Kumari mandatory registration timeline.",
+      statutoryBasis: "Section 154 CrPC / Section 173 BNSS; Lalita Kumari v. Govt. of U.P. (2014) 2 SCC 1",
+    });
+
     evidenceChecklist.push({
       documentOrExhibit: "Original Written Complaint with Police Diary Acknowledgment",
       relevance: "Evidences the date, time, and exact cognizable disclosures submitted to the Station House Officer.",
@@ -346,6 +360,27 @@ export async function generateCourtroomPrepBrief(input: {
       mandatoryPrerequisite: "Signed certificate by lawful operator/custodian identifying device, cryptographic hash value, and unbroken chain of custody.",
       status: "Must Procure",
     });
+
+    hearingQuestions.push({
+      question: "Counsel, was the search, seizure, or interception backed by a judicial warrant or statutory authorisation satisfying the Puttaswamy proportionality test?",
+      targetedParty: "Respondent",
+      strategicIntent: "Testing legality, legitimate aim, and least-restrictive-means compliance.",
+      suggestedAnswerStrategy: "Produce warrant/authorisation, necessity record, and hash-value chain-of-custody to satisfy proportionality.",
+    });
+
+    crossExam.push({
+      targetWitness: "Seizing / Investigating Officer",
+      question: "Did you generate and record the cryptographic hash value of the device at the time of seizure, and was an independent witness present throughout?",
+      purpose: "Challenge integrity and admissibility of digital evidence without Section 63 BSA certificate.",
+      statutoryBasis: "Section 63 BSA (Electronic records admissibility); Section 148 BSA (Cross-examination as to previous statements)",
+    });
+
+    crossExam.push({
+      targetWitness: "Complainant / Device Custodian",
+      question: "Who had custody and access to the device between the alleged incident and its production, and was any data altered, forwarded, or deleted in that window?",
+      purpose: "Expose chain-of-custody gaps and prior-statement contradictions.",
+      statutoryBasis: "Section 63 BSA; Section 119 BSA (Hostile witness / contradiction)",
+    });
   }
 
   // General fallback issue if facts are general
@@ -402,6 +437,20 @@ export async function generateCourtroomPrepBrief(input: {
       suggestedAnswerStrategy: "Emphasize breach of natural justice or complete absence of statutory jurisdiction.",
     });
 
+    crossExam.push({
+      targetWitness: "Opposite Party Witness",
+      question: "Is it correct that the facts you now assert differ from your earlier written statement or notice reply on material particulars?",
+      purpose: "Confront witness with prior contradictions to shake credibility.",
+      statutoryBasis: "Section 148 BSA (Cross-examination as to previous statements in writing)",
+    });
+
+    crossExam.push({
+      targetWitness: "Opposite Party Witness",
+      question: "Admit or deny: the key document you rely on was never disclosed to our side before filing, and no statutory pre-suit notice was served?",
+      purpose: "Establish suppression of documents and non-compliance with mandatory notice procedure.",
+      statutoryBasis: "Order XI CPC (Discovery); Section 148 BSA; Limitation Act, 1963",
+    });
+
     evidenceChecklist.push({
       documentOrExhibit: "Primary Impugned Order / Contractual Agreement",
       relevance: "Establishes foundational cause of action and legal relationship.",
@@ -419,6 +468,27 @@ export async function generateCourtroomPrepBrief(input: {
   }
   if (!lower.includes("notice") && (lower.includes("cheque") || lower.includes("contract") || lower.includes("dispute"))) {
     missingInfo.push("Statutory demand or pre-litigation notice status not stated. Check mandatory notice requirements (e.g. 30 days under Sec 138 NI Act or commercial dispute mediation).");
+  }
+
+  // Safety net: cross-examination must never render empty. If no pattern
+  // branch produced questions, fall back to generic contradiction traps.
+  if (crossExam.length === 0) {
+    crossExam.push({
+      targetWitness: "Opposite Party Witness",
+      question:
+        "Is it correct that the facts you now assert differ from your earlier written statement or notice reply on material particulars?",
+      purpose: "Confront witness with prior contradictions to shake credibility.",
+      statutoryBasis:
+        "Section 148 BSA (Cross-examination as to previous statements in writing)",
+    });
+    crossExam.push({
+      targetWitness: "Opposite Party Witness",
+      question:
+        "Admit or deny: the key document you rely on was never disclosed to our side before filing, and no statutory pre-suit notice was served?",
+      purpose:
+        "Establish suppression of documents and non-compliance with mandatory notice procedure.",
+      statutoryBasis: "Order XI CPC (Discovery); Section 148 BSA; Limitation Act, 1963",
+    });
   }
 
   return {
