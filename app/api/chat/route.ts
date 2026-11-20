@@ -1097,13 +1097,15 @@ export async function POST(request: NextRequest) {
     }
     const sessionMs = Date.now() - reqStart;
 
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      request.headers.get("x-real-ip") ||
-      "guest";
-    const userId = session?.user?.id ?? `guest:${ip}`;
+    if (!session) {
+      return Response.json(
+        { error: "Unauthorized. Please sign in to use chat." },
+        { status: 401 },
+      );
+    }
+    const userId = session.user.id;
     const rateLimitKey = `chat:${userId}`;
-    const maxRequests = session ? 30 : 10;
+    const maxRequests = 30;
     const { allowed, retryAfterMs } = checkRateLimit(rateLimitKey, maxRequests, 60_000);
     if (!allowed) {
       return Response.json(

@@ -51,8 +51,8 @@ export default function CTASection() {
               Your first legal answer is one question away.
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-balance text-base leading-relaxed text-white/65">
-              No sign-up walls. No credit card. Just type your question and get
-              an answer grounded in Indian law.
+              Sign in to start. Type your question and get an answer grounded
+              in Indian law.
             </p>
 
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">

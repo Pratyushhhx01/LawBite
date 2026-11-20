@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "Good Law Checker",
     "Legal Drafting Assistant",
   ],
-  robots: { index: true, follow: true },
+  robots: { index: false, follow: false },
 };
 
 export default async function ChatPage({
@@ -98,19 +98,28 @@ export default async function ChatPage({
     redirect(`/chat?${qs.toString()}`);
   }
 
-  const user = session
-    ? {
-        id: session.user.id,
-        name: session.user.name,
-        email: session.user.email,
-        image: session.user.image ?? null,
-      }
-    : {
-        id: "guest",
-        name: "Guest Advocate",
-        email: "guest@lawbite.local",
-        image: null,
-      };
+  // Chat requires authentication — no guest mode. Preserve the deep link
+  // so post-login redirect lands back where the user intended.
+  if (!session) {
+    const nextParams = new URLSearchParams();
+    if (params.conversation)
+      nextParams.set("conversation", params.conversation);
+    if (caseId) nextParams.set("caseId", caseId);
+    if (tool) nextParams.set("tool", tool);
+    if (item) nextParams.set("item", item);
+    if (openCases) nextParams.set("modal", "cases");
+    const nextPath = nextParams.toString()
+      ? `/chat?${nextParams.toString()}`
+      : "/chat";
+    redirect(`/signin?next=${encodeURIComponent(nextPath)}`);
+  }
+
+  const user = {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+    image: session.user.image ?? null,
+  };
 
   return (
     <ChatApp
