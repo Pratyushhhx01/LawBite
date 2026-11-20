@@ -27,7 +27,10 @@ export default async function ChatPage({
   searchParams: Promise<{
     shareId?: string;
     conversation?: string;
+    conversationId?: string;
     caseId?: string;
+    folderId?: string;
+    from?: string;
     tool?: string;
     item?: string;
     modal?: string;
@@ -40,7 +43,11 @@ export default async function ChatPage({
       ? params.tool
       : null;
   const item = params.item ?? null;
-  const caseId = params.caseId ?? null;
+  // `folderId` is an alias of `caseId` used by matter-workspace links, and
+  // `conversationId` is an alias of `conversation`.
+  const caseId = params.caseId ?? params.folderId ?? null;
+  const conversationParam = params.conversation ?? params.conversationId ?? null;
+  const fromParam = params.from === "matters" ? "matters" : null;
   const openCases =
     params.modal === "cases" ||
     params.modal === "ai-lawyer" ||
@@ -102,12 +109,13 @@ export default async function ChatPage({
   // so post-login redirect lands back where the user intended.
   if (!session) {
     const nextParams = new URLSearchParams();
-    if (params.conversation)
-      nextParams.set("conversation", params.conversation);
+    if (conversationParam)
+      nextParams.set("conversation", conversationParam);
     if (caseId) nextParams.set("caseId", caseId);
     if (tool) nextParams.set("tool", tool);
     if (item) nextParams.set("item", item);
     if (openCases) nextParams.set("modal", "cases");
+    if (fromParam) nextParams.set("from", fromParam);
     const nextPath = nextParams.toString()
       ? `/chat?${nextParams.toString()}`
       : "/chat";
@@ -125,9 +133,10 @@ export default async function ChatPage({
     <ChatApp
       user={user}
       sessionId={session!.session?.id ?? null}
-      initialConversationId={params.conversation ?? null}
+      initialConversationId={conversationParam}
       initialCaseId={caseId}
       initialCaseName={caseName}
+      initialFrom={fromParam}
       initialTool={tool}
       initialItem={item}
       initialOpenCases={openCases}

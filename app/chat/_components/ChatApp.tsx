@@ -127,6 +127,8 @@ type ChatAppProps = {
   initialCaseId?: string | null;
   /** Case folder name (e.g. from case tracker) */
   initialCaseName?: string | null;
+  /** Where the case chat was opened from: case tracker or matters workspace. */
+  initialFrom?: string | null;
   initialTool?: "templates" | "filing" | null;
   initialItem?: string | null;
   initialOpenCases?: boolean;
@@ -290,6 +292,32 @@ const MODE_ACCENT_CLASSES: Record<
     label: "group-hover:text-emerald-400/90",
   },
 };
+
+// Short labels for conversation types shown in the case-chat panel.
+export const CASE_MODE_LABELS: Record<string, string> = {
+  chat: "Talk to AI",
+  "talk-to-ai": "Talk to AI",
+  analysis: "Deep Analysis",
+  grill: "AI Lawyer",
+  draft: "Document Drafter",
+  review: "Document Reviewer",
+};
+
+/**
+ * Canonical URL for a case-scoped chat (used for deep links and address-bar
+ * sync when switching within a case). Returns null outside case scope.
+ */
+export function buildCaseChatUrl(
+  caseId: string | null | undefined,
+  conversationId: string | null | undefined,
+  from: string | null | undefined,
+): string | null {
+  if (!caseId) return null;
+  const qs = new URLSearchParams({ caseId });
+  if (conversationId) qs.set("conversation", conversationId);
+  if (from === "matters") qs.set("from", "matters");
+  return `/chat?${qs.toString()}`;
+}
 
 // Full class strings (not interpolated fragments) so Tailwind can see them.
 const ATTACHMENT_ACCENT_CLASSES = {
@@ -864,6 +892,7 @@ export default function ChatApp({
   initialConversationId = null,
   initialCaseId = null,
   initialCaseName = null,
+  initialFrom = null,
   initialTool = null,
   initialItem = null,
   initialOpenCases = false,
@@ -1146,6 +1175,29 @@ export default function ChatApp({
 
   const active =
     conversations.find((c) => c.id === activeId) ?? conversations[0];
+
+  // Case-scoped chat: conversations linked to this case folder, newest first.
+  const caseConversations = useMemo(() => {
+    if (!initialCaseId) return [];
+    return conversations
+      .filter((c) => c.folderId === initialCaseId)
+      .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  }, [conversations, initialCaseId]);
+
+  // Back link for case-scoped chat (case tracker or matters workspace).
+  const caseBackHref =
+    initialFrom === "matters" && initialCaseId
+      ? `/cases?tab=matters&matterId=${encodeURIComponent(initialCaseId)}`
+      : initialCaseId
+        ? `/cases?caseId=${encodeURIComponent(initialCaseId)}`
+        : "/cases";
+
+  // Keep the address bar in sync when switching within a case chat so
+  // refreshes and shared links reopen the same conversation.
+  function syncCaseUrl(conversationId: string | null) {
+    const url = buildCaseChatUrl(initialCaseId, conversationId, initialFrom);
+    if (url) router.replace(url);
+  }
 
   // The document a review turn is allowed to talk about: an attachment that is
   // waiting to be sent, the in-session copy (needed for images), or the text
@@ -2074,6 +2126,7 @@ export default function ChatApp({
     const target = conversations.find((c) => c.id === id);
     if (target) setMode(target.type);
     setActiveId(id);
+    syncCaseUrl(id);
     // A pending attachment belongs to the conversation it was picked in.
     setPendingAttachment(null);
     setSidebarOpen(false);
@@ -2138,6 +2191,7 @@ export default function ChatApp({
     setDraft("");
     setPendingAttachment(null);
     setSidebarOpen(false);
+    syncCaseUrl(conv.id);
     lastTalkIdRef.current = null;
     lastAnalysisIdRef.current = null;
     if (convType === "draft") {
@@ -2465,19 +2519,24 @@ export default function ChatApp({
 
     setMode(target);
 
-    // Restore the last conversation for the target mode
+    // Restore the last conversation for the target mode. Inside a case
+    // chat the restore stays within this case so switching modes never
+    // jumps to another case's (or the global) conversation.
     let savedId: string | null = null;
     if (target === "analysis") savedId = lastAnalysisIdRef.current;
     else if (target === "draft") savedId = lastDraftIdRef;
     else if (target === "review") savedId = lastReviewIdRef;
     else savedId = lastTalkIdRef.current;
 
+    const inScope = (c: Conversation) =>
+      !initialCaseId || c.folderId === initialCaseId;
     const existing = savedId
-      ? conversations.find((c) => c.id === savedId)
+      ? conversations.find((c) => c.id === savedId && inScope(c))
       : null;
 
     if (existing) {
       setActiveId(existing.id);
+      syncCaseUrl(existing.id);
     } else {
       const prefix =
         target === "analysis"
@@ -2498,6 +2557,7 @@ export default function ChatApp({
       };
       setConversations((prev) => [conv, ...prev]);
       setActiveId(conv.id);
+      syncCaseUrl(conv.id);
     }
     setDraft("");
     setPendingAttachment(null);
@@ -4318,8 +4378,113 @@ export default function ChatApp({
         onClick={() => setSidebarOpen(false)}
       />
 
-      {/* Persistent Icon Rail on Desktop (w-16), Expanding to Drawer (w-64) on Hover/Open. Full slide-over drawer on Mobile */}
-      {!initialCaseId && (
+      {/* Case-scoped panel (case/matter chat): only this case's saved chats.
+          Global sidebar (all chats, history, calculators) stays hidden here;
+          AI modes switch only via the + menu in the message box. */}
+      {initialCaseId ? (
+        <aside
+          id="case-chat-panel"
+          aria-label="Case conversations"
+          className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/10 bg-black shadow-2xl transition-transform duration-300 ease-in-out md:translate-x-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-white/10 px-4">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">
+                {initialCaseName || "Case"}
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">
+                Case chats · {caseConversations.length}
+              </p>
+            </div>
+            <Link
+              href={caseBackHref}
+              onClick={() => setSidebarOpen(false)}
+              className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              title={initialFrom === "matters" ? "Back to Matters" : "Back to Case Tracker"}
+            >
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              <span className="hidden sm:inline">
+                {initialFrom === "matters" ? "Matters" : "Cases"}
+              </span>
+            </Link>
+          </div>
+
+          <div className="p-3">
+            <button
+              type="button"
+              onClick={() => startNewChat()}
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white text-sm font-medium text-black transition-all duration-200 hover:bg-white/90 active:scale-[0.98]"
+            >
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              New case chat
+            </button>
+          </div>
+
+          <div className="flex-1 space-y-1 overflow-y-auto px-3 pb-3">
+            {caseConversations.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-white/30">
+                No chats linked yet. Start one above.
+              </p>
+            ) : (
+              caseConversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  type="button"
+                  onClick={() => selectConversation(conv.id)}
+                  className={`block w-full rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                    conv.id === activeId
+                      ? "border-white/20 bg-white/[0.07]"
+                      : "border-transparent hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <p className="truncate text-[13px] font-medium text-white">
+                    {conv.title}
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] text-white/40">
+                    {conv.preview}
+                  </p>
+                  <p className="mt-1 text-[10px] uppercase tracking-wider text-white/30">
+                    {CASE_MODE_LABELS[conv.type] ?? conv.type}
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+
+          <div className="border-t border-white/10 p-3">
+            <Link
+              href="/chat"
+              className="block rounded-xl px-3 py-2 text-center text-xs text-white/50 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              View all chats →
+            </Link>
+          </div>
+        </aside>
+      ) : (
         <aside
           id="chat-sidebar"
           aria-label="Sidebar navigation"
@@ -4637,7 +4802,7 @@ export default function ChatApp({
       )}
 
       <main
-        className={`flex min-w-0 flex-1 flex-col ${initialCaseId ? "pl-0" : "md:pl-16"} ${mode === "analysis" || mode === "talk-to-ai" || mode === "grill" ? "bg-black/80" : ""}`}
+        className={`flex min-w-0 flex-1 flex-col ${initialCaseId ? "pl-0 md:pl-72" : "md:pl-16"} ${mode === "analysis" || mode === "talk-to-ai" || mode === "grill" ? "bg-black/80" : ""}`}
       >
         <header
           className={`flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-5 sm:px-8 ${mode === "analysis" || mode === "talk-to-ai" || mode === "grill" ? "bg-black/50" : ""}`}
@@ -4645,9 +4810,9 @@ export default function ChatApp({
           <div className="flex min-w-0 items-center gap-3">
             {initialCaseId && (
               <Link
-                href={`/cases?caseId=${encodeURIComponent(initialCaseId)}`}
+                href={caseBackHref}
                 className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                title="Back to Case Tracker"
+                title={initialFrom === "matters" ? "Back to Matters" : "Back to Case Tracker"}
               >
                 <svg
                   aria-hidden
@@ -4661,7 +4826,9 @@ export default function ChatApp({
                 >
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
-                <span className="hidden sm:inline">Cases</span>
+                <span className="hidden sm:inline">
+                  {initialFrom === "matters" ? "Matters" : "Cases"}
+                </span>
               </Link>
             )}
             {mode === "grill" && (
@@ -4685,32 +4852,30 @@ export default function ChatApp({
                 </svg>
               </button>
             )}
-            {!initialCaseId && (
-              <button
-                type="button"
-                onClick={() => {
-                  cancelSidebarClose();
-                  setSidebarOpen(true);
-                }}
-                className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/5 hover:text-white md:hidden"
-                aria-label="Open sidebar"
-                aria-expanded={sidebarOpen}
-                aria-controls="chat-sidebar"
+            <button
+              type="button"
+              onClick={() => {
+                cancelSidebarClose();
+                setSidebarOpen(true);
+              }}
+              className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/5 hover:text-white md:hidden"
+              aria-label="Open sidebar"
+              aria-expanded={sidebarOpen}
+              aria-controls={initialCaseId ? "case-chat-panel" : "chat-sidebar"}
+            >
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <svg
-                  aria-hidden
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 6h18M3 12h18M3 18h18" />
-                </svg>
-              </button>
-            )}
+                <path d="M3 6h18M3 12h18M3 18h18" />
+              </svg>
+            </button>
             <div className="min-w-0">
               <h1 className="flex items-center gap-2 truncate text-sm font-semibold tracking-tight sm:text-base">
                 {initialCaseId && (
@@ -4726,7 +4891,11 @@ export default function ChatApp({
                 </span>
               </h1>
               <p className="text-[11px] uppercase tracking-[0.2em] text-white/40">
-                {initialCaseId ? "Case Tracker Chat" : (
+                {initialCaseId
+                  ? initialFrom === "matters"
+                    ? "Matter Chat"
+                    : "Case Tracker Chat"
+                  : (
                   mode === "analysis"
                     ? "Deep Analysis"
                     : mode === "talk-to-ai" || mode === "chat"
@@ -5666,7 +5835,7 @@ export default function ChatApp({
                   </div>
                 </li>
               ) : null}
-              {showSuggestion && !isThinking && (
+              {showSuggestion && !isThinking && !initialCaseId && (
                 <li className="animate-message-in flex justify-start">
                   <div className="max-w-[85%] rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white/85 sm:text-[15px]">
                     <p>
@@ -7838,11 +8007,13 @@ export default function ChatApp({
                               title: doc.label,
                               preview: "Document drafting",
                               type: "draft",
+                              folderId: initialCaseId ?? undefined,
                               createdAt: Date.now(),
                               messages: [],
                             };
                             setConversations((prev) => [conv, ...prev]);
                             setActiveId(conv.id);
+                            syncCaseUrl(conv.id);
                             setMode("draft");
                             setDraft("");
                             setSidebarOpen(false);

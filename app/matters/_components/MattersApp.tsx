@@ -1196,7 +1196,7 @@ export default function MattersApp({
                             <span>→</span>
                           </button>
                           <Link
-                            href={`/chat?folderId=${encodeURIComponent(workspace.matter.id)}`}
+                            href={`/chat?caseId=${encodeURIComponent(workspace.matter.id)}&from=matters`}
                             className="w-full flex items-center justify-between rounded-xl bg-white/5 border border-white/10 p-2.5 text-xs text-white/80 hover:bg-white/10 hover:text-white"
                           >
                             <span>Ask AI Legal Chat</span>
@@ -1214,7 +1214,7 @@ export default function MattersApp({
                         {workspace.conversations.map((c) => (
                           <Link
                             key={c.id}
-                            href={`/chat?conversationId=${encodeURIComponent(c.id)}`}
+                            href={`/chat?conversation=${encodeURIComponent(c.id)}&caseId=${encodeURIComponent(workspace.matter.id)}&from=matters`}
                             className="rounded-xl border border-white/5 bg-white/[0.03] p-3 transition-all hover:bg-white/[0.06]"
                           >
                             <p className="text-xs font-semibold text-white truncate">{c.title}</p>
